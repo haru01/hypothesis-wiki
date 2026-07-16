@@ -28,10 +28,15 @@ hypothesis-wiki/
 │   ├── view/   ├── decide/ └── lint/
 ├── templates/              # 雛形（hypothesis / activity / decision / interview-script）
 ├── playbooks/              # ステージプレイブック（cpf〜pmf）
+├── docs/
+│   ├── skill-improvements.md  # スキル改善バックログ（SI-NNN）
+│   └── superpowers/specs/     # 設計ドキュメント
 ├── sources/                # 不変層（生データ置き場・読み取り専用）
 └── wiki/
-    ├── hypotheses/H-NNN.md   ├── activities/ACT-NNN.md   ├── decisions/DEC-NNN.md
-    ├── views/        # 生成物（手編集禁止）
+    ├── hypotheses/H-NNN.md
+    ├── activities/ACT-NNN.md        # ＋ ACT-NNN-script.md（インタビュースクリプト）
+    ├── decisions/DEC-NNN.md
+    ├── views/        # 生成物（手編集禁止。例: hypotheses-list.md）
     ├── index.md      # 仮説カタログ
     ├── log.md        # 活動タイムライン（追記専用）
     └── stage.md      # 現在ステージと移行基準
@@ -60,6 +65,19 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 6. 岐路で `/decide` — ステージ移行・ピボット・巻き戻しを記録
 7. ときどき `/lint` — 健全性チェック
 
+## 同梱の実例（このリポジトリ自体のドッグフーディング）
+
+このリポジトリには、キット自体を題材に実際にスキルを回した実例が入っている（`/grill`→`/plan`→`/ingest`→`/view` の一巡）。
+
+- **仮説**: 状況・行動／課題／ソリューション／買ってもらえるの各タイプにまたがる H-001〜H-013（欠番 H-002・H-003 は取り下げ済み。`wiki/log.md` に記録）。
+- **活動**: 問題インタビューのテストカード＋現場用スクリプト（`wiki/activities/ACT-001*`）、追加インタビュー（`ACT-002`）。
+- **ビュー**: `wiki/views/hypotheses-list.md`（関連リンク列＋バリューチェーン図つき）。
+- **バリューチェーン**: 「繰り返す行動 → 切実な課題 → 解決策 → 市場で買ってもらえる」が CPF→PSF→SPF を貫く筋として繋がっている。
+
+> ⚠️ ACT-001／ACT-002 のインタビューは**動作デモ用の架空データ**で、各 `sources/` ファイル冒頭に明記している。実プロジェクトでは実データに置き換えること。新規案件で使うときは下記「別案件へのキット複製」で実例を空にする。
+
+運用で得た改善は `docs/skill-improvements.md`（SI-NNN）に蓄積し、スキル定義へ反映している。
+
 ## Obsidian で開く（探索ネットワークの可視化）
 
 リポジトリのルートを Obsidian vault として開くと、仮説の系譜（派生・ピボット・巻き戻し）と
@@ -76,10 +94,11 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 このリポジトリはキットとして再利用できる。
 
 1. リポジトリをコピーする。
-2. `wiki/hypotheses/` `wiki/activities/` `wiki/decisions/` の中身と `sources/` の中身を空にする（`.gitkeep`・各 `README.md` は残す）。
+2. `wiki/hypotheses/` `wiki/activities/`（`ACT-NNN-script.md` 含む）`wiki/decisions/` の中身と `sources/` の中身を空にする（`.gitkeep`・各 `README.md` は残す）。
 3. `wiki/index.md` を初期状態（各表「まだない」）に戻し、`wiki/log.md` を見出しだけに、`wiki/stage.md` を `CPF` に戻す。
 4. `wiki/views/` の生成物を削除する。
-5. `CLAUDE.md`・`playbooks/`・`templates/` はスキーマ層としてそのまま流用（プロジェクト固有に調整する場合は合意の上で変更）。
+5. `docs/skill-improvements.md` は前案件固有の学びなので空（見出しだけ）に戻す。`docs/superpowers/specs/` の設計書は残してよい。
+6. `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` はスキーマ／スキル層としてそのまま流用（プロジェクト固有に調整する場合は合意の上で変更）。
 
 ## 記述言語
 
