@@ -33,3 +33,4 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-16] hypothesis | H-013 解決策を含んだプロダクトは市場で買ってもらえる → 新規作成 確信度2/未検証（買ってもらえる仮説・H-012派生・バリューチェーンの締め・SPFで検証）
 ## [2026-07-16] lint | 一覧ビューに関連リンク列とバリューチェーン図を追加して再生成 → 行動→切実な課題→解決策→買ってもらえる の筋を可視化
 ## [2026-07-16] self-reflection | /view の改善項目を記録 → SI-003（一覧表に関連リンク列とチェーン図を必須化）を docs/skill-improvements.md に追記
+## [2026-07-16] self-reflection | 会話の学びをスキル定義へ反映 → grill(順序/行動Q3/自己点検/取り下げ)・plan(スクリプト草稿)・ingest(○×表/創発/Web調査/デモ明示)・view(関連リンク列/チェーン図)・lint(欠番正常判定/デモ点検)。SI-001〜004を対応済みに。CLAUDE.mdは保留
