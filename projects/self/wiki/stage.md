@@ -7,7 +7,7 @@ updated: 2026-07-16
 
 現在のステージは **CPF（Customer Problem Fit）**。
 
-このステージの中心の問い・重点仮説タイプ・検証手法・移行基準は [playbooks/cpf.md](../playbooks/cpf.md) を参照。
+このステージの中心の問い・重点仮説タイプ・検証手法・移行基準は [playbooks/cpf.md](../../../playbooks/cpf.md) を参照。
 
 ## 移行基準（このプロジェクトの上書き）
 

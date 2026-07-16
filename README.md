@@ -11,11 +11,11 @@ Karpathy の「LLM Wiki」パターンを仮説検証ドメインに適用し、
 
 | 層 | 場所 | 編集権 |
 |---|---|---|
-| Raw Sources（不変層） | `sources/` | 人間が置く。AIは読むだけ |
-| The Wiki（生成・保守層） | `wiki/` | AIが規約に従って作成・更新 |
-| The Schema（設定層） | `CLAUDE.md`・`playbooks/`・`templates/` | 人間が合意の上で変更 |
+| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間が置く。AIは読むだけ |
+| The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新 |
+| The Schema（設定層） | `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全プロジェクト共有） |
 
-規約の詳細は [CLAUDE.md](CLAUDE.md) を参照。
+規約の詳細は [CLAUDE.md](CLAUDE.md) を参照。**仮説検証は案件（プロジェクト）単位で分ける**（[projects/README.md](projects/README.md)）。
 
 ## ディレクトリ構成
 
@@ -23,24 +23,28 @@ Karpathy の「LLM Wiki」パターンを仮説検証ドメインに適用し、
 hypothesis-wiki/
 ├── CLAUDE.md               # スキーマ層（規約・ルール・ワークフロー）
 ├── README.md               # このファイル
-├── .claude/skills/         # AgentSkills 6つ
-│   ├── grill/  ├── plan/  ├── ingest/
-│   ├── view/   ├── decide/ └── lint/
-├── templates/              # 雛形（hypothesis / activity / decision / interview-script）
-├── playbooks/              # ステージプレイブック（cpf〜pmf）
+├── .claude/skills/         # AgentSkills 6つ（grill/plan/ingest/view/decide/lint・共有）
+├── templates/              # 雛形（hypothesis / activity / decision / interview-script・共有）
+├── playbooks/              # ステージプレイブック（cpf〜pmf・共有）
 ├── docs/
 │   ├── skill-improvements.md  # スキル改善バックログ（SI-NNN）
 │   └── superpowers/specs/     # 設計ドキュメント
-├── sources/                # 不変層（生データ置き場・読み取り専用）
-└── wiki/
-    ├── hypotheses/H-NNN.md
-    ├── activities/ACT-NNN.md        # ＋ ACT-NNN-script.md（インタビュースクリプト）
-    ├── decisions/DEC-NNN.md
-    ├── views/        # 生成物（手編集禁止。例: hypotheses-list.md）
-    ├── index.md      # 仮説カタログ
-    ├── log.md        # 活動タイムライン（追記専用）
-    └── stage.md      # 現在ステージと移行基準
+└── projects/               # 案件単位の仮説検証（各プロジェクトが sources と wiki を持つ）
+    ├── current.md          # 現在アクティブなプロジェクト（slug）を指すポインタ
+    └── <slug>/             # 例: self（このツール自体のドッグフーディング。接頭辞 SELF）
+        ├── sources/        # このプロジェクトの生データ（読み取り専用）
+        └── wiki/
+            ├── hypotheses/<PREFIX>-H-NNN.md
+            ├── activities/<PREFIX>-ACT-NNN.md   # ＋ <PREFIX>-ACT-NNN-script.md
+            ├── decisions/<PREFIX>-DEC-NNN.md
+            ├── views/      # 生成物（手編集禁止。例: hypotheses-list.md）
+            ├── index.md    # 仮説カタログ
+            ├── log.md      # 活動タイムライン（追記専用）
+            └── stage.md    # 現在ステージと移行基準
 ```
+
+ファイル名＝ID は**プロジェクト接頭辞つき**（例 `SELF-H-001.md`）。Obsidian のwikilinkは
+vault全体でファイル名が一意でないと解決しないため、接頭辞で衝突を防ぐ。
 
 ## 使い始め方
 
@@ -57,9 +61,10 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 
 典型的な流れ:
 
-1. `/grill` — アイデアを反証可能な仮説（H-NNN）にする
-2. `/plan` — 重要×確信度低の仮説を選び、テストカード付きの活動（ACT-NNN）を計画
-3. 検証を実施し、生データを `sources/` に置く
+0. `projects/current.md` で対象プロジェクトを確認・切り替える（新規なら `projects/<slug>/` を作る）
+1. `/grill` — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする
+2. `/plan` — 重要×確信度低の仮説を選び、テストカード付きの活動（`<PREFIX>-ACT-NNN`）を計画
+3. 検証を実施し、生データを `projects/<slug>/sources/` に置く
 4. `/ingest` — 学習カードを書き、確信度・ステータスを更新（承認フロー付き）
 5. `/view list` / `/view vp` — 現状を俯瞰
 6. 岐路で `/decide` — ステージ移行・ピボット・巻き戻しを記録
@@ -69,9 +74,10 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 
 このリポジトリには、キット自体を題材に実際にスキルを回した実例が入っている（`/grill`→`/plan`→`/ingest`→`/view` の一巡）。
 
-- **仮説**: 状況・行動／課題／ソリューション／買ってもらえるの各タイプにまたがる H-001〜H-013（欠番 H-002・H-003 は取り下げ済み。`wiki/log.md` に記録）。
-- **活動**: 問題インタビューのテストカード＋現場用スクリプト（`wiki/activities/ACT-001*`）、追加インタビュー（`ACT-002`）。
-- **ビュー**: `wiki/views/hypotheses-list.md`（関連リンク列＋バリューチェーン図つき）。
+- 置き場所: `projects/self/`（接頭辞 `SELF`）。
+- **仮説**: 状況・行動／課題／ソリューション／買ってもらえるの各タイプにまたがる `SELF-H-001`〜`SELF-H-013`（欠番 `SELF-H-002`・`SELF-H-003` は取り下げ済み。`log.md` に記録）。
+- **活動**: 問題インタビューのテストカード＋現場用スクリプト（`SELF-ACT-001*`）、追加インタビュー（`SELF-ACT-002`）。
+- **ビュー**: `projects/self/wiki/views/hypotheses-list.md`（関連リンク列＋バリューチェーン図つき）。
 - **バリューチェーン**: 「繰り返す行動 → 切実な課題 → 解決策 → 市場で買ってもらえる」が CPF→PSF→SPF を貫く筋として繋がっている。
 
 > ⚠️ ACT-001／ACT-002 のインタビューは**動作デモ用の架空データ**で、各 `sources/` ファイル冒頭に明記している。実プロジェクトでは実データに置き換えること。新規案件で使うときは下記「別案件へのキット複製」で実例を空にする。
@@ -83,22 +89,22 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 リポジトリのルートを Obsidian vault として開くと、仮説の系譜（派生・ピボット・巻き戻し）と
 仮説↔活動↔意思決定の参照がグラフビューで一望できる。
 
-- ファイル名は ID そのもの（`H-021.md` 等）なので `[[H-021]]` のwikilinkが常に解決する。
+- ファイル名は ID そのもの＋プロジェクト接頭辞（`SELF-H-021.md` 等）なので `[[SELF-H-021]]` のwikilinkがvault全体で一意に解決する（プロジェクト間のID衝突を防ぐ）。
 - 相互参照は本文にwikilinkで書く規約（frontmatter配列だけではグラフに辺が出ない）。
 - グラフビューでは `wiki/views/`（生成物）をフィルタで除外すると仮説ネットワークが見やすい。
 - frontmatter は Dataview の動的テーブル（確信度一覧など）にもそのまま使える。
 - `.obsidian/` は `.gitignore` 済み。
 
-## 別案件へのキット複製
+## 新しいプロジェクト（案件）の追加
 
-このリポジトリはキットとして再利用できる。
+同じリポジトリ内に案件を並べられる。手順は [projects/README.md](projects/README.md) を参照。要点:
 
-1. リポジトリをコピーする。
-2. `wiki/hypotheses/` `wiki/activities/`（`ACT-NNN-script.md` 含む）`wiki/decisions/` の中身と `sources/` の中身を空にする（`.gitkeep`・各 `README.md` は残す）。
-3. `wiki/index.md` を初期状態（各表「まだない」）に戻し、`wiki/log.md` を見出しだけに、`wiki/stage.md` を `CPF` に戻す。
-4. `wiki/views/` の生成物を削除する。
-5. `docs/skill-improvements.md` は前案件固有の学びなので空（見出しだけ）に戻す。`docs/superpowers/specs/` の設計書は残してよい。
-6. `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` はスキーマ／スキル層としてそのまま流用（プロジェクト固有に調整する場合は合意の上で変更）。
+1. `projects/<slug>/` に `sources/` と `wiki/{hypotheses,activities,decisions,views}` を作る。
+2. `wiki/index.md`（空表）・`wiki/log.md`（見出しのみ）・`wiki/stage.md`（`current-stage: CPF`）を置く（`projects/self/wiki/` の3ファイルを雛形に流用可）。
+3. 大文字の接頭辞を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
+4. `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` は全プロジェクト共有なのでそのまま使う。
+
+リポジトリごと別案件へ複製したい場合は、`projects/` 以下を空にして上記でプロジェクトを新規作成すればよい。
 
 ## 記述言語
 

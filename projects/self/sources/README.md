@@ -1,17 +1,17 @@
-# sources/ — Raw Sources（不変層）
+# projects/self/sources/ — Raw Sources（不変層）
 
 生データ（インタビュー録・デモ記録・アンケート結果・デスクリサーチのメモ等）を**人間が置く**ディレクトリ。
 
 ## ルール
 
 - **AIは読むだけ。編集・削除しない。** ここは検証活動の一次情報の置き場であり、後から書き換えると歴史性が壊れる。
-- ファイル名は自由。取り込み（`/ingest`）のときにAIがここを読み、対応する活動レコード（`wiki/activities/ACT-NNN.md`）の学習カードに事実／解釈を分離して記録する。
-- 元データはここに残したまま、Wiki側（`wiki/`）で解釈・確信度更新を行う。
+- ファイル名は自由。取り込み（`/ingest`）のときにAIがここを読み、対応する活動レコード（`projects/self/wiki/activities/ACT-NNN.md`）の学習カードに事実／解釈を分離して記録する。
+- 元データはここに残したまま、Wiki側（`projects/self/wiki/`）で解釈・確信度更新を行う。
 
 ## 置き方の例
 
 ```
-sources/
+projects/self/sources/
 ├── 2026-07-16-interview-顧客A.md
 ├── 2026-07-18-demo-メモ.md
 └── 2026-07-20-survey-結果.csv
