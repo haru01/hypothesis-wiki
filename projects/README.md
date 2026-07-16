@@ -26,9 +26,14 @@ projects/
 
 ## 新しいプロジェクトの作り方
 
-1. `projects/<slug>/` に `sources/` と `wiki/{hypotheses,activities,decisions,views}` を作る。
-2. `wiki/index.md`（タイプ別カタログの空表）・`wiki/log.md`（見出しのみ）・`wiki/stage.md`（`current-stage: CPF`）を置く。既存の `projects/self/wiki/` の3ファイルを雛形として流用してよい。
-3. 接頭辞（大文字）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
+**推奨: `/new-project` スキル**を使う。`templates/project/` の雛形から `projects/<slug>/`
+（`sources/` と空の `wiki/` 一式）を作り、`projects/current.md` を切り替えるところまで行う。
+
+手動で作る場合:
+
+1. `templates/project/` を `projects/<slug>/` にコピーする（`cp -r templates/project/. projects/<slug>/`）。`sources/`（README付き）と `wiki/{hypotheses,activities,decisions,views}`＋`index.md`・`log.md`・`stage.md` が揃う。
+2. `wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。
+3. 接頭辞（大文字・他プロジェクトと重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
 
 ## 現在のプロジェクト
 

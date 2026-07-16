@@ -52,6 +52,7 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 
 | やりたいこと | スキル |
 |---|---|
+| 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |
 | 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/grill` |
 | 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
 | インタビュー録・デモ記録の取り込みと学習カード作成・確信度更新 | `/ingest` |
@@ -97,11 +98,14 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 
 ## 新しいプロジェクト（案件）の追加
 
-同じリポジトリ内に案件を並べられる。手順は [projects/README.md](projects/README.md) を参照。要点:
+同じリポジトリ内に案件を並べられる。**`/new-project` スキル**が `templates/project/` の雛形から
+`projects/<slug>/`（`sources/` と空の `wiki/`）を作り、`projects/current.md` を切り替える。
 
-1. `projects/<slug>/` に `sources/` と `wiki/{hypotheses,activities,decisions,views}` を作る。
-2. `wiki/index.md`（空表）・`wiki/log.md`（見出しのみ）・`wiki/stage.md`（`current-stage: CPF`）を置く（`projects/self/wiki/` の3ファイルを雛形に流用可）。
-3. 大文字の接頭辞を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
+手動で作る場合の要点（詳細は [projects/README.md](projects/README.md)）:
+
+1. `templates/project/` を `projects/<slug>/` にコピー（`sources/`＋空の `wiki/` 一式が入っている）。
+2. `wiki/stage.md` の日付プレースホルダを埋める。
+3. 大文字の接頭辞（他プロジェクトと重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
 4. `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` は全プロジェクト共有なのでそのまま使う。
 
 リポジトリごと別案件へ複製したい場合は、`projects/` 以下を空にして上記でプロジェクトを新規作成すればよい。

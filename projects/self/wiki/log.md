@@ -35,3 +35,4 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-16] self-reflection | /view の改善項目を記録 → SI-003（一覧表に関連リンク列とチェーン図を必須化）を docs/skill-improvements.md に追記
 ## [2026-07-16] self-reflection | 会話の学びをスキル定義へ反映 → grill(順序/行動Q3/自己点検/取り下げ)・plan(スクリプト草稿)・ingest(○×表/創発/Web調査/デモ明示)・view(関連リンク列/チェーン図)・lint(欠番正常判定/デモ点検)。SI-001〜004を対応済みに。CLAUDE.mdは保留
 ## [2026-07-16] self-reflection | 案件単位の構造へ移行 → wiki/sources を projects/self/ 配下へ、IDを接頭辞つき（SELF-）に一括改称。CLAUDE.md・全スキル・READMEを新構造に更新。projects/current.md 新設
+## [2026-07-16] self-reflection | 新規プロジェクト雛形とスキルを追加 → templates/project/（空のsources/wiki一式）と /new-project スキルを新設。CLAUDE.md/README/projects/README のワークフローに反映
