@@ -26,7 +26,7 @@ hypothesis-wiki/
 ├── .claude/skills/         # AgentSkills 6つ
 │   ├── grill/  ├── plan/  ├── ingest/
 │   ├── view/   ├── decide/ └── lint/
-├── templates/              # レコード雛形（hypothesis / activity / decision）
+├── templates/              # 雛形（hypothesis / activity / decision / interview-script）
 ├── playbooks/              # ステージプレイブック（cpf〜pmf）
 ├── sources/                # 不変層（生データ置き場・読み取り専用）
 └── wiki/
