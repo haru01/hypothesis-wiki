@@ -1,5 +1,5 @@
 ---
-id: ACT-003
+id: SELF-ACT-003
 title: AIツッコミ→進路変更のドッグフーディング観察（H-014をH-010解決に絞る）
 type: demo
 date: 2026-07-17

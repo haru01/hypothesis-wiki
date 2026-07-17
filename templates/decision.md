@@ -1,5 +1,5 @@
 ---
-id: DEC-NNN
+id: <PREFIX>-DEC-NNN        # ファイル名と一致させる（接頭辞つき。例 SELF-DEC-001）
 title: 短いタイトル
 date: YYYY-MM-DD
 type: stage-transition | pivot | persevere | rollback | kill
@@ -23,6 +23,9 @@ based-on: [ACT-NNN]
 - **選択肢A**: …
 - **選択肢B**: …
 - **選んだ選択肢と理由**: なぜこの判断に至ったか。何を根拠にしたか（[[ACT-NNN]]）。
+
+<!-- 移行基準など playbook を引く場合は wikilink ではなく相対mdリンクで書く（例 [playbooks/cpf.md](../../../../playbooks/cpf.md)）。playbook は vault内ノートでないため wikilink は解決しない。 -->
+
 
 ## 巻き戻しポイント
 

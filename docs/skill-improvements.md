@@ -62,3 +62,86 @@
 - **関連**: `.claude/skills/{grill,ingest,lint}/SKILL.md`、`wiki/log.md` の取り下げ記録（H-002/H-003）。
 
 
+
+---
+
+## SI-005: `id:` フロントマターの接頭辞規約が template/CLAUDE.md と実レコードで不一致
+
+- **対象スキル**: `/grill` `/ingest` `/new-project`（および `templates/*.md`・`CLAUDE.md` スキーマ層）
+- **状態**: 対応済み（`id` をファイル名と一致する接頭辞つきに統一。CLAUDE.md/`templates/*.md` の例・grill/plan/ingest/decide の作成手順・lint項目8を更新。self SELF-ACT-003/004 の id を修正。2026-07-17）
+- **気づいた文脈**: スキル一巡テスト（2026-07-17・使い捨て `dogfood` 案件）。`templates/hypothesis.md` に従うと frontmatter は `id: H-NNN`（**接頭辞なし**）になり、実際 `DOG-H-001.md` の `id:` は `H-001` で生成された。一方 `projects/self/` の実レコードは `id: SELF-H-001`・`id: SELF-DEC-001` と**接頭辞つき**。CLAUDE.md のスキーマ例も `id: H-001`（接頭辞なし）。
+- **課題**: ファイル名・wikilink は接頭辞つきで統一されているが、`id:` フィールドだけ「テンプレ/スキーマ=なし」「self実レコード=あり」で割れている。どちらが正か決まっていないため、案件ごとに `id:` の書き方がぶれる（grep や将来の集計スクリプトで揺れる）。
+- **改善案**:
+  1. `id:` を接頭辞つき（`SELF-H-001`）に統一するか、接頭辞なし（`H-001`）に統一するかを人間合意で決める。
+  2. 決めた方に合わせて `templates/{hypothesis,activity,decision}.md`・`CLAUDE.md` のスキーマ例・各スキルの記述を揃える。
+  3. `/lint` に「ファイル名と `id:` の接頭辞整合」チェックを追加する余地。
+- **関連**: `CLAUDE.md`「レコード種別とスキーマ」、`projects/self/` 既存レコード、`templates/`。
+
+---
+
+## SI-006: stage-transition 以外の意思決定（persevere/pivot/kill/rollback）が孤立レコードになる
+
+- **対象スキル**: `/decide` `/lint`
+- **状態**: 対応済み（`index.md`（雛形・self）に「意思決定」節を新設し全DECを被参照。decide手順8で必須更新に。lint項目2でDECの孤立判定を明文化。2026-07-17）
+- **気づいた文脈**: 一巡テストで `persevere` の意思決定 `DOG-DEC-001` を作ったところ、`/lint` 項目2（孤立レコード）に該当した。`stage-transition` の場合は `stage.md` のステージ履歴に `[[DEC-NNN]]` が載って被参照されるが（self の SELF-DEC-001 は stage.md・各ビューから参照済み）、stage を変えない `persevere`/`pivot`/`kill`/`rollback` は**どこからも wikilink されず**、グラフ上で孤立する。
+- **課題**: 意思決定はDEC→ACT/Hへの**外向き**リンクは持つが、他レコードからの**被参照アンカー**が stage-transition 以外に用意されていない。lint 項目2が正当な意思決定を誤検出する（false positive）。
+- **改善案**:
+  1. `/decide` 手順に「影響を受けた仮説レコードの確信度履歴（または系譜節）に `[[DEC-NNN]]` を1件書き戻す」を追加し、全タイプの DEC を必ず被参照させる。
+  2. あるいは意思決定インデックス（`wiki/decisions/index` か `index.md` の意思決定節）を設け、そこから全 DEC を参照する。
+  3. `/lint` 項目2で「DEC は外向きリンクが正しければ孤立扱いしない」等の判定を明文化する。
+- **関連**: `decide/SKILL.md` 手順5-6、`lint/SKILL.md` 項目2、`templates/decision.md`。
+
+---
+
+## SI-007: `/view` に HTMLダッシュボード（index.html）の再生成手順がない
+
+- **対象スキル**: `/view`
+- **状態**: 対応済み（`index.html` ヘッダの虚偽「生成物・再生成」を「手動スナップショット」に修正。view「守ること」と views README に「HTMLは任意・手動・/view対象外」を明記。生成器は作らない。2026-07-17）
+- **気づいた文脈**: 一巡テストで `/view` の3サブコマンド（`vp`/`list`/`board`）を確認したが、`projects/self/wiki/views/index.html`（「self ダッシュボード」HTML・冒頭に「生成物。手編集禁止。list/board/vp から再生成する」と明記）は `/view` のどのサブコマンドにも対応していない。self には成果物として存在するのに、**再生成手順がスキルに定義されていない**。
+- **課題**: 生成物（index.html）が SSoT からどう再生成されるかスキルに無いため、レコード更新後に HTML が陳腐化しても再生成の入口がない。`dogfood` 側では index.html が生成されず、案件間で views/ の構成が不揃いになる。
+- **改善案**:
+  1. `/view` に `html`（または `dashboard`）サブコマンドを追加し、list/board/vp の内容から `views/index.html` を再生成する手順を明記する。
+  2. `/view` を引数なしで呼んだときに全ビュー（vp/list/board/html）を一括再生成する挙動も検討。
+  3. 案件雛形（`templates/project/wiki/views/`）に index.html を含めるか、生成対象として README に記す。
+- **関連**: `view/SKILL.md`、`projects/self/wiki/views/index.html`、`templates/project/wiki/views/README.md`。
+
+---
+
+## SI-008: `/ingest` に「成功基準未達だが部分的シグナルあり」時の確信度の扱い指針がない
+
+- **対象スキル**: `/ingest`
+- **状態**: 対応済み（ingest手順4に成功基準の〈支持/反証/判断保留〉3値判定を導入。未達なら原則確信度を上げないルールを追記。2026-07-17）
+- **気づいた文脈**: 一巡テストの `DOG-ACT-001`（架空5名）で、成功基準（〈自認〉かつ〈実コスト〉が3名以上）を**満たさなかった**（両立2/5名）。にもかかわらず、行動としての自認が3/5名あったため確信度を上げるか据え置くか判断がぶれ、結局 DOG-H-002 を 3→4 に上げた。これが妥当かはスキルに指針がない。
+- **課題**: `/ingest` 手順4は「成功基準に照らして提案」とあるが、**成功基準を満たさなかったが弱いシグナルはある**という中間ケースの確信度操作ルールが無い。安易に上げると架空・部分証拠で確信度が水増しされる（SELF でも架空データ依存として繰り返し問題化している論点）。
+- **改善案**:
+  1. 「成功基準未達なら原則として確信度を上げない（据え置きか下げる）。上げる場合は理由を成功基準と切り離して明記する」ルールを手順4に追加。
+  2. 成功基準を「支持/反証/判断保留」の3値で判定させ、確信度更新はその判定に従わせる。
+- **関連**: `ingest/SKILL.md` 手順4、`templates/activity.md` の成功基準、SI-004（架空データ扱い）と地続き。
+
+---
+
+## SI-009: `/new-project` 後に空ディレクトリの `.gitkeep` が残り続ける・掃除手順がない（軽微）
+
+- **対象スキル**: `/new-project`
+- **状態**: 対応済み（new-project「守ること」＋grill/plan/ingest/decideの作成手順に「初回レコード作成後 .gitkeep 削除可」を追記。2026-07-17）
+- **気づいた文脈**: 一巡テストで `cp -r templates/project/. projects/dogfood/` 後、`hypotheses/` `activities/` `decisions/` に `.gitkeep` が残り、レコードを追加した後も残置された。
+- **課題**: 機能上の害はないが、レコードが入ったディレクトリに `.gitkeep` が残るのは不要な残骸。掃除の要否がスキルに書かれていない。
+- **改善案**: `/new-project` の「守ること」に「最初のレコード作成後は該当ディレクトリの `.gitkeep` を削除してよい（任意）」を1行添える程度。優先度は低い。
+- **関連**: `new-project/SKILL.md` 手順2、`templates/project/wiki/*/.gitkeep`。
+
+---
+
+## SI-010: playbook への参照記法が未定義（`[[playbooks/cpf.md]]` は Obsidian で解決しない）（軽微）
+
+- **対象スキル**: `/decide`（および `templates/decision.md`・`stage.md`）
+- **状態**: 対応済み（CLAUDE.md・decide手順1・decision雛形に「schema層(playbooks/・CLAUDE.md)は wikilink でなく相対mdリンクで参照」を明記。2026-07-17）
+- **気づいた文脈**: 一巡テストで DEC 本文に移行基準の根拠として `[[playbooks/cpf.md]]` と wikilink を書いたが、playbook は vault 内の接頭辞つきノートではないため Obsidian のグラフ/リンクでは解決しない（stage.md は相対mdリンク `[playbooks/psf.md](../../../playbooks/psf.md)` を使っている）。
+- **課題**: playbook を本文から参照する際の記法（wikilink か相対mdリンクか）がスキル/テンプレに明示されておらず、書き手ごとにぶれてリンク切れを生む。
+- **改善案**: 「schema層（playbooks/・CLAUDE.md）への参照は wikilink ではなく相対mdリンクで書く」を規約として1行明記する（`/decide`・`stage.md` 雛形）。
+- **関連**: `decide/SKILL.md` 手順1、`projects/*/wiki/stage.md`。
+
+---
+
+## 一巡テストの記録（2026-07-17）
+
+`dogfood`（接頭辞 DOG）という使い捨て案件を作り、`/new-project → /grill → /plan → /ingest → /view → /decide → /lint` を自動で一巡実行して上記 SI-005〜010 を抽出した。テスト案件は改善点抽出後に破棄する（`self` 案件・スキーマ層は変更していない）。各スキルの単体挙動（レコード生成・index/log更新・成功基準の事前確定・架空データ明示・孤立検出）は概ね設計どおり動作した。

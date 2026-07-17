@@ -1,5 +1,5 @@
 ---
-id: ACT-004
+id: SELF-ACT-004
 title: 共有ビューのモックデモ・ドッグフーディング（H-012の価値の芯）
 type: demo
 date: 2026-07-17

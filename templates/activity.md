@@ -1,5 +1,5 @@
 ---
-id: ACT-NNN
+id: <PREFIX>-ACT-NNN        # ファイル名と一致させる（接頭辞つき。例 SELF-ACT-001）
 title: 短いタイトル
 type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD

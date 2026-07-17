@@ -31,3 +31,4 @@ description: 新しい仮説検証プロジェクト（案件）を projects/<sl
 - 雛形（`templates/project/`）自体は編集しない（スキーマ層）。コピー先だけを編集する。
 - 既存プロジェクトを上書きしない。`projects/<slug>/` が既にあれば中止してユーザーに確認する。
 - このスキルはレコード（H/ACT/DEC）を作らない。器を用意するだけ。中身は `/grill` 以降で作る。
+- 雛形の空ディレクトリ（`hypotheses/` `activities/` `decisions/`）の `.gitkeep` は、最初のレコードを作成した後は削除してよい（任意。`/grill` `/plan` `/ingest` `/decide` の作成手順が削除する）。
