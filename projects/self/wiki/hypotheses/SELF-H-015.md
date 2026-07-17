@@ -3,7 +3,7 @@ id: SELF-H-015
 title: AIの第三者指摘が偽の確証（interest≠intent）による確信度の上げを止める
 type: ソリューション仮説
 status: 未検証
-confidence: 2
+confidence: 3
 stage: PSF
 importance: auto
 derived-from: SELF-H-014
@@ -39,3 +39,4 @@ derived-from: SELF-H-014
 | 日付 | 確信度 | ステータス | 根拠 | 活動 |
 |---|---|---|---|---|
 | 2026-07-17 | 2 | 未検証 | [[SELF-H-014]] を研ぎ直して起票（/refine）。効き所を H-010 一本に絞り、代替手段（自制・チェックリスト）に対する乗り換え理由を「第三者性」に明確化。ソリューションは未検証のため勘レベル。PSFでの検証待ち | — |
+| 2026-07-17 | 3 | 未検証 | 前提②（第三者性）・反証条件①（その場の介入）が独立した外部知見（bias blind spot／devil's advocate／JITAI）で裏づけ。勘→二次情報・状況証拠あり（3）へ。製品の優位性は未検証・競合（LLMデビルズアドボケイト）ありのため3止まり | [[SELF-ACT-006]] |
