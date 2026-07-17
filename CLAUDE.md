@@ -136,6 +136,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 | バリュープロポジション／一覧／ボードのビュー生成 | `/view` |
 | ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |
 | Wikiの健全性チェック | `/lint` |
+| 判断（確信度・検証済み・移行）を能動的にゆさぶり認知不協和とバイアスをツッコむ | `/yusaburi` |
 
 ## 記述言語
 
