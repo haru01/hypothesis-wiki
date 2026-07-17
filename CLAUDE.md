@@ -137,6 +137,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 | 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |
 | 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulate` |
 | 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
+| 検証用のHTMLプロトタイプ（LP／モックアップ）を仮説から生成しdemo/interviewのACTに紐づける | `/prototype` |
 | インタビュー録・デモ記録の取り込みと学習カード作成・確信度更新 | `/ingest` |
 | バリュープロポジション／一覧／ボードのビュー生成 | `/view` |
 | ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |
