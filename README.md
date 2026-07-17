@@ -23,7 +23,7 @@ Karpathy の「LLM Wiki」パターンを仮説検証ドメインに適用し、
 hypothesis-wiki/
 ├── CLAUDE.md               # スキーマ層（規約・ルール・ワークフロー）
 ├── README.md               # このファイル
-├── .claude/skills/         # AgentSkills 6つ（grill/plan/ingest/view/decide/lint・共有）
+├── .claude/skills/         # AgentSkills 6つ（formulate/plan/ingest/view/decide/lint・共有）
 ├── templates/              # 雛形（hypothesis / activity / decision / interview-script・共有）
 ├── playbooks/              # ステージプレイブック（cpf〜pmf・共有）
 ├── docs/
@@ -53,7 +53,7 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 | やりたいこと | スキル |
 |---|---|
 | 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |
-| 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/grill` |
+| 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulate` |
 | 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
 | インタビュー録・デモ記録の取り込みと学習カード作成・確信度更新 | `/ingest` |
 | バリュープロポジション／一覧／ボードのビュー生成 | `/view` |
@@ -63,7 +63,7 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 典型的な流れ:
 
 0. `projects/current.md` で対象プロジェクトを確認・切り替える（新規なら `projects/<slug>/` を作る）
-1. `/grill` — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする
+1. `/formulate` — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする
 2. `/plan` — 重要×確信度低の仮説を選び、テストカード付きの活動（`<PREFIX>-ACT-NNN`）を計画
 3. 検証を実施し、生データを `projects/<slug>/sources/` に置く
 4. `/ingest` — 学習カードを書き、確信度・ステータスを更新（承認フロー付き）
@@ -73,7 +73,7 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 
 ## 同梱の実例（このリポジトリ自体のドッグフーディング）
 
-このリポジトリには、キット自体を題材に実際にスキルを回した実例が入っている（`/grill`→`/plan`→`/ingest`→`/view` の一巡）。
+このリポジトリには、キット自体を題材に実際にスキルを回した実例が入っている（`/formulate`→`/plan`→`/ingest`→`/view` の一巡）。
 
 - 置き場所: `projects/self/`（接頭辞 `SELF`）。
 - **仮説**: 状況・行動／課題／ソリューション／買ってもらえるの各タイプにまたがる `SELF-H-001`〜`SELF-H-013`（欠番 `SELF-H-002`・`SELF-H-003` は取り下げ済み。`log.md` に記録）。
