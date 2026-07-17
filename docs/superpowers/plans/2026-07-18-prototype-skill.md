@@ -520,7 +520,7 @@ hypotheses: [SELF-H-012]
 
       <section class="screen" data-screen="2">
         <h2>確信度の根拠</h2>
-        <p class="muted">確信度 4 の根拠（証拠リンク）</p>
+        <p class="muted">選択した仮説の根拠（証拠リンク）— 例: 確信度 4 の仮説</p>
         <div class="card">
           <div class="row"><strong>この解決策で合意形成が早まる</strong><span class="badge b-mid">確信度 4</span></div>
         </div>
@@ -597,7 +597,7 @@ Run:
 ```bash
 open projects/self/wiki/prototypes/SELF-ACT-005/index.html
 ```
-Expected: モックアップが表示され、下部タブ／ボタンで3画面（一覧・根拠・報告）が切り替わる。外部リソース読み込みエラーが出ない。
+Expected: モックアップが表示され、左サイドバーのナビ／ボタンで3画面（一覧・根拠・報告）が切り替わる。外部リソース読み込みエラーが出ない。
 
 - [ ] **Step 8: コミット**
 
