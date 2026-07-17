@@ -1,0 +1,7 @@
+# Obsidian のワークスペース設定（各自の環境依存なので共有しない）
+.obsidian/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+*.swp
