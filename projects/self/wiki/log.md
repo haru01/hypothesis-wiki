@@ -37,3 +37,4 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-16] self-reflection | 案件単位の構造へ移行 → wiki/sources を projects/self/ 配下へ、IDを接頭辞つき（SELF-）に一括改称。CLAUDE.md・全スキル・READMEを新構造に更新。projects/current.md 新設
 ## [2026-07-16] self-reflection | 新規プロジェクト雛形とスキルを追加 → templates/project/（空のsources/wiki一式）と /new-project スキルを新設。CLAUDE.md/README/projects/README のワークフローに反映
 ## [2026-07-16] lint | 健全性チェック実施 → 問題1種2件（項目9 架空データ未明示: SELF-H-009/010）。検証済みH-009/010/011に「実データ未検証」フラグを追記して解消。欠番SELF-H-002/003は取り下げ記録あり=正常
+## [2026-07-17] decision | SELF-DEC-001 CPF→PSF移行 → 報告/合意形成クラスタ(SELF-H-011/H-010/H-009=検証済み8)を根拠に移行。※架空データ依存の留保・巻き戻しポイント明記。現在ステージ CPF→PSF
