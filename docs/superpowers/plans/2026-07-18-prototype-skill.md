@@ -524,7 +524,7 @@ hypotheses: [SELF-H-012]
         <div class="card">
           <div class="row"><strong>この解決策で合意形成が早まる</strong><span class="badge b-mid">確信度 4</span></div>
         </div>
-        <div class="card">📄 <span class="link">デモ観察 ACT-004</span><br><span class="muted">価値の芯は成功基準を充足。実在ステークホルダーでの合意形成は未検証。</span></div>
+        <div class="card">📄 <span>デモ観察 SELF-ACT-004</span><br><span class="muted">価値の芯は成功基準を充足。実在ステークホルダーでの合意形成は未検証。</span></div>
         <div class="card">⚠️ <span class="muted">弱点: 数値根拠がリンク先依存。実データではない。</span></div>
         <button class="btn" onclick="go(1)">一覧に戻る</button>
       </section>
