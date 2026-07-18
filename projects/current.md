@@ -1,7 +1,7 @@
 # 現在のプロジェクト
 
 ```yaml
-current-project: self
+current-project: bank-agent
 ```
 
 現在アクティブなプロジェクトは **self**（このツール自体のドッグフーディング）。
@@ -15,3 +15,4 @@ current-project: self
 | slug | 接頭辞 | 説明 |
 |---|---|---|
 | self | SELF | このツール自体（仮説検証Wiki）を題材にしたドッグフーディング |
+| bank-agent | BANK | 銀行業務をAIエージェント前提で再設計するAIエージェント基盤（スモークテスト） |
