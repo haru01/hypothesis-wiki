@@ -4,7 +4,7 @@ title: 短いタイトル
 type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
-hypotheses: [H-NNN]
+hypotheses: [<PREFIX>-H-NNN]   # 接頭辞つきで書く（例 [SELF-H-001]）
 ---
 
 # 短いタイトル

@@ -1,0 +1,30 @@
+#!/bin/sh
+# 仮説検証Wiki の不変ルールをコミット時に強制する。
+# 有効化: git config core.hooksPath .githooks（Claude Code は SessionStart フックが自動設定）
+set -e
+
+# 1) tools/tests を変更したときだけユニットテスト
+if git diff --cached --name-only | grep -qE '^(tools|tests)/'; then
+  python3 -m unittest discover -s tests || exit 1
+fi
+
+# 2) 決定論 lint（全プロジェクト）
+python3 tools/hwlint.py --all || exit 1
+
+# 3) テストカード不変（学習カード記入済み ACT の成功基準書き換え検出）
+python3 tools/check_testcard_immutable.py --staged || exit 1
+
+# 4) log.md は追記のみ（既存行の書き換えを禁止）。--diff-filter=M で「改変」だけを見る。
+#    ファイルごとの削除（案件まるごと廃止）は対象外＝許可。
+if git diff --cached -U0 --diff-filter=M -- 'projects/*/wiki/log.md' | grep -qE '^-[^-]'; then
+  echo "[error] log-append-only | projects/*/wiki/log.md の既存行が書き換えられている（不変ルール3）" >&2
+  exit 1
+fi
+
+# 5) sources/ は不変層（既存ファイルの中身の書き換えを禁止）。--diff-filter=M で「改変」だけを見る。
+#    新規追加（/ingest の初回配置）と、削除（誤配置の除去・案件まるごと廃止）は許可。
+#    不変性の要は「観測した生データを後から書き換えない」こと。削除は git 上で可視なので許容する。
+if git diff --cached --name-only --diff-filter=M -- 'projects/*/sources/*' | grep -q .; then
+  echo "[error] sources-immutable | projects/*/sources/ の既存ファイルが書き換えられている（不変層）" >&2
+  exit 1
+fi

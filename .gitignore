@@ -5,3 +5,7 @@
 .DS_Store
 Thumbs.db
 *.swp
+
+# Python（決定論lint tools/ のキャッシュ）
+__pycache__/
+*.pyc
