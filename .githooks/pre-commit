@@ -1,0 +1,27 @@
+#!/bin/sh
+# 仮説検証Wiki の不変ルールをコミット時に強制する。
+# 有効化: git config core.hooksPath .githooks（Claude Code は SessionStart フックが自動設定）
+set -e
+
+# 1) tools/tests を変更したときだけユニットテスト
+if git diff --cached --name-only | grep -qE '^(tools|tests)/'; then
+  python3 -m unittest discover -s tests || exit 1
+fi
+
+# 2) 決定論 lint（全プロジェクト）
+python3 tools/hwlint.py --all || exit 1
+
+# 3) テストカード不変（学習カード記入済み ACT の成功基準書き換え検出）
+python3 tools/check_testcard_immutable.py --staged || exit 1
+
+# 4) log.md は追記のみ（既存行の変更・削除を禁止）
+if git diff --cached -U0 -- 'projects/*/wiki/log.md' | grep -E '^-[^-]' >/dev/null; then
+  echo "[error] log-append-only | projects/*/wiki/log.md の既存行が変更/削除されている（不変ルール3）" >&2
+  exit 1
+fi
+
+# 5) sources/ は不変層（既存ファイルの変更・削除を禁止。新規追加のみ許可）
+if git diff --cached --name-only --diff-filter=MD -- 'projects/*/sources/*' | grep -q .; then
+  echo "[error] sources-immutable | projects/*/sources/ の既存ファイルが変更/削除されている（不変層）" >&2
+  exit 1
+fi

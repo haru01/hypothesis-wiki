@@ -253,5 +253,82 @@ class FictionalCapTest(unittest.TestCase):
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
 
 
+BASE_ACT_FOR_GIT = """---
+id: DEMO-ACT-001
+title: テスト活動
+type: interview
+date: 2026-07-01
+stage: CPF
+hypotheses: [DEMO-H-001]
+---
+
+# テスト活動
+
+## テストカード（検証前に記入・後から書き換えない）
+
+- **成功基準**: 5名中3名以上が実コストを払っている。
+
+## 学習カード（検証後に記入）
+
+### 事実（observed）
+
+5名に実施し、2名が実コストを払っていた。
+
+### 解釈（inference）
+
+成功基準は未達。
+"""
+
+
+class TestcardImmutableTest(unittest.TestCase):
+    def _init_repo(self, repo: Path):
+        run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True, text=True)
+        run("git", "init", "-b", "main")
+        run("git", "config", "user.email", "t@example.com")
+        run("git", "config", "user.name", "t")
+        return run
+
+    def _run_checker(self, repo: Path, *argv):
+        return subprocess.run(
+            [sys.executable, str(TOOLS / "check_testcard_immutable.py"), *argv],
+            cwd=repo, capture_output=True, text=True)
+
+    def test_rewrite_after_learning_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            run = self._init_repo(repo)
+            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            run("git", "add", "-A"); run("git", "commit", "-m", "base")
+            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
+                  BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
+            run("git", "add", "-A"); run("git", "commit", "-m", "rewrite")
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
+    def test_learning_card_edit_allowed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            run = self._init_repo(repo)
+            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            run("git", "add", "-A"); run("git", "commit", "-m", "base")
+            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
+                  BASE_ACT_FOR_GIT + "\n### 次のアクション\n\n- 再検証を計画する。\n")
+            run("git", "add", "-A"); run("git", "commit", "-m", "learning update")
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_staged_rewrite_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            run = self._init_repo(repo)
+            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            run("git", "add", "-A"); run("git", "commit", "-m", "base")
+            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
+                  BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
+            run("git", "add", "-A")  # コミットせずステージのみ（pre-commit 相当）
+            result = self._run_checker(repo, "--staged")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
