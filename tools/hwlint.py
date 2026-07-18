@@ -48,6 +48,12 @@ def strip_frontmatter(text: str) -> str:
     return re.sub(r"^---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
 
 
+def strip_comments(text: str) -> str:
+    """HTMLコメント（<!-- ... -->）を除去する。コメント内の例示 wikilink は
+    Obsidian でもグラフ辺を作らないため、リンク検査の対象から外す。"""
+    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+
+
 HISTORY_HEADER = "## 確信度履歴"
 
 
@@ -208,7 +214,7 @@ def check_wikilinks(project) -> list:
     problems = []
     all_names = {p.stem for p in project.root.parent.glob("*/wiki/**/*.md")}
     for stem, (_, _, body) in project.records.items():
-        for target in WIKILINK_RE.findall(strip_frontmatter(body)):
+        for target in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body))):
             target = target.strip()
             if "/" in target:
                 problems.append(Problem("error", stem, "wikilink",

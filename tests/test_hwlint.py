@@ -173,6 +173,13 @@ class RefsTest(unittest.TestCase):
             problems = [p for p in hwlint.lint_project(root) if p.check in ("refs", "wikilink")]
             self.assertEqual(problems, [])
 
+    def test_wikilink_in_html_comment_ignored(self):
+        # テンプレの履歴コメントに例示 [[ACT-NNN]] が入っていてもリンク切れにしない
+        body = hyp() + "\n<!--\n- 活動列に [[ACT-NNN]] を書く。派生元 [[H-NNN]] も例示。\n-->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": body})
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "wikilink"], [])
+
 
 class IdSequenceTest(unittest.TestCase):
     def test_gap_without_withdrawal_warned(self):
