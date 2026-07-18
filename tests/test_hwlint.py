@@ -136,5 +136,43 @@ class EvidenceLinkTest(unittest.TestCase):
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "evidence"], [])
 
 
+class RefsTest(unittest.TestCase):
+    def test_unprefixed_frontmatter_ref_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/activities/DEMO-ACT-001.md": act(hypotheses="[H-001]"),
+            })
+            self.assertTrue(any(p.check == "refs" for p in hwlint.lint_project(root)))
+
+    def test_broken_wikilink_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/activities/DEMO-ACT-001.md": act(body="対象仮説: [[DEMO-H-404]]"),
+            })
+            self.assertTrue(any(p.check == "wikilink" and "DEMO-H-404" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_schema_layer_wikilink_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/activities/DEMO-ACT-001.md": act(
+                    body="対象仮説: [[DEMO-H-001]]\n\n根拠: [[playbooks/cpf.md]]"),
+            })
+            self.assertTrue(any(p.check == "wikilink" and "playbooks" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_valid_refs_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            problems = [p for p in hwlint.lint_project(root) if p.check in ("refs", "wikilink")]
+            self.assertEqual(problems, [])
+
+
 if __name__ == "__main__":
     unittest.main()

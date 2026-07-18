@@ -173,7 +173,45 @@ def check_evidence_links(project) -> list:
     return problems
 
 
-CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links]
+WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
+
+
+def check_frontmatter_refs(project) -> list:
+    """ACT の hypotheses / DEC の based-on は接頭辞つきで実在するレコードを指す。"""
+    problems = []
+    for stem, (path, fm, body) in project.records.items():
+        refs = []
+        if "-ACT-" in stem and fm.get("hypotheses"):
+            refs = parse_id_array(fm["hypotheses"])
+        if "-DEC-" in stem and fm.get("based-on"):
+            refs = parse_id_array(fm["based-on"])
+        for rid in refs:
+            if not rid.startswith(project.prefix + "-"):
+                problems.append(Problem("error", stem, "refs",
+                    f"frontmatter 参照 '{rid}' が接頭辞つきでない（{project.prefix}-… に統一する）"))
+            elif rid not in project.records:
+                problems.append(Problem("error", stem, "refs",
+                    f"frontmatter 参照 '{rid}' のレコードが存在しない"))
+    return problems
+
+
+def check_wikilinks(project) -> list:
+    """本文の wikilink が vault 内で解決すること。schema層（/入り）への wikilink は規約違反。"""
+    problems = []
+    all_names = {p.stem for p in project.root.parent.glob("*/wiki/**/*.md")}
+    for stem, (path, fm, body) in project.records.items():
+        for target in WIKILINK_RE.findall(strip_frontmatter(body)):
+            target = target.strip()
+            if "/" in target:
+                problems.append(Problem("error", stem, "wikilink",
+                    f"[[{target}]] — schema層への参照は wikilink でなく相対mdリンクで書く規約"))
+            elif target not in all_names:
+                problems.append(Problem("error", stem, "wikilink", f"[[{target}]] が解決しない（リンク切れ）"))
+    return problems
+
+
+CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
+          check_frontmatter_refs, check_wikilinks]
 
 
 def lint_project(root: Path) -> list:
