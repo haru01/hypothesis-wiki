@@ -330,5 +330,64 @@ class TestcardImmutableTest(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
 
+class GuardSourcesTest(unittest.TestCase):
+    def _run(self, payload):
+        return subprocess.run(
+            [sys.executable, str(TOOLS / "hooks" / "guard_sources.py")],
+            input=json.dumps(payload), capture_output=True, text=True)
+
+    def test_edit_existing_source_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "projects" / "demo" / "sources" / "2026-07-01-interview.md"
+            src.parent.mkdir(parents=True)
+            src.write_text("生データ", encoding="utf-8")
+            r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("不変層", r.stderr)
+
+    def test_new_source_write_allowed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "projects" / "demo" / "sources"
+            d.mkdir(parents=True)
+            r = self._run({"tool_name": "Write", "tool_input": {"file_path": str(d / "new.md")}})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_wiki_write_allowed(self):
+        r = self._run({"tool_name": "Edit",
+                       "tool_input": {"file_path": "/x/projects/demo/wiki/hypotheses/DEMO-H-001.md"}})
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class StopLintTest(unittest.TestCase):
+    def _repo(self, tmp, record):
+        write(Path(tmp), "projects/current.md", "current-project: demo\n")
+        make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": record})
+        return Path(tmp)
+
+    def _run(self, repo, payload):
+        return subprocess.run(
+            [sys.executable, str(TOOLS / "hooks" / "stop_lint.py")],
+            input=json.dumps(payload), cwd=repo, capture_output=True, text=True)
+
+    def test_clean_project_allows_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, hyp())
+            r = self._run(repo, {})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_error_blocks_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, hyp(id="H-001"))  # id-filename の error を仕込む
+            r = self._run(repo, {})
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("hwlint", r.stderr)
+
+    def test_stop_hook_active_passes_through(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, hyp(id="H-001"))
+            r = self._run(repo, {"stop_hook_active": True})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
