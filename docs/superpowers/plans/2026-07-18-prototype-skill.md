@@ -632,3 +632,13 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 **3. Type consistency:** 画面切替関数は全箇所で `go(n)`。切替判定はモックアップ骨格・Task 3 実装ともに `s.dataset.screen === String(n)` と `i+1 === n` で統一。生成物メタコメントの書式（`紐づく活動 / 仮説 / 生成日`）は骨格と Task 3 実装で一致。ACT の `type` は `demo`／`interview`、log の type と一致。
 
 矛盾・欠落なし。
+
+---
+
+## 実装後の骨格更新（ユーザーフィードバック反映）
+
+初回実装後、ユーザーレビューで以下の骨格を格上げした。**正典は `.claude/skills/prototype/SKILL.md`**（本プランの埋め込みは初期版から追随更新するが、細部は SKILL.md を参照）。
+
+- **モックアップ骨格**: スマホアプリ枠（`.device`＋下部タブ）→ **Webアプリのシェル**（上部バー＋左サイドバーナビ＋メイン、狭画面で縦積み）。
+- **LP骨格**: 単純な hero/課題/解決/CTA → **世間標準のSaaS系フルLP**（ナビ→ヒーロー＋インラインSVGイラスト→トラスト→課題→特徴→使い方→声→料金→最終CTA→フッター）。イメージはインラインSVG、声・料金は「デモ用ダミー／仮の表示」を明示。
+- 実例: モックアップ `SELF-ACT-005`（Webアプリ）、LP `SELF-ACT-006`（`SELF-H-013` 買ってもらえる仮説・SPF先取りプレビュー）。
