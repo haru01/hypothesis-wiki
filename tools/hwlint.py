@@ -115,7 +115,65 @@ def check_vocabulary(project) -> list:
     return problems
 
 
-CHECKS = [check_id_matches_filename, check_vocabulary]
+HISTORY_HEADER = "## 確信度履歴"
+EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:ACT|DEC)-\d+)\]\]")
+
+
+def parse_history(body: str) -> list:
+    rows, in_section = [], False
+    for line in body.splitlines():
+        if line.startswith("## "):
+            in_section = line.strip() == HISTORY_HEADER
+            continue
+        if in_section and line.lstrip().startswith("|"):
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) >= 5 and re.match(r"\d{4}-\d{2}-\d{2}$", cells[0]):
+                rows.append({"date": cells[0], "confidence": cells[1],
+                             "status": cells[2], "reason": cells[3], "activity": cells[4]})
+    return rows
+
+
+def check_history_consistency(project) -> list:
+    """不変ルール2: frontmatter の confidence/status は確信度履歴テーブルの最終行と一致する。"""
+    problems = []
+    for stem, (path, fm, body) in project.records.items():
+        if "-H-" not in stem:
+            continue
+        rows = parse_history(body)
+        if not rows:
+            problems.append(Problem("error", stem, "history", "確信度履歴テーブルが無い/パースできない"))
+            continue
+        last = rows[-1]
+        if last["confidence"] != fm.get("confidence"):
+            problems.append(Problem("error", stem, "history",
+                f"frontmatter confidence={fm.get('confidence')} と履歴最終行 {last['confidence']} が不一致"))
+        if last["status"] != fm.get("status"):
+            problems.append(Problem("error", stem, "history",
+                f"frontmatter status={fm.get('status')} と履歴最終行 {last['status']} が不一致"))
+    return problems
+
+
+def check_evidence_links(project) -> list:
+    """不変ルール1: 初期行以降の確信度・ステータス変更は必ず実在する ACT/DEC に紐づく。"""
+    problems = []
+    for stem, (path, fm, body) in project.records.items():
+        if "-H-" not in stem:
+            continue
+        for i, row in enumerate(parse_history(body)):
+            if i == 0:
+                continue  # 初期作成行のみ根拠レコード免除（desk-research を書くのは任意）
+            ids = EVIDENCE_RE.findall(row["activity"])
+            if not ids:
+                problems.append(Problem("error", stem, "evidence",
+                    f"履歴 {row['date']} 行（確信度{row['confidence']}）に [[ACT/DEC]] の証拠リンクが無い"))
+            for rid in ids:
+                if rid not in project.records:
+                    problems.append(Problem("error", stem, "evidence",
+                        f"履歴の証拠 [[{rid}]] のレコードが存在しない"))
+    return problems
+
+
+CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links]
 
 
 def lint_project(root: Path) -> list:

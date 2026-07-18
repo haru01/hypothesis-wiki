@@ -95,5 +95,46 @@ class VocabularyTest(unittest.TestCase):
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "vocab"], [])
 
 
+class HistoryConsistencyTest(unittest.TestCase):
+    def test_frontmatter_history_mismatch_detected(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉手応え | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="未検証", confidence="1", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertTrue(any(p.check == "history" for p in hwlint.lint_project(root)))
+
+
+class EvidenceLinkTest(unittest.TestCase):
+    def test_change_without_evidence_detected(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 手応え | — |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows)})
+            self.assertTrue(any(p.check == "evidence" for p in hwlint.lint_project(root)))
+
+    def test_evidence_record_must_exist(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-999]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows)})
+            self.assertTrue(any(p.check == "evidence" and "DEMO-ACT-999" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_change_with_existing_evidence_ok(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "evidence"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
