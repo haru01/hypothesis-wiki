@@ -6,7 +6,7 @@ status: 未検証
 confidence: 1
 stage: CPF | FPF | PSF | SPF | PMF
 importance: auto
-derived-from:            # 省略可。派生・ピボット・巻き戻し再出発の系譜（例 H-003）
+derived-from:            # 省略可。派生元を接頭辞つきで1件（例 SELF-H-003）。派生・ピボット・巻き戻し再出発の系譜
 ---
 
 # 短いタイトル

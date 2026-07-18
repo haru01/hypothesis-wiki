@@ -173,6 +173,40 @@ class RefsTest(unittest.TestCase):
             problems = [p for p in hwlint.lint_project(root) if p.check in ("refs", "wikilink")]
             self.assertEqual(problems, [])
 
+    def test_unprefixed_derived_from_detected(self):
+        # hyp() テンプレには derived-from が無いので frontmatter に明示的に足す
+        rec = hyp(id="DEMO-H-002").replace("importance: auto\n", "importance: auto\nderived-from: H-001\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            self.assertTrue(any(p.check == "refs" and "derived-from" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_missing_derived_from_record_detected(self):
+        rec = hyp(id="DEMO-H-002").replace("importance: auto\n", "importance: auto\nderived-from: DEMO-H-404\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-002.md": rec})
+            self.assertTrue(any(p.check == "refs" and "DEMO-H-404" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_prefixed_derived_from_ok(self):
+        rec = hyp(id="DEMO-H-002").replace("importance: auto\n", "importance: auto\nderived-from: DEMO-H-001\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "refs"], [])
+
+    def test_empty_derived_from_ok(self):
+        # テンプレの空 derived-from は許可
+        rec = hyp(id="DEMO-H-002").replace("importance: auto\n", "importance: auto\nderived-from:\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-002.md": rec})
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "refs"], [])
+
     def test_wikilink_in_html_comment_ignored(self):
         # テンプレの履歴コメントに例示 [[ACT-NNN]] が入っていてもリンク切れにしない
         body = hyp() + "\n<!--\n- 活動列に [[ACT-NNN]] を書く。派生元 [[H-NNN]] も例示。\n-->\n"

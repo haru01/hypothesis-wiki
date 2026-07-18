@@ -190,22 +190,26 @@ WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
 
 
 def check_frontmatter_refs(project) -> list:
-    """ACT の hypotheses / DEC の based-on は接頭辞つきで実在するレコードを指す。"""
+    """frontmatter の ID 参照は接頭辞つきで実在するレコードを指す。
+    ACT の hypotheses（配列）／ DEC の based-on（配列）／ H の derived-from（単一・省略可）。"""
     problems = []
     prefix = project.prefix
     for stem, (_, fm, _) in project.records.items():
-        refs = []
+        groups = []
         if "-ACT-" in stem and fm.get("hypotheses"):
-            refs = parse_id_array(fm["hypotheses"])
+            groups.append(("hypotheses", parse_id_array(fm["hypotheses"])))
         if "-DEC-" in stem and fm.get("based-on"):
-            refs = parse_id_array(fm["based-on"])
-        for rid in refs:
-            if not rid.startswith(prefix + "-"):
-                problems.append(Problem("error", stem, "refs",
-                    f"frontmatter 参照 '{rid}' が接頭辞つきでない（{prefix}-… に統一する）"))
-            elif rid not in project.records:
-                problems.append(Problem("error", stem, "refs",
-                    f"frontmatter 参照 '{rid}' のレコードが存在しない"))
+            groups.append(("based-on", parse_id_array(fm["based-on"])))
+        if "-H-" in stem and fm.get("derived-from"):
+            groups.append(("derived-from", [fm["derived-from"].strip()]))
+        for label, ids in groups:
+            for rid in ids:
+                if not rid.startswith(prefix + "-"):
+                    problems.append(Problem("error", stem, "refs",
+                        f"frontmatter {label} '{rid}' が接頭辞つきでない（{prefix}-… に統一する）"))
+                elif rid not in project.records:
+                    problems.append(Problem("error", stem, "refs",
+                        f"frontmatter {label} '{rid}' のレコードが存在しない"))
     return problems
 
 
