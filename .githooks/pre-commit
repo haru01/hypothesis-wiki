@@ -15,7 +15,7 @@ python3 tools/hwlint.py --all || exit 1
 python3 tools/check_testcard_immutable.py --staged || exit 1
 
 # 4) log.md は追記のみ（既存行の変更・削除を禁止）
-if git diff --cached -U0 -- 'projects/*/wiki/log.md' | grep -E '^-[^-]' >/dev/null; then
+if git diff --cached -U0 -- 'projects/*/wiki/log.md' | grep -qE '^-[^-]'; then
   echo "[error] log-append-only | projects/*/wiki/log.md の既存行が変更/削除されている（不変ルール3）" >&2
   exit 1
 fi
