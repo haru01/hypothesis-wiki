@@ -210,8 +210,72 @@ def check_wikilinks(project) -> list:
     return problems
 
 
+INDEX_ROW_RE = re.compile(r"^\|\s*\[\[([A-Z0-9]+-H-\d+)\]\]\s*\|[^|]*\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|")
+
+
+def check_id_sequence(project) -> list:
+    """不変ルール5: ID 重複禁止。欠番は log.md の取り下げ記録があれば正常、なければ warning。"""
+    problems = []
+    seen = {}
+    for stem, (path, fm, _) in project.records.items():
+        fid = fm.get("id", stem)
+        if fid in seen:
+            problems.append(Problem("error", stem, "id-seq", f"id '{fid}' が {seen[fid]} と重複"))
+        seen[fid] = stem
+    log_lines = project.log.splitlines()
+    for kind in ("H", "ACT", "DEC"):
+        nums = sorted(int(m.group(1)) for rid in project.records
+                      if (m := re.match(rf"^{re.escape(project.prefix)}-{kind}-(\d+)$", rid)))
+        if not nums:
+            continue
+        for missing in sorted(set(range(1, max(nums) + 1)) - set(nums)):
+            mid = f"{project.prefix}-{kind}-{missing:03d}"
+            if not any(mid in line and "取り下げ" in line for line in log_lines):
+                problems.append(Problem("warning", mid, "id-seq",
+                                        "欠番だが log.md に取り下げ記録が見当たらない"))
+    return problems
+
+
+def check_log_sync(project) -> list:
+    """不変ルール2: 履歴テーブルへの追記（2行目以降）は log.md にも記録される。"""
+    problems = []
+    log_lines = project.log.splitlines()
+    for stem, (path, fm, body) in project.records.items():
+        if "-H-" not in stem:
+            continue
+        related = [l.split(stem, 1)[1] for l in log_lines if stem in l]
+        for row in parse_history(body)[1:]:
+            if not any("確信度" in tail and row["confidence"] in tail for tail in related):
+                problems.append(Problem("warning", stem, "log-sync",
+                    f"履歴 {row['date']} 行（確信度{row['confidence']}）に対応する log.md 記録が見当たらない"))
+    return problems
+
+
+def check_index_sync(project) -> list:
+    """index.md の確信度・ステータスがレコード本体と一致する（lint 項目5の機械部分）。"""
+    problems = []
+    index_path = project.wiki / "index.md"
+    if not index_path.exists():
+        return [Problem("warning", "index.md", "index-sync", "index.md が無い")]
+    for line in index_path.read_text(encoding="utf-8").splitlines():
+        m = INDEX_ROW_RE.match(line.strip())
+        if not m:
+            continue
+        rid, conf, status = m.group(1), m.group(2), m.group(3)
+        if rid not in project.records:
+            problems.append(Problem("error", "index.md", "index-sync", f"[[{rid}]] のレコードが存在しない"))
+            continue
+        fm = project.records[rid][1]
+        if fm.get("confidence") != conf or fm.get("status") != status:
+            problems.append(Problem("error", "index.md", "index-sync",
+                f"[[{rid}]] index表（確信度{conf}/{status}）とレコード"
+                f"（確信度{fm.get('confidence')}/{fm.get('status')}）が不一致"))
+    return problems
+
+
 CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
-          check_frontmatter_refs, check_wikilinks]
+          check_frontmatter_refs, check_wikilinks,
+          check_id_sequence, check_log_sync, check_index_sync]
 
 
 def lint_project(root: Path) -> list:

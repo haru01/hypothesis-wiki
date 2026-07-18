@@ -174,5 +174,63 @@ class RefsTest(unittest.TestCase):
             self.assertEqual(problems, [])
 
 
+class IdSequenceTest(unittest.TestCase):
+    def test_gap_without_withdrawal_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-003.md": hyp(id="DEMO-H-003"),
+            })
+            self.assertTrue(any(p.check == "id-seq" and "DEMO-H-002" in p.where
+                                for p in hwlint.lint_project(root)))
+
+    def test_gap_with_withdrawal_ok(self):
+        log = "## [2026-07-02] hypothesis | DEMO-H-002 取り下げ（ユーザー判断） → レコード削除\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-003.md": hyp(id="DEMO-H-003"),
+                "wiki/log.md": log,
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "id-seq"], [])
+
+
+class LogSyncTest(unittest.TestCase):
+    def test_history_change_missing_in_log_warned(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertTrue(any(p.check == "log-sync" for p in hwlint.lint_project(root)))
+
+    def test_history_change_recorded_in_log_ok(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-001]] |"]
+        log = "## [2026-07-05] interview | DEMO-ACT-001 実施 → DEMO-H-001 確信度1→5/検証中\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/log.md": log,
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "log-sync"], [])
+
+
+class IndexSyncTest(unittest.TestCase):
+    def test_index_mismatch_detected(self):
+        index = ("# 仮説カタログ\n\n## 課題仮説\n\n"
+                 "| ID | タイトル | 確信度 | ステータス | ステージ |\n|---|---|---|---|---|\n"
+                 "| [[DEMO-H-001]] | テスト仮説 | 9 | 検証済み | CPF |\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/index.md": index,
+            })
+            self.assertTrue(any(p.check == "index-sync" for p in hwlint.lint_project(root)))
+
+
 if __name__ == "__main__":
     unittest.main()
