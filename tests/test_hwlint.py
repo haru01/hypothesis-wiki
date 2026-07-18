@@ -232,5 +232,26 @@ class IndexSyncTest(unittest.TestCase):
             self.assertTrue(any(p.check == "index-sync" for p in hwlint.lint_project(root)))
 
 
+class FictionalCapTest(unittest.TestCase):
+    def _project(self, tmp, confidence):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                f"| 2026-07-05 | {confidence} | 検証済み | 〈行動〉 | [[DEMO-ACT-001]] |"]
+        return make_project(tmp, {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence=str(confidence), rows=rows),
+            "wiki/activities/DEMO-ACT-001.md": act(
+                body="対象仮説: [[DEMO-H-001]]\n\n> ⚠️ 架空のシミュレーションデータ。実証拠として扱わない。"),
+        })
+
+    def test_confidence_9_on_fictional_act_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, 9)
+            self.assertTrue(any(p.check == "fictional-cap" for p in hwlint.lint_project(root)))
+
+    def test_confidence_8_on_fictional_act_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, 8)
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

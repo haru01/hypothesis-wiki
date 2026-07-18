@@ -273,9 +273,32 @@ def check_index_sync(project) -> list:
     return problems
 
 
+FICTIONAL_MARKERS = ("架空", "シミュレーション")
+
+
+def check_fictional_cap(project) -> list:
+    """架空/シミュレーションデータ由来の確信度は上限8（9-10 は実観測に限る）。"""
+    problems = []
+    fictional_acts = {stem for stem, (_, _, body) in project.records.items()
+                      if "-ACT-" in stem and any(m in body for m in FICTIONAL_MARKERS)}
+    for stem, (path, fm, body) in project.records.items():
+        if "-H-" not in stem:
+            continue
+        c = fm.get("confidence", "0")
+        if not c.isdigit() or int(c) < 9:
+            continue
+        rows = parse_history(body)
+        last_ids = EVIDENCE_RE.findall(rows[-1]["activity"]) if rows else []
+        hit = [rid for rid in last_ids if rid in fictional_acts]
+        if hit:
+            problems.append(Problem("error", stem, "fictional-cap",
+                f"confidence={c} だが直近の根拠 {hit} は架空/シミュレーションデータ（上限8）"))
+    return problems
+
+
 CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks,
-          check_id_sequence, check_log_sync, check_index_sync]
+          check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap]
 
 
 def lint_project(root: Path) -> list:
