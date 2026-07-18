@@ -237,17 +237,25 @@ def check_id_sequence(project) -> list:
 
 
 def check_log_sync(project) -> list:
-    """不変ルール2: 履歴テーブルへの追記（2行目以降）は log.md にも記録される。"""
+    """不変ルール2: 履歴テーブルへの追記（2行目以降）は log.md にも記録される。
+
+    log.md は接頭辞つき ID（SELF-H-001）でも短縮 ID（H-001）でも書かれうる。
+    確信度変更は `確信度X→Y` でも短縮 `4→6` でも記録されうるので、両方を許容する。
+    """
     problems = []
     log_lines = project.log.splitlines()
     for stem, (path, fm, body) in project.records.items():
         if "-H-" not in stem:
             continue
-        related = [l.split(stem, 1)[1] for l in log_lines if stem in l]
+        m = re.search(r"(H-\d+)$", stem)
+        short = m.group(1) if m else stem
         for row in parse_history(body)[1:]:
-            if not any("確信度" in tail and row["confidence"] in tail for tail in related):
+            conf = row["confidence"]
+            transition = re.compile(rf"(?:→\s*|確信度[^|]*?){re.escape(conf)}(?!\d)")
+            if not any((stem in line or short in line) and transition.search(line)
+                       for line in log_lines):
                 problems.append(Problem("warning", stem, "log-sync",
-                    f"履歴 {row['date']} 行（確信度{row['confidence']}）に対応する log.md 記録が見当たらない"))
+                    f"履歴 {row['date']} 行（確信度{conf}）に対応する log.md 記録が見当たらない"))
     return problems
 
 
