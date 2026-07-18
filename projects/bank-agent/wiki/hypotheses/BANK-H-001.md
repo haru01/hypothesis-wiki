@@ -2,8 +2,8 @@
 id: BANK-H-001
 title: 事務部門は定型業務を手続き書＋複数システム＋人手ダブルチェックで処理している
 type: 状況・行動仮説
-status: 未検証
-confidence: 3
+status: 検証中
+confidence: 4
 stage: CPF
 importance: auto
 derived-from:
@@ -34,6 +34,7 @@ derived-from:
 | 日付 | 確信度 | ステータス | 根拠 | 活動 |
 |---|---|---|---|---|
 | 2026-07-19 | 3 | 未検証 | 初期作成（一般知識・状況証拠。WebSearchでの裏取り前） | — |
+| 2026-07-19 | 4 | 検証中 | 〈二次〉独立4出典（金融庁検査マニュアル・フィンテックス・日銀・Automation Anywhere）が状況・行動を裏付け | [[BANK-ACT-001]] |
 
 <!--
 不変ルール:

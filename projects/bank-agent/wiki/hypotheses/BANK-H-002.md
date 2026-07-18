@@ -2,8 +2,8 @@
 id: BANK-H-002
 title: 規制対応と既存システム接続の壁でAIがPoC止まりになり本番ループに組み込めない
 type: 課題仮説
-status: 未検証
-confidence: 3
+status: 検証中
+confidence: 4
 stage: CPF
 importance: auto
 derived-from: H-001
@@ -34,6 +34,7 @@ derived-from: H-001
 | 日付 | 確信度 | ステータス | 根拠 | 活動 |
 |---|---|---|---|---|
 | 2026-07-19 | 3 | 未検証 | 初期作成（一般知識・状況証拠。WebSearchでの裏取り前） | — |
+| 2026-07-19 | 4 | 検証中 | 〈二次〉規制/ガバナンス（金融庁DP・TechTarget）と接続/レガシー（FinBridge・NTT-TX・EY・富士通）の両障壁を独立多数の出典が裏付け | [[BANK-ACT-002]] |
 
 <!--
 不変ルール:

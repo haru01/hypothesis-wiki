@@ -2,8 +2,8 @@
 id: BANK-H-004
 title: 業務ごとの個別AIツール乱立で部門横断の横展開ができずコストが分散する
 type: 課題仮説
-status: 未検証
-confidence: 2
+status: 検証中
+confidence: 3
 stage: CPF
 importance: auto
 derived-from: H-001
@@ -33,6 +33,7 @@ derived-from: H-001
 | 日付 | 確信度 | ステータス | 根拠 | 活動 |
 |---|---|---|---|---|
 | 2026-07-19 | 2 | 未検証 | 初期作成（勘・仮説。横展開の狙いに直結。WebSearchでの裏取り前） | — |
+| 2026-07-19 | 3 | 検証中 | 〈二次〉個別導入によるサイロ化と共通基盤ニーズを実事例（三菱UFJ Databricks）・TWOSTONE が裏付け（部分支持） | [[BANK-ACT-002]] |
 
 <!--
 不変ルール:

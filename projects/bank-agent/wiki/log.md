@@ -14,3 +14,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-19] hypothesis | BANK-H-004 個別AIツール乱立で横展開できずコスト分散 → 新規作成 確信度2/未検証
 ## [2026-07-19] desk-research | BANK-ACT-001 テストカード作成（BANK-H-001） → 検証計画
 ## [2026-07-19] desk-research | BANK-ACT-002 テストカード作成（BANK-H-002/003/004） → 検証計画
+## [2026-07-19] desk-research | BANK-ACT-001 WebSearch言説取り込み（二次） → BANK-H-001 確信度3→4/検証中
+## [2026-07-19] desk-research | BANK-ACT-002 WebSearch言説取り込み（二次） → BANK-H-002 3→4, BANK-H-003 2→3, BANK-H-004 2→3（検証中・二次のため上限4）
+## [2026-07-19] hypothesis | BANK-H-005 可観測性・評価・ガバナンス欠如で本番移行できない → 取り込み中に創発・新規作成 確信度2/未検証
+
