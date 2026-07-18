@@ -5,7 +5,7 @@ current-stage: FPF
 updated: 2026-07-18
 ```
 
-現在のステージは **FPF（Feasibility / Problem-Fit の深掘り）**。CPFで核心課題（記録の散逸・偽の確証・経営層への説明）を検証し、[[SELF-DEC-001]] で移行した。
+現在のステージは **FPF（Founder Problem Fit）**。CPFで核心課題（記録の散逸・偽の確証・経営層への説明）を検証し、[[SELF-DEC-001]] で移行した。
 
 このステージの中心の問い・重点仮説タイプ・検証手法・移行基準は [playbooks/fpf.md](../../../playbooks/fpf.md) を参照。
 

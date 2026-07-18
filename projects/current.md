@@ -6,7 +6,7 @@ current-project: self
 
 現在アクティブなプロジェクトは **self**（このツール自体のドッグフーディング）。
 
-スキル（`/formulate` `/plan` `/ingest` `/view` `/decide` `/lint`）は、まずこのファイルで
+スキル（`/new-project` `/formulate` `/plan` `/prototype` `/ingest` `/view` `/decide` `/lint`）は、まずこのファイルで
 現在のプロジェクト `<slug>` を確認し、`projects/<slug>/` 配下の `sources/`・`wiki/` を対象に動く。
 別のプロジェクトに切り替えるときは `current-project` を書き換える（または対話で対象を指定する）。
 

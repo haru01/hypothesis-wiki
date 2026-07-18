@@ -13,6 +13,7 @@ projects/
 │       ├── hypotheses/<PREFIX>-H-NNN.md
 │       ├── activities/<PREFIX>-ACT-NNN.md（＋ <PREFIX>-ACT-NNN-script.md）
 │       ├── decisions/<PREFIX>-DEC-NNN.md
+│       ├── prototypes/<PREFIX>-ACT-NNN/index.html  # /prototype の生成物
 │       ├── views/        # 生成物
 │       ├── index.md ├── log.md └── stage.md
 └── ...

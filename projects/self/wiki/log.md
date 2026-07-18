@@ -24,3 +24,4 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-18] hypothesis | SELF-H-010 実践者は対価を払い既存ツールから乗り換える（買ってもらえる・先取り） → 新規作成 確信度2/未検証
 ## [2026-07-18] interview | SELF-ACT-004 確信度WikiのLP生成（lp・SPF先取りプレビュー） → SELF-H-009/010 確信度変更なし
 ## [2026-07-18] interview | SELF-ACT-004 LP提示インタビュー10名（架空・interest8/intent2） → SELF-H-009 反証, SELF-H-010 反証（確信度2据え置き・実データ未検証）
+## [2026-07-18] lint | 健全性チェック実施 → 問題0件（9項目すべて健全）。助言2件（FPF重点の自分たち仮説が未起票／ACT-004はSPF先取りプレビュー）

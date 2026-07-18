@@ -77,6 +77,13 @@ based-on: [ACT-NNN, ...]
 本文: 確信度スナップショット（全重要仮説の当時の値）／選択肢と判断理由／巻き戻しポイント
 （この判断が誤りと判明したときどの仮説状態・どの問いに戻るか）。
 
+### プロトタイプ生成物 `projects/<slug>/wiki/prototypes/<PREFIX>-ACT-NNN/index.html`
+
+`/prototype` が仮説から生成する自己完結HTML（LP／2〜3画面モックアップ）。レコードではなく**生成物**で、
+demo/interview の活動（ACT）に紐づく（ACTのテストカードから相対mdリンクで参照し、対象仮説の本文にも
+`[[<PREFIX>-ACT-NNN]]` を張る）。`views/` と同格に扱い、**手編集せず再生成で上書きする**。生成しても
+確信度・ステータスは動かさない（見せて反応を得たあとの学習カード記入・確信度更新は `/ingest` に委ねる）。
+
 ## 確信度とステータス（2軸・別管理）
 
 **確信度（1〜10）** — 証拠の強さの目安:
@@ -97,7 +104,7 @@ based-on: [ACT-NNN, ...]
 1. **確信度・ステータスの変更は必ず活動（ACT）か意思決定（DEC）に紐づける**。根拠レコードなしに書き換えない
 2. 変更時は仮説レコードの確信度履歴テーブルに1行追記し、`projects/<slug>/wiki/log.md` にも追記する
 3. `projects/<slug>/sources/` は読み取り専用。`projects/<slug>/wiki/log.md` は追記のみ（過去行の編集禁止）
-4. `projects/<slug>/wiki/views/` は生成物。記録の修正はレコード側で行い、ビューは再生成する
+4. `projects/<slug>/wiki/views/` と `projects/<slug>/wiki/prototypes/` は生成物。記録の修正はレコード側で行い、生成物は再生成する
 5. ID採番は**種別×プロジェクトごと**に既存最大値+1で、プロジェクト接頭辞つき（例 `SELF-H-001`）。IDの再利用禁止（取り下げた番号は欠番として残す）
 6. テストカードの成功基準は検証開始後に書き換えない（後知恵バイアス防止）
 
@@ -105,6 +112,9 @@ based-on: [ACT-NNN, ...]
 
 現在ステージは（プロジェクトごとに）`projects/<slug>/wiki/stage.md` が持つ。各ステージの詳細
 （問いかけバンク・検証手法・移行基準）は共有の `playbooks/<stage>.md` を参照。
+
+**ステージの正式名称**: CPF = Customer Problem Fit ／ FPF = Founder Problem Fit ／ PSF = Problem Solution Fit ／
+SPF = Solution Product Fit ／ PMF = Product Market Fit（各 `playbooks/<stage>.md` の見出しが正典）。
 
 **ステージ→重点仮説タイプ**（`importance: auto` の解決に使う）:
 
