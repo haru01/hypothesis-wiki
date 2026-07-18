@@ -45,6 +45,8 @@
 
 以下を**そのまま** `.claude/skills/prototype/SKILL.md` に書く（埋め込みHTML骨格を含む完全版）。
 
+> ⚠️ **以下は初期版**。実装後にモックアップ＝Webアプリ化・LP＝SaaS系フル構成＋SVGへ更新し、**骨格HTMLは `templates/prototype-lp.html`・`templates/prototype-mockup.html` に外出し**、SKILL.md は薄い参照に変更した。**現在の正典は `.claude/skills/prototype/SKILL.md` と `templates/prototype-*.html`**。再実行・再現時は現行版を用いること（詳細は末尾「実装後の骨格更新」）。
+
 ````markdown
 ---
 name: prototype
@@ -388,7 +390,7 @@ Expected: `current-project: self` / 既存最大 `SELF-ACT-004` → 次は `SELF
 
 - [ ] **Step 2: ACTレコード `SELF-ACT-005.md` を作成する（テストカードのみ・学習カードは空の見出し）**
 
-`projects/self/wiki/activities/SELF-ACT-005.md` を作成:
+`projects/self/wiki/activities/SELF-ACT-005.md` を作成（下記は初期版。**確定版は実際の同ファイル**——テストカードは後に箇条書き様式へ修正済み）:
 
 ```markdown
 ---
@@ -446,7 +448,7 @@ hypotheses: [SELF-H-012]
 
 - [ ] **Step 3: モックアップ `index.html` を生成する（骨格を SELF-H-012 の内容で差し替え）**
 
-`projects/self/wiki/prototypes/SELF-ACT-005/index.html` を作成。モックアップ骨格を土台に、3画面を「① 仮説一覧（確信度バッジつき）／② 確信度の根拠（証拠リンク）／③ 合意状況」に差し替える:
+`projects/self/wiki/prototypes/SELF-ACT-005/index.html` を作成。モックアップ骨格を土台に、3画面を「① 仮説一覧（確信度バッジつき）／② 確信度の根拠（証拠リンク）／③ 合意状況」に差し替える（下記は初期のスマホ枠版。**確定版は実際の同ファイル**——後に Webアプリシェルへ差し替え済み）:
 
 ```html
 <!-- 生成物。/prototype で再生成。紐づく活動: SELF-ACT-005 / 仮説: SELF-H-012 / 生成日: 2026-07-18 -->
@@ -637,8 +639,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## 実装後の骨格更新（ユーザーフィードバック反映）
 
-初回実装後、ユーザーレビューで以下の骨格を格上げした。**正典は `.claude/skills/prototype/SKILL.md`**（本プランの埋め込みは初期版から追随更新するが、細部は SKILL.md を参照）。
+初回実装後、ユーザーレビューと `/simplify` で以下を更新した。**正典は `.claude/skills/prototype/SKILL.md` と `templates/prototype-lp.html`・`templates/prototype-mockup.html`**（本プランの埋め込みは初期版。細部は正典を参照）。
 
+- **骨格の外出し（altitude修正）**: HTML骨格を SKILL.md 埋め込みから schema層の雛形 `templates/prototype-lp.html`・`templates/prototype-mockup.html` に移し、SKILL.md は参照だけの薄い形にした（`/plan` が `templates/activity.md` を参照するのと同じ方式）。骨格の正典が1箇所になり、SKILL.md とプランの二重保持によるドリフトを解消。
 - **モックアップ骨格**: スマホアプリ枠（`.device`＋下部タブ）→ **Webアプリのシェル**（上部バー＋左サイドバーナビ＋メイン、狭画面で縦積み）。
 - **LP骨格**: 単純な hero/課題/解決/CTA → **世間標準のSaaS系フルLP**（ナビ→ヒーロー＋インラインSVGイラスト→トラスト→課題→特徴→使い方→声→料金→最終CTA→フッター）。イメージはインラインSVG、声・料金は「デモ用ダミー／仮の表示」を明示。
 - 実例: モックアップ `SELF-ACT-005`（Webアプリ）、LP `SELF-ACT-006`（`SELF-H-013` 買ってもらえる仮説・SPF先取りプレビュー）。
