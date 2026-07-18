@@ -12,3 +12,5 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-19] hypothesis | BANK-H-002 規制対応・接続の壁でAIがPoC止まり（核心候補） → 新規作成 確信度3/未検証
 ## [2026-07-19] hypothesis | BANK-H-003 誤り時の説明責任・是正フロー未設計で人手確認を外せない → 新規作成 確信度2/未検証
 ## [2026-07-19] hypothesis | BANK-H-004 個別AIツール乱立で横展開できずコスト分散 → 新規作成 確信度2/未検証
+## [2026-07-19] desk-research | BANK-ACT-001 テストカード作成（BANK-H-001） → 検証計画
+## [2026-07-19] desk-research | BANK-ACT-002 テストカード作成（BANK-H-002/003/004） → 検証計画
