@@ -1,5 +1,7 @@
 # 仮説検証Wiki（LLM-wiki＋AgentSkills）実装計画
 
+> 注記（後日）: 本計画中の `/grill` は現在 `/formulate` に改称されている。この計画は当時の記録としてそのまま残す。
+
 ## Context
 
 仮説検証活動（CPF→FPF→PSF→SPF→PMFの5ステージ）を通じてWikiを育てる、Karpathyの「LLM Wiki」パターン（gist: karpathy/442a6bf5…）を仮説検証ドメインに適用したキットを作る。狙いは：

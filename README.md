@@ -1,96 +1,163 @@
 # 仮説検証Wiki（Hypothesis Wiki）
 
-仮説検証活動（**CPF → FPF → PSF → SPF → PMF** の5ステージ）を通じて育てる LLM-wiki キット。
-Karpathy の「LLM Wiki」パターンを仮説検証ドメインに適用し、Claude Code の AgentSkills で運用する。
+仮説検証活動（**CPF → FPF → PSF → SPF → PMF** の5ステージ）を、**確信度**という一本の物差しで育てる LLM-wiki キット。
+Claude Code の AgentSkills を使い、曖昧なアイデアを反証可能な仮説にし、インタビューやプロトタイプで検証し、
+その学びと意思決定を「後から歴史を追える記録」として積み上げる。
 
-- 4+1タイプの仮説（状況・行動／課題／ソリューション／買ってもらえる／自分たち）の**確信度**を、インタビューやプロトタイプデモを通じて段階的に高める
-- 「確信度が低く、かつ現ステージで重要な仮説」の検証計画立案をAIが支援する
-- 意思決定ログにより歴史性を後から学べ、ピボット・巻き戻しの判断を支援する
+## これは何か（目的）
 
-## 3層アーキテクチャ
+仮説検証の現場では、こういうことが起こりがちだ。
+
+- 学びが Slack・スプレッドシート・議事録に散らばり、**過去の検証が忘れられる**。
+- 「いいですね」と言われただけで購買意向と取り違え、**偽の確証**で前に進んでしまう。
+- なぜその判断をしたのか**経営層に説明できず**、合意形成が滞る。
+
+このキットは、検証の「学び」と「判断」を1か所に構造化して積み上げることでこれに抗う。
+
+- 4+1タイプの仮説（状況・行動／課題／ソリューション／買ってもらえる／自分たち）の**確信度**を、
+  インタビューやプロトタイプデモという**証拠（活動・意思決定レコード）に紐づけて**段階的に高める。
+- 「確信度が低く、いま重要な仮説」をAIが選び、検証計画（テストカード）まで立てる。
+- ピボット・巻き戻しの意思決定をログに残し、歴史を後から学べるようにする。
+
+Karpathy の「LLM Wiki」パターンを仮説検証ドメインに適用したもので、規約（[CLAUDE.md](CLAUDE.md)）に従う
+AIが「規律あるWikiの保守者」として運用する。
+
+## 仕組み（3層・5ステージ・確信度）
+
+**3層アーキテクチャ** — 生データ・生成物・規約を分けて管理する。
 
 | 層 | 場所 | 編集権 |
 |---|---|---|
 | Raw Sources（不変層） | `projects/<slug>/sources/` | 人間が置く。AIは読むだけ |
 | The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新 |
-| The Schema（設定層） | `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全プロジェクト共有） |
+| The Schema（設定層） | `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
 
-規約の詳細は [CLAUDE.md](CLAUDE.md) を参照。**仮説検証は案件（プロジェクト）単位で分ける**（[projects/README.md](projects/README.md)）。
+**5ステージ** — 顧客と課題から市場まで、段階的に確信度を上げる。詳細は `playbooks/<stage>.md`。
+
+| ステージ | 正式名称 | 問うこと |
+|---|---|---|
+| CPF | Customer Problem Fit | 顧客と課題は実在するか |
+| FPF | Founder Problem Fit | 自分たちが取り組む理由があるか |
+| PSF | Problem Solution Fit | 解決策は課題の芯を捉えるか |
+| SPF | Solution Product Fit | 繰り返し使うプロダクトになるか |
+| PMF | Product Market Fit | 市場が引き寄せるか |
+
+**確信度は2軸で別管理** — 確信度（1〜10、証拠の強さ）とステータス（未検証 → 検証中 → 検証済み ／ 反証）。
+確信度・ステータスの変更は**必ず活動（ACT）か意思決定（DEC）に紐づける**（勘で書き換えない）。
+
+**案件（プロジェクト）単位** — 仮説検証は `projects/<slug>/` 単位で分け、各案件が自分の `sources/` と `wiki/` を持つ。
+スキーマ層は全案件で共有。規約の詳細は [CLAUDE.md](CLAUDE.md)、案件分割の考え方は [projects/README.md](projects/README.md) を参照。
+
+## クイックスタート（チュートリアル）
+
+Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい案件を1本まわす流れはこうだ。
+
+| やりたいこと | スキル |
+|---|---|
+| 新しい案件（プロジェクト）を雛形から作る | `/new-project` |
+| 曖昧なアイデアを反証可能な仮説に精錬する（1問ずつ深掘り） | `/formulate` |
+| 次に検証すべき仮説を選び、テストカードを立案する | `/plan` |
+| 仮説から LP／モックアップの HTML プロトタイプを生成する | `/prototype` |
+| インタビュー録・デモ記録を取り込み、学習カード作成・確信度更新 | `/ingest` |
+| バリュープロポジション／一覧／ボードのビューを生成する | `/view` |
+| ステージ移行・ピボット・巻き戻しの意思決定を記録する | `/decide` |
+| Wiki の健全性をチェックする | `/lint` |
+
+典型的な流れ:
+
+0. `projects/current.md` で対象案件を確認（新規なら次の手順で作る）。
+1. **`/new-project`** — 案件を `projects/<slug>/` に作り、接頭辞（例 `ACME`）と現在案件を設定する。
+2. **`/formulate`** — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする。タイプ・初期確信度・ステータスを付けて起票。
+3. **`/plan`** — 「重要 × 確信度低」の仮説を選び、検証前のテストカード（目的・方法・指標・成功基準）を持つ活動（`<PREFIX>-ACT-NNN`）を計画する。
+4. **`/prototype`** — 見せて反応を得たい仮説から、自己完結の HTML プロトタイプ（LP／2〜3画面モックアップ）を `wiki/prototypes/` に生成し、demo/interview の ACT に紐づける。
+5. **検証を実施** — インタビュー録やデモ記録などの生データを `projects/<slug>/sources/` に置く（不変層。AIは読むだけ）。
+6. **`/ingest`** — 生データから活動の学習カード（事実・解釈・驚き）を書き、確信度・ステータスの更新を承認フロー付きで反映する。
+7. **俯瞰と岐路** — `/view list`・`/view vp` で現状を俯瞰、岐路で `/decide`（ステージ移行・ピボット・巻き戻し）、ときどき `/lint` で健全性チェック。
+
+## チャットで頼む・聞く（自然言語でOK）
+
+スラッシュコマンドを覚える必要はない。**やりたいことを日本語でチャットに書けば、Claude Code が適切なスキルを選ぶ**。
+そして、このWikiについて**分からないことはそのままチャットで質問すればいい**——AIが規約（[CLAUDE.md](CLAUDE.md)）と
+`wiki/` の中身を読んで答える。困ったらまず「このリポジトリは何をするもの？どう使う？」と聞いてみるとよい。
+
+サンプルプロンプト:
+
+| 言いたいこと（チャットにこう書く） | 起きること |
+|---|---|
+| 「このリポジトリは何をするもの？どう使い始めればいい？」 | 使い方を説明してくれる（読むだけ） |
+| 「新しい案件『◯◯』を始めたい」 | `/new-project` が走り、案件を作る |
+| 「『AIが検証記録を自動でまとめてくれると助かるはず』を仮説にしたい」 | `/formulate` が反証可能な仮説に精錬する |
+| 「次に何を検証すべき？計画を立てて」 | `/plan` が重要×確信度低の仮説を選びテストカードを作る |
+| 「この仮説を試すためのLPを作って」 | `/prototype` が HTML の LP を生成し ACT に紐づける |
+| 「インタビュー結果を `sources/` に置いたので取り込んで」 | `/ingest` が学習カードを書き、確信度更新を提案する |
+| 「今の仮説の状況を一覧（ボード）で見せて」 | `/view` が最新のビューを生成する |
+| 「CPF から FPF に進んでいい？判断を記録したい」 | `/decide` が意思決定レコードを作る |
+| 「Wiki に矛盾や放置がないか点検して」 | `/lint` が健全性レポートを出す |
+| 「`SELF-H-006` の確信度がなぜ8なのか、根拠を教えて」 | 記録を読んで根拠を説明してくれる（読むだけ） |
+| 「重要なのに確信度が低い仮説はどれ？」 | 現状を分析して答えてくれる（読むだけ） |
+
+> 「読むだけ」の質問は記録を書き換えない。確信度・ステータスを動かす操作（`/ingest`・`/decide` など）は
+> 必ず根拠レコードに紐づけ、承認フローを挟む。
+
+## 実例で見る（同梱のドッグフーディング: self）
+
+このリポジトリには、キット自体を題材にスキルを一巡させた実例が入っている（`projects/self/`、接頭辞 `SELF`）。
+**この案件のインタビュー等はすべて動作デモ用の架空シミュレーションデータ**で、各 `sources/` と `index.md` の
+冒頭に明記している。
+
+たどれるストーリー:
+
+- **CPF** — 「作る前に検証を反復する実践者」を想定顧客に、核心となる3つの課題仮説を検証した:
+  記録が散逸し過去の学びが忘れられる（`SELF-H-004`）／好反応を購買意向と取り違え偽の確証で進む（`SELF-H-006`）／
+  根拠を経営層に説明できず合意が滞る（`SELF-H-008`）。いずれも確信度8・検証済み。
+- **`/decide`** — 核心クラスタが移行基準を満たしたので、`SELF-DEC-001` で **CPF→FPF** に移行（`stage.md` は現在 FPF）。
+- **`/prototype`** — FPF から先取りして「確信度Wiki」の LP（`SELF-ACT-004`、`wiki/prototypes/SELF-ACT-004/index.html`）を
+  生成し、提示インタビューにかけた。
+- **反証も学び** — LP は好反応でも、乗り換え・対価という**行動**の意向は出ず、ソリューション仮説 `SELF-H-009` と
+  買ってもらえる仮説 `SELF-H-010` は**反証**（interest ≠ intent）。「いいね」を確証と取り違えない、という
+  このキットの狙いを自ら実演した形になっている。
+
+`/view` が生成した俯瞰は `projects/self/wiki/views/`（`board.md`・`hypotheses-list.md`・`value-proposition.md`）にある。
+運用で得た改善は `docs/skill-improvements.md`（SI-NNN）に蓄積し、スキル定義へ反映している。
+
+> ⚠️ self は**架空データによるデモ**。新しい案件で使うときは下記「新しいプロジェクトの追加」で、実データに置き換えること。
 
 ## ディレクトリ構成
 
 ```
 hypothesis-wiki/
-├── CLAUDE.md               # スキーマ層（規約・ルール・ワークフロー）
-├── README.md               # このファイル
-├── .claude/skills/         # AgentSkills 6つ（formulate/plan/ingest/view/decide/lint・共有）
-├── templates/              # 雛形（hypothesis / activity / decision / interview-script・共有）
-├── playbooks/              # ステージプレイブック（cpf〜pmf・共有）
+├── CLAUDE.md               # スキーマ層（規約・レコードスキーマ・ワークフロー）
+├── README.md               # このファイル（目的・使い方）
+├── .claude/skills/         # AgentSkills 8つ（new-project/formulate/plan/prototype/ingest/view/decide/lint・共有）
+├── templates/              # 雛形（hypothesis/activity/decision/interview-script/prototype-lp.html/prototype-mockup.html/project・共有）
+├── playbooks/              # ステージプレイブック（cpf/fpf/psf/spf/pmf・共有）
 ├── docs/
-│   ├── skill-improvements.md  # スキル改善バックログ（SI-NNN）
-│   └── superpowers/specs/     # 設計ドキュメント
-└── projects/               # 案件単位の仮説検証（各プロジェクトが sources と wiki を持つ）
-    ├── current.md          # 現在アクティブなプロジェクト（slug）を指すポインタ
+│   ├── skill-improvements.md        # スキル改善バックログ（SI-NNN）
+│   └── superpowers/{specs,plans}/   # 設計・計画ドキュメント
+└── projects/               # 案件単位の仮説検証（各案件が sources と wiki を持つ）
+    ├── current.md          # 現在アクティブな案件（slug）を指すポインタ
     └── <slug>/             # 例: self（このツール自体のドッグフーディング。接頭辞 SELF）
-        ├── sources/        # このプロジェクトの生データ（読み取り専用）
+        ├── sources/        # 生データ（読み取り専用）
         └── wiki/
             ├── hypotheses/<PREFIX>-H-NNN.md
-            ├── activities/<PREFIX>-ACT-NNN.md   # ＋ <PREFIX>-ACT-NNN-script.md
+            ├── activities/<PREFIX>-ACT-NNN.md          # ＋ <PREFIX>-ACT-NNN-script.md（インタビュー台本）
             ├── decisions/<PREFIX>-DEC-NNN.md
+            ├── prototypes/<PREFIX>-ACT-NNN/index.html  # /prototype の生成物
             ├── views/      # 生成物（手編集禁止。例: hypotheses-list.md）
             ├── index.md    # 仮説カタログ
             ├── log.md      # 活動タイムライン（追記専用）
             └── stage.md    # 現在ステージと移行基準
 ```
 
-ファイル名＝ID は**プロジェクト接頭辞つき**（例 `SELF-H-001.md`）。Obsidian のwikilinkは
-vault全体でファイル名が一意でないと解決しないため、接頭辞で衝突を防ぐ。
-
-## 使い始め方
-
-Claude Code でこのリポジトリを開き、スキルを呼び出す。
-
-| やりたいこと | スキル |
-|---|---|
-| 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |
-| 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulate` |
-| 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
-| インタビュー録・デモ記録の取り込みと学習カード作成・確信度更新 | `/ingest` |
-| バリュープロポジション／一覧／ボードのビュー生成 | `/view` |
-| ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |
-| Wikiの健全性チェック | `/lint` |
-
-典型的な流れ:
-
-0. `projects/current.md` で対象プロジェクトを確認・切り替える（新規なら `projects/<slug>/` を作る）
-1. `/formulate` — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする
-2. `/plan` — 重要×確信度低の仮説を選び、テストカード付きの活動（`<PREFIX>-ACT-NNN`）を計画
-3. 検証を実施し、生データを `projects/<slug>/sources/` に置く
-4. `/ingest` — 学習カードを書き、確信度・ステータスを更新（承認フロー付き）
-5. `/view list` / `/view vp` — 現状を俯瞰
-6. 岐路で `/decide` — ステージ移行・ピボット・巻き戻しを記録
-7. ときどき `/lint` — 健全性チェック
-
-## 同梱の実例（このリポジトリ自体のドッグフーディング）
-
-このリポジトリには、キット自体を題材に実際にスキルを回した実例が入っている（`/formulate`→`/plan`→`/ingest`→`/view` の一巡）。
-
-- 置き場所: `projects/self/`（接頭辞 `SELF`）。
-- **仮説**: 状況・行動／課題／ソリューション／買ってもらえるの各タイプにまたがる `SELF-H-001`〜`SELF-H-013`（欠番 `SELF-H-002`・`SELF-H-003` は取り下げ済み。`log.md` に記録）。
-- **活動**: 問題インタビューのテストカード＋現場用スクリプト（`SELF-ACT-001*`）、追加インタビュー（`SELF-ACT-002`）。
-- **ビュー**: `projects/self/wiki/views/hypotheses-list.md`（関連リンク列＋バリューチェーン図つき）。
-- **バリューチェーン**: 「繰り返す行動 → 切実な課題 → 解決策 → 市場で買ってもらえる」が CPF→PSF→SPF を貫く筋として繋がっている。
-
-> ⚠️ ACT-001／ACT-002 のインタビューは**動作デモ用の架空データ**で、各 `sources/` ファイル冒頭に明記している。実プロジェクトでは実データに置き換えること。新規案件で使うときは下記「別案件へのキット複製」で実例を空にする。
-
-運用で得た改善は `docs/skill-improvements.md`（SI-NNN）に蓄積し、スキル定義へ反映している。
+ファイル名＝ID は**プロジェクト接頭辞つき**（例 `SELF-H-001.md`）。Obsidian のwikilinkは vault 全体で
+ファイル名が一意でないと解決しないため、接頭辞で衝突を防ぐ。
 
 ## Obsidian で開く（探索ネットワークの可視化）
 
 リポジトリのルートを Obsidian vault として開くと、仮説の系譜（派生・ピボット・巻き戻し）と
 仮説↔活動↔意思決定の参照がグラフビューで一望できる。
 
-- ファイル名は ID そのもの＋プロジェクト接頭辞（`SELF-H-021.md` 等）なので `[[SELF-H-021]]` のwikilinkがvault全体で一意に解決する（プロジェクト間のID衝突を防ぐ）。
+- ファイル名は ID そのもの＋プロジェクト接頭辞（`SELF-H-004.md` 等）なので `[[SELF-H-004]]` のwikilinkが vault 全体で一意に解決する（プロジェクト間の ID 衝突を防ぐ）。
 - 相互参照は本文にwikilinkで書く規約（frontmatter配列だけではグラフに辺が出ない）。
 - グラフビューでは `wiki/views/`（生成物）をフィルタで除外すると仮説ネットワークが見やすい。
 - frontmatter は Dataview の動的テーブル（確信度一覧など）にもそのまま使える。
@@ -99,16 +166,16 @@ Claude Code でこのリポジトリを開き、スキルを呼び出す。
 ## 新しいプロジェクト（案件）の追加
 
 同じリポジトリ内に案件を並べられる。**`/new-project` スキル**が `templates/project/` の雛形から
-`projects/<slug>/`（`sources/` と空の `wiki/`）を作り、`projects/current.md` を切り替える。
+`projects/<slug>/`（`sources/` と空の `wiki/` 一式）を作り、`projects/current.md` を切り替えるところまで行う。
 
 手動で作る場合の要点（詳細は [projects/README.md](projects/README.md)）:
 
-1. `templates/project/` を `projects/<slug>/` にコピー（`sources/`＋空の `wiki/` 一式が入っている）。
+1. `templates/project/` を `projects/<slug>/` にコピーする。
 2. `wiki/stage.md` の日付プレースホルダを埋める。
-3. 大文字の接頭辞（他プロジェクトと重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
-4. `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` は全プロジェクト共有なのでそのまま使う。
+3. 大文字の接頭辞（他案件と重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
+4. `CLAUDE.md`・`playbooks/`・`templates/`・`.claude/skills/` は全案件共有なのでそのまま使う。
 
-リポジトリごと別案件へ複製したい場合は、`projects/` 以下を空にして上記でプロジェクトを新規作成すればよい。
+リポジトリごと別案件へ複製したい場合は、`projects/` 以下を空にして上記で案件を新規作成すればよい。
 
 ## 記述言語
 
