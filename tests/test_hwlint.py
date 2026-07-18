@@ -389,5 +389,29 @@ class StopLintTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
 
 
+class EvidenceTagTest(unittest.TestCase):
+    def test_untagged_reason_warned(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 手応えがあった | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            hits = [p for p in hwlint.lint_project(root) if p.check == "evidence-tag"]
+            self.assertEqual(len(hits), 1)
+            self.assertEqual(hits[0].level, "warning")
+
+    def test_tagged_reason_ok(self):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉〈実コスト〉3名が該当 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "evidence-tag"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -304,9 +304,26 @@ def check_fictional_cap(project) -> list:
     return problems
 
 
+EVIDENCE_TAGS = ("〈発言〉", "〈自認〉", "〈実コスト〉", "〈行動〉", "〈支払い〉", "〈二次〉", "〈架空〉")
+
+
+def check_evidence_tags(project) -> list:
+    """証拠の階梯: 履歴2行目以降の根拠セルには証拠種別タグを付ける（新規約のため warning 運用）。"""
+    problems = []
+    for stem, (path, fm, body) in project.records.items():
+        if "-H-" not in stem:
+            continue
+        for row in parse_history(body)[1:]:
+            if not any(tag in row["reason"] for tag in EVIDENCE_TAGS):
+                problems.append(Problem("warning", stem, "evidence-tag",
+                    f"履歴 {row['date']} 行の根拠に証拠種別タグ（〈自認〉〈実コスト〉等）が無い"))
+    return problems
+
+
 CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks,
-          check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap]
+          check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
+          check_evidence_tags]
 
 
 def lint_project(root: Path) -> list:
