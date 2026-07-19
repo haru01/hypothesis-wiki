@@ -2,8 +2,8 @@
 id: SELF-H-006
 title: 好意的反応を購買意向と取り違え偽の確証で前進する
 type: 課題仮説
-status: 検証済み
-confidence: 8
+status: 検証中
+confidence: 6
 stage: CPF
 importance: auto
 derived-from:
@@ -34,3 +34,4 @@ derived-from:
 | 2026-07-16 | 4 | 未検証 | デスクリサーチ。The Mom Test「compliments/hypothetical fluff/wishlistは悪いデータ」（P4） | [[SELF-ACT-001]] |
 | 2026-07-17 | 6 | 検証中 | 架空5名中、B・Eで実害（好感触を信じ数週間〜3ヶ月の無駄実装）。実データ未検証 | [[SELF-ACT-002]] |
 | 2026-07-18 | 8 | 検証済み | 追加10名で行動追跡8/10が「好感触案件の実購入転換が体感より大幅に低い」。自力で区別できるのは2/10のみ＝反証成立せず。架空・単一ラウンドゆえ上限8 | [[SELF-ACT-003]] |
+| 2026-07-19 | 6 | 検証中 | 〈架空〉揺さぶり監査で引き下げ。interest≠intent を架空intentで確証していた自己矛盾。行動追跡は架空。正直な天井は検証中6 | [[SELF-ACT-005]] |
