@@ -154,6 +154,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 | やりたいこと | スキル |
 |---|---|
 | 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |
+| 対象ドメイン・競合を実Web検索で調べ、想定ユーザの行動/課題仮説を起票し競合を比較する | `/desk-research` |
 | 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulate` |
 | 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
 | 検証用のHTMLプロトタイプ（LP／モックアップ）を仮説から生成しdemo/interviewのACTに紐づける | `/prototype` |
