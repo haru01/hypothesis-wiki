@@ -162,6 +162,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 | インタビュー録・デモ記録の取り込みと学習カード作成・確信度更新 | `/ingest` |
 | バリュープロポジション／一覧／ボードのビュー生成 | `/view` |
 | ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |
+| Wikiの確信度に揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけて引き下げ、新しい探索域を発見する | `/chabudai` |
 | Wikiの健全性チェック | `/lint` |
 
 ## 記述言語

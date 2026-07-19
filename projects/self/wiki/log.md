@@ -25,3 +25,6 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-18] interview | SELF-ACT-004 確信度WikiのLP生成（lp・SPF先取りプレビュー） → SELF-H-009/010 確信度変更なし
 ## [2026-07-18] interview | SELF-ACT-004 LP提示インタビュー10名（架空・interest8/intent2） → SELF-H-009 反証, SELF-H-010 反証（確信度2据え置き・実データ未検証）
 ## [2026-07-18] lint | 健全性チェック実施 → 問題0件（9項目すべて健全）。助言2件（FPF重点の自分たち仮説が未起票／ACT-004はSPF先取りプレビュー）
+
+## [2026-07-19] self-reflection | SELF-ACT-005 揺さぶり監査（ちゃぶ台返し）。架空データは〈実コスト〉〈行動〉に乗らず「検証済み」を満たさない → SELF-H-001 7→6, SELF-H-002 7→6, SELF-H-004 8→6, SELF-H-006 8→6, SELF-H-008 8→6（いずれも検証済み→検証中）。SELF-DEC-001 の巻き戻しシグナル1が点灯、CPF巻き戻しを /decide 候補として記録
+## [2026-07-19] decision | SELF-DEC-002 FPF→CPF巻き戻し（架空依存の偽検証済みを是正・DEC-001シグナル1点灯） → ステージ CPF へ。核心クラスタは検証中6のまま実データ再検証を最優先
