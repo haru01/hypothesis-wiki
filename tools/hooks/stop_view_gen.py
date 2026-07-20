@@ -2,7 +2,7 @@
 """Stop フック: 現在プロジェクトのレコードが機械ビューより新しければ再生成する。
 
 gen_views は決定論・ゼロトークンなので、ターン終了時に `Project` を1回だけ構築して
-全ビュー（board/list/vp）をインプロセス生成する（サブプロセスを分けず全レコードの再読込を避ける）。
+全ビュー（board/list）をインプロセス生成する（サブプロセスを分けず全レコードの再読込を避ける）。
 生成対象・出力ファイル名は gen_views.VIEWS を単一の真実源にする。非ブロック（常に exit 0）。
 """
 import json
@@ -55,7 +55,7 @@ def main() -> int:
         project = Project(root)
         for fname, fn in VIEWS.values():
             out = fn(project)
-            if out is not None:  # 生成条件を満たさないビュー（例: ソリューション未起票の vp）はスキップ
+            if out is not None:  # 生成条件を満たさないビュー（gen が None を返す）はスキップ
                 (views_dir / fname).write_text(out, encoding="utf-8")
     except Exception as e:  # ビュー生成の失敗でターンを止めない
         print(f"gen_views 失敗: {e}", file=sys.stderr)
