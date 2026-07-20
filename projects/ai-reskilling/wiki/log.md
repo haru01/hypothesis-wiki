@@ -23,3 +23,5 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-20] desk-research | AIRE-ACT-005 取り下げ（同上：上記3仮説の器であり同一ストーリーに引っ張られた枠組みのため） → レコード削除。ID AIRE-ACT-005 は欠番。出典付き生データ sources/2026-07-20-desk-research-scrum-master.md・-agile-coach.md は不変ルールにより保持（将来より広い視点で読み直す素材）
 
 ## [2026-07-20] desk-research | 作り手の白紙・多視点再探索（広角7レンズ＋追撃6レンズのファンアウト） → 生データ2本を sources/ に保存（maker-wide-aperture・maker-demand-japan）。起票なし・ACT未作成・確信度未付与。単一物語（認知的降伏/配布）に畳まず独立死因を並置。最大の気づき＝AI帰属交絡（列挙死因の過半はAI無関係にソロ受託でも死ぬ汎用因子）。次段階は死因追加でなくAI固有vs汎用の分離・生存者対照・頻度づけ・需要側一次観測
+
+## [2026-07-20] desk-research | 今セッションのデスク調査を破棄（ユーザー判断） → sources 4本を削除（scrum-master・agile-coach・maker-wide-aperture・maker-demand-japan）。反証ではない。起票物なし。元の AIRE-H-001/002/003・AIRE-ACT-001・2026-07-19 デスクリサーチ/chabudai は保持
