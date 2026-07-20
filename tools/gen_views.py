@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""仮説検証Wiki のビュー機械生成（board / list / vp）。
+"""仮説検証Wiki のビュー機械生成（board / list）。
 
 レコード（SSoT）からビューを決定論的に生成する。/view（LLM）と違い推論・要約・因果の
 キュレーションは行わず、frontmatter・固定見出し・リンクの射影/逐語転記だけで組む。
@@ -273,6 +273,11 @@ def trunc(s: str, n: int = 16) -> str:
     return s if len(s) <= n else s[:n] + "…"
 
 
+def latest_reason(history) -> str:
+    """確信度履歴の最終行の根拠セル（list の「直近の根拠」列に射影）。"""
+    return history[-1]["reason"] if history else ""
+
+
 def is_core(fm) -> bool:
     return fm.get("core", "").strip() == "true"
 
@@ -324,17 +329,18 @@ def gen_list(project) -> str:
 
     # タイプ別テーブル（確信度降順）
     for _, heading, _, types in LIST_GROUPS:
-        members = sorted([(s, fm) for s, fm, _, _ in hyps if fm.get("type") in types],
+        members = sorted([(s, fm, hist) for s, fm, _, hist in hyps if fm.get("type") in types],
                          key=lambda x: -int(x[1].get("confidence", "0") or 0))
         if not members:
             continue
-        L += [f"## {heading}", "", "| ID | タイトル | 確信度 | ステータス | 重要度 | 関連 |",
-              "|---|---|---|---|---|---|"]
-        for s, fm in members:
+        L += [f"## {heading}", "", "| ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |",
+              "|---|---|---|---|---|---|---|"]
+        for s, fm, hist in members:
             core = "★" if is_core(fm) else ""
             emo = STATUS_EMOJI.get(fm.get("status", ""), "")
             L.append(f"| [[{s}]]{core} | {fm.get('title', '')} | {fm.get('confidence', '')} | "
-                     f"{emo}{fm.get('status', '')} | {importance(fm, stage)} | {related_links(s, fm, act_by_hyp)} |")
+                     f"{emo}{fm.get('status', '')} | {importance(fm, stage)} | {related_links(s, fm, act_by_hyp)} | "
+                     f"{trunc(latest_reason(hist), 44)} |")
         L.append("")
 
     # 次に検証すべき
@@ -358,13 +364,11 @@ def gen_list(project) -> str:
 
 
 # ---- vp（バリュープロポジション）ビュー ----
+# vp は現在 VIEWS 未登録・生成停止中（「直近の根拠」は list へ統合済み）。
+# 復活させるときは VIEWS に "vp": ("value-proposition.md", gen_vp) を再登録するだけでよい。
 
 VALUE_TYPES = {"ソリューション仮説"}
 WILLING_TYPES = {"買ってもらえる仮説"}
-
-
-def latest_reason(history) -> str:
-    return history[-1]["reason"] if history else ""
 
 
 def gen_vp(project):
@@ -434,7 +438,6 @@ def gen_vp(project):
 VIEWS = {
     "board": ("board.md", gen_board),
     "list": ("hypotheses-list.md", gen_list),
-    "vp": ("value-proposition.md", gen_vp),
 }
 
 
@@ -447,7 +450,7 @@ def resolve_slug(repo: Path, project):
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="仮説検証Wiki のビュー機械生成（board / list / vp）")
+    ap = argparse.ArgumentParser(description="仮説検証Wiki のビュー機械生成（board / list）")
     ap.add_argument("view", choices=list(VIEWS))
     ap.add_argument("--project", help="対象プロジェクト slug（省略時は projects/current.md）")
     ap.add_argument("--repo", default=".", help="リポジトリルート")
