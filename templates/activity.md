@@ -5,6 +5,8 @@ type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
 hypotheses: [<PREFIX>-H-NNN]   # 接頭辞つきで書く（例 [SELF-H-001]）
+riskiest-assumption: 最もリスクの高い前提を一文で（この実験で崩れたら全体が崩れる一点）
+outcome:                       # 検証後に /ingest が記入。起票 | 支持 | 反証 | 判断保留 | 是正 のいずれか（検証前は空＝未実施）
 ---
 
 # 短いタイトル
@@ -21,6 +23,10 @@ hypotheses: [<PREFIX>-H-NNN]   # 接頭辞つきで書く（例 [SELF-H-001]）
 - **成功基準**: どうなれば仮説を支持／反証と判断するか。**開始後は書き換えない**（後知恵バイアス防止）。
 
 ## 学習カード（検証後に記入）
+
+### 学びの要点
+
+この検証で分かった最も重要なこと1-2文（見出し的に鋭く）。board の結果行に射影される。事実の羅列でなく「何が言えたか」を書く。
 
 ### 事実（observed）
 

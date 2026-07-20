@@ -1,6 +1,7 @@
 ---
 id: AIRE-H-003
 title: 中核は実行でなく目利きとオーケストレーションだが不足しがち
+short-title: 目利き不足
 type: 課題仮説
 status: 未検証
 confidence: 3

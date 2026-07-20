@@ -1,12 +1,14 @@
 ---
 id: SELF-H-006
 title: 好意的反応を購買意向と取り違え偽の確証で前進する
+short-title: 偽の確証
 type: 課題仮説
 status: 検証中
 confidence: 6
 stage: CPF
 importance: auto
 derived-from:
+leads-to: [SELF-H-009]
 ---
 
 # 好意的反応を購買意向と取り違え偽の確証で前進する

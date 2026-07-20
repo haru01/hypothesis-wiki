@@ -1,12 +1,14 @@
 ---
 id: SELF-H-008
 title: 検証の根拠を経営層に説明できず合意形成が停滞する
+short-title: 説明できず停滞
 type: 課題仮説
 status: 検証中
 confidence: 6
 stage: CPF
 importance: auto
 derived-from: SELF-H-004
+leads-to: [SELF-H-009]
 ---
 
 # 検証の根拠を経営層に説明できず合意形成が停滞する

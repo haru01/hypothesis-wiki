@@ -1,6 +1,7 @@
 ---
 id: SELF-H-005
 title: 確証バイアスで反証を軽視し過大評価する
+short-title: 確証バイアス
 type: 課題仮説
 status: 検証中
 confidence: 4

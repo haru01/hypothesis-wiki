@@ -1,12 +1,14 @@
 ---
 id: SELF-H-001
 title: 実践者は作る前に検証を反復する
+short-title: 検証を反復
 type: 状況・行動仮説
 status: 検証中
 confidence: 6
 stage: CPF
 importance: auto
 derived-from:
+leads-to: [SELF-H-004, SELF-H-006]
 ---
 
 # 実践者は作る前に検証を反復する

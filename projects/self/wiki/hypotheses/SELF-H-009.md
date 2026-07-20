@@ -1,12 +1,15 @@
 ---
 id: SELF-H-009
 title: AI支援＋構造化記録が既存ツールより核心課題を解決する
+short-title: AI支援+記録+レポート
 type: ソリューション仮説
 status: 反証
 confidence: 2
 stage: PSF
 importance: auto
 derived-from: SELF-H-004
+leads-to: [SELF-H-010]
+addresses: [SELF-H-004, SELF-H-006, SELF-H-008]
 ---
 
 # AI支援＋構造化記録が既存ツールより核心課題を解決する

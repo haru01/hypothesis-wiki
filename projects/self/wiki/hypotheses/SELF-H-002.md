@@ -1,12 +1,14 @@
 ---
 id: SELF-H-002
 title: 学びが複数ツールに散在し集約されない
+short-title: 学びが散在
 type: 状況・行動仮説
 status: 検証中
 confidence: 6
 stage: CPF
 importance: auto
 derived-from: SELF-H-001
+leads-to: [SELF-H-004, SELF-H-009]
 ---
 
 # 学びが複数ツールに散在し集約されない

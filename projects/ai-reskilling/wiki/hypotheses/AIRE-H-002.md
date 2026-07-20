@@ -1,12 +1,14 @@
 ---
 id: AIRE-H-002
 title: 理解せぬ承認の反復で成果物が累積的に歪む
+short-title: 累積ドリフト
 type: 課題仮説
 status: 未検証
 confidence: 3
 stage: CPF
 importance: auto
 derived-from:
+core: true
 ---
 
 # 理解せぬ承認の反復で成果物が累積的に歪む

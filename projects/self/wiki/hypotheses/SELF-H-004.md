@@ -1,12 +1,15 @@
 ---
 id: SELF-H-004
 title: 記録が残らず散逸・属人化し過去の学びが忘れられる
+short-title: 記録が残らない
 type: 課題仮説
 status: 検証中
 confidence: 6
 stage: CPF
 importance: auto
 derived-from:
+leads-to: [SELF-H-008, SELF-H-009]
+core: true
 ---
 
 # 記録が残らず散逸・属人化し過去の学びが忘れられる

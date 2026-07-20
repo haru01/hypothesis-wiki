@@ -5,6 +5,7 @@ type: interview
 date: 2026-07-19
 stage: CPF
 hypotheses: [AIRE-H-001, AIRE-H-002, AIRE-H-003]
+riskiest-assumption: 2〜3名＋専門エージェントの作り手において、理解せぬ承認の反復→手戻り・障害・顧客の混乱が過去の事実として実際に起きている（実コストを伴う）
 ---
 
 # 認知的降伏シナリオの反証インタビュー（2〜3名＋エージェントの作り手）
