@@ -4,14 +4,14 @@ title: AIエージェントPFのデスクリサーチ（想定ユーザ課題＋
 type: desk-research
 date: 2026-07-20
 stage: CPF
-hypotheses: [AGP-H-001, AGP-H-002, AGP-H-003, AGP-H-004, AGP-H-005]
+hypotheses: [AGP-H-001, AGP-H-002, AGP-H-003, AGP-H-004]
 riskiest-assumption: 会話/成果の散逸とナレッジ断絶は、文献の一般論でなく特定の企業チームが実コスト（探し直し・再作成・監査対応）を払っている実在の痛みである
 outcome: 起票
 ---
 
 # AIエージェントPFのデスクリサーチ（想定ユーザ課題＋競合）
 
-対象仮説: [[AGP-H-001]] [[AGP-H-002]] [[AGP-H-003]] [[AGP-H-004]] [[AGP-H-005]]
+対象仮説: [[AGP-H-001]] [[AGP-H-002]] [[AGP-H-003]] [[AGP-H-004]]
 生データ: [desk-research（ユーザ課題）](../../sources/2026-07-20-desk-research-agent-platform.md) ／ [競合マップ](../../sources/2026-07-20-desk-research-competitors.md)
 
 ## テストカード（検証前に記入・後から書き換えない）
@@ -64,7 +64,6 @@ AIエージェントPF領域で、想定ユーザ（大企業/中小のナレッ
 | [[AGP-H-002]] | — | 4 | 未検証 | 〈二次〉AMP新カテゴリ化＝運用分散の裏返し |
 | [[AGP-H-003]] | — | 4 | 未検証 | 〈二次〉decision history 断絶をKG/オントロジー論者が指摘 |
 | [[AGP-H-004]] | — | 3 | 未検証 | 〈二次〉SMB非専任は状況証拠が弱く単一寄り |
-| [[AGP-H-005]] | — | 3 | 未検証 | 〈二次〉3カテゴリ統合の勝ち筋は当たりのみ（Palantirが脅威） |
 
 ### 次のアクション
 
