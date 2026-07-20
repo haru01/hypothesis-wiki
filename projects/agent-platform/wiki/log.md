@@ -18,3 +18,4 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-20] lint | 健全性チェック実施（hwlint: error 0/warning 0・testcard-immutable: 0・意味チェック: 問題0件） → 健全（架空データは全レコードで明示済み）
 ## [2026-07-20] self-reflection | AGP-ACT-004 揺さぶり監査 → AGP-H-003 確信度6→5（確証バイアス減点）／AGP-H-001 据え置き（反証耐性確認）
 ## [2026-07-20] hypothesis | AGP-H-001/H-005 再フレーム（会話履歴散逸→意思決定活動ログ不在／勝ち筋=AI共同作業の副産物として自然に残る） → 確信度は据え置き・新フレームで実データ要再検証
+## [2026-07-20] hypothesis | AGP-H-001/H-003/H-005 テーマ絞り込み（Decision Record＝ADRの経営版へ。決定・選択肢・却下理由・根拠を第一級に。近接競合を議事録AIに） → 確信度据え置き・新フレームで実データ要再検証
