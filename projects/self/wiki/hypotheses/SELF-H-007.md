@@ -1,6 +1,7 @@
 ---
 id: SELF-H-007
 title: 反証不能な曖昧仮説を成功基準なしで検証する
+short-title: 反証不能な仮説
 type: 課題仮説
 status: 検証中
 confidence: 4

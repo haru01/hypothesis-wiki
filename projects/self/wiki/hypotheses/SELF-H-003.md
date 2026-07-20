@@ -1,12 +1,14 @@
 ---
 id: SELF-H-003
 title: 仮説の更新は報告サイクルに駆動される
+short-title: 報告駆動更新
 type: 状況・行動仮説
 status: 検証中
 confidence: 5
 stage: CPF
 importance: auto
 derived-from: SELF-H-001
+leads-to: [SELF-H-008]
 ---
 
 # 仮説の更新は報告サイクルに駆動される

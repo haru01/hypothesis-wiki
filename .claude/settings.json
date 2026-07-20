@@ -27,6 +27,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 tools/hooks/stop_view_gen.py",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "python3 tools/hooks/stop_lint.py",
             "timeout": 30
           }

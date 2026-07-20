@@ -1,12 +1,14 @@
 ---
 id: AIRE-H-001
 title: 専門外はエージェントに丸投げし検証せず承認して進める
+short-title: 専門外を丸投げ承認
 type: 状況・行動仮説
 status: 未検証
 confidence: 4
 stage: CPF
 importance: auto
 derived-from:
+leads-to: [AIRE-H-002, AIRE-H-003]
 ---
 
 # 専門外はエージェントに丸投げし検証せず承認して進める

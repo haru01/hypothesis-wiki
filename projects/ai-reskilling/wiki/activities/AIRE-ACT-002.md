@@ -5,6 +5,7 @@ type: interview
 date: 2026-07-19
 stage: CPF
 hypotheses: [AIRE-H-001, AIRE-H-002, AIRE-H-003]
+riskiest-assumption: デスクリサーチ由来の3仮説（認知的降伏）が実務者の本当の痛みを捉えている（仮説の外に、より重要な課題・行動・前提を見落としていない）
 ---
 
 # エージェント実務者への発見型インタビュー（仮説外の課題探索）

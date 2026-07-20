@@ -15,6 +15,13 @@
   python3 tools/hwlint.py
   ```
 
+- 機械生成ビュー（現状 `board`）はレコードから決定論射影する。レコード（ACT/DEC/H）を変更したら再生成する
+  （Claude Code では Stop フックが自動再生成。他エージェントは手動で）:
+
+  ```bash
+  python3 tools/gen_views.py board          # 現在プロジェクト（--project <slug> で指定可）
+  ```
+
 - 初回クローン後に `git config core.hooksPath .githooks` を一度実行し、コミット時フック（不変ルールの強制）を
   有効にする（Claude Code では SessionStart フックが自動で設定する。他エージェントは手動で）。
 - 不変ルール（CLAUDE.md「不変ルール」）は全エージェント共通。特に:
