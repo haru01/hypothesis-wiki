@@ -429,7 +429,8 @@ def node_label(project, stem) -> str:
         core = "★" if is_core(fm) else ""
         emo = STATUS_EMOJI.get(fm.get("status", ""), "")
         label = fm.get("short-title", "").strip() or trunc(fm.get("title", ""))
-        return f'{short_id(stem)}{core} {label}<br/>{emo}{fm.get("status", "")}'
+        return (f'{short_id(stem)}{core} {label}<br/>'
+                f'確信度{fm.get("confidence", "")} {emo}{fm.get("status", "")}')
     return f'{short_id(stem)} {trunc(fm.get("title", ""), 20)}'
 
 
@@ -515,16 +516,25 @@ def gen_relations(project):
         for r, s, t in edges:
             if r.name == "addresses":
                 values_by_pain.setdefault(t, []).append(s)
+        def refuted(v):
+            return project.records[v][1].get("status") == "反証"
+
         L += ["## 課題↔ソリューション フィット（addresses）", "",
-              "ソリューション/買ってもらえる仮説の `addresses`（対応課題）で突き合わせる。", "",
+              "ソリューション/買ってもらえる仮説の `addresses`（対応課題）で突き合わせる。"
+              "反証された価値は ⚠️反証 を付す（実質的な対応にならない）。", "",
               "| 課題 | 対応する価値（ソリューション） |", "|---|---|"]
         for s, fm in pains:
             vs = values_by_pain.get(s, [])
-            cov = " ".join(f"[[{v}]]" for v in vs) if vs else "**空白**"
+            cov = " ".join(f"[[{v}]]{'⚠️反証' if refuted(v) else ''}" for v in vs) if vs else "**空白**"
             L.append(f"| [[{s}]] {fm.get('title', '')} | {cov} |")
         uncovered = [s for s, _ in pains if s not in values_by_pain]
+        # 値はあるが全て反証＝実質未カバー（反証された価値でしか対応されていない）
+        effectively = [s for s, _ in pains
+                       if values_by_pain.get(s) and all(refuted(v) for v in values_by_pain[s])]
         L += ["", "- **未カバーの課題**（対応する価値がない）: "
               + (" ".join(f"[[{s}]]" for s in uncovered) if uncovered else "なし")]
+        L.append("- **実質未カバー**（反証された価値でしか対応されていない）: "
+                 + (" ".join(f"[[{s}]]" for s in effectively) if effectively else "なし"))
         if not values_by_pain:
             L.append("- ※ どの課題にも `addresses` が張られていない"
                      "（ソリューション仮説の frontmatter に `addresses: [課題ID]` を書くとフィットが埋まる）")

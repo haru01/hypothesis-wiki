@@ -10,9 +10,9 @@
 ```mermaid
 flowchart LR
     subgraph H["仮説 H"]
-      AIRE_H_001["H-001 専門外を丸投げ承認<br/>⚪未検証"]
-      AIRE_H_002["H-002★ 累積ドリフト<br/>⚪未検証"]
-      AIRE_H_003["H-003 目利き不足<br/>⚪未検証"]
+      AIRE_H_001["H-001 専門外を丸投げ承認<br/>確信度4 ⚪未検証"]
+      AIRE_H_002["H-002★ 累積ドリフト<br/>確信度3 ⚪未検証"]
+      AIRE_H_003["H-003 目利き不足<br/>確信度3 ⚪未検証"]
     end
     subgraph ACT["活動 ACT"]
       AIRE_ACT_001["ACT-001 AI時代のリスキリング（2名＋専門エージ…"]
