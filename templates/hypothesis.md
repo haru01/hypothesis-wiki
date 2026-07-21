@@ -2,7 +2,7 @@
 id: <PREFIX>-H-NNN          # ファイル名と一致させる（接頭辞つき。例 SELF-H-001）
 title: 短いタイトル
 short-title:                # 省略可。list の mermaid ノード用の短ラベル（8字程度）。省略時はタイトルを機械切り詰め
-type: 状況・行動仮説 | 課題仮説 | ソリューション仮説 | 買ってもらえる仮説 | 自分たち仮説
+type: 状況・行動仮説 | 課題仮説 | ソリューション仮説 | 市場スケール仮説 | 自分たち仮説
 status: 未検証
 confidence: 1
 stage: CPF | FPF | PSF | SPF | PMF
