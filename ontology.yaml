@@ -140,13 +140,19 @@ state-machines:
       SPF: Solution Product Fit
       PMF: Product Market Fit
 
-  # ステージ→重点仮説タイプ（importance: auto の解決に使う。重点=8・その他=4）
+  # ステージ→重点仮説タイプ（importance: auto の解決に使う）
   stage-focus:
     CPF: [状況・行動仮説, 課題仮説]
     FPF: [課題仮説, 自分たち仮説]
     PSF: [ソリューション仮説]
     SPF: [ソリューション仮説, 買ってもらえる仮説]
     PMF: [買ってもらえる仮説]
+
+  # importance: auto の重み。現在ステージの重点タイプ=focus、それ以外=other。
+  # 手動指定（1-10）があればそれが優先（ビュー側で処理）。「次に検証すべき」の閾値も focus を使う。
+  importance-weights:
+    focus: 8
+    other: 4
 
   # 検証ステータス（並び順 = ビューの集計・表示順）
   statuses:

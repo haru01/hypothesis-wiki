@@ -695,6 +695,20 @@ class OntologyDerivationTest(unittest.TestCase):
         self.assertIs(hwlint.EVIDENCE_TAGS, ontology.EVIDENCE_TAGS)
         self.assertIs(hwlint.FICTIONAL_MARKERS, ontology.FICTIONAL_MARKERS)
 
+    def test_team_role_not_dropped(self):
+        # 自分たち仮説(role: team)が role マッピングに存在する（従来は欠落していた）。
+        self.assertEqual(ontology.TEAM_TYPES, {"自分たち仮説"})
+
+    def test_importance_weights_from_ontology(self):
+        self.assertEqual(ontology.IMPORTANCE_FOCUS, 8)
+        self.assertEqual(ontology.IMPORTANCE_OTHER, 4)
+        # gen_views の importance() が ontology の重みを使う（マジックナンバーの再定義なし）。
+        import gen_views
+        self.assertEqual(gen_views.importance({"type": "課題仮説", "importance": "auto"}, "CPF"),
+                         ontology.IMPORTANCE_FOCUS)   # CPF の重点タイプ
+        self.assertEqual(gen_views.importance({"type": "ソリューション仮説", "importance": "auto"}, "CPF"),
+                         ontology.IMPORTANCE_OTHER)   # CPF では非重点
+
 
 if __name__ == "__main__":
     unittest.main()

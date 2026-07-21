@@ -24,8 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hwlint import Project, parse_id_array, strip_comments, entity_of  # noqa: E402
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
-    CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES,
+    CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
     STAGE_FOCUS, STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
+    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
 )
 
 
@@ -41,11 +42,12 @@ def read_stage(project) -> str:
 
 
 def importance(fm, stage) -> int:
-    """CLAUDE.md: 手動指定(1-10)が優先。auto は重点タイプ=8・それ以外=4。"""
+    """手動指定(1-10)が優先。auto は重点タイプ=IMPORTANCE_FOCUS・それ以外=IMPORTANCE_OTHER
+    （重みの正本は ontology.yaml の importance-weights）。"""
     imp = fm.get("importance", "auto")
     if imp != "auto" and imp.isdigit():
         return int(imp)
-    return 8 if fm.get("type") in STAGE_FOCUS.get(stage, set()) else 4
+    return IMPORTANCE_FOCUS if fm.get("type") in STAGE_FOCUS.get(stage, set()) else IMPORTANCE_OTHER
 
 
 def fictional_acts(project) -> list:
@@ -57,7 +59,7 @@ def fictional_acts(project) -> list:
 def next_to_verify(hyps, stage) -> list:
     """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。"""
     nxt = [(s, fm) for s, fm, *_ in hyps
-           if importance(fm, stage) >= 8 and fm.get("status") in {"未検証", "検証中"}]
+           if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
     return sorted(nxt, key=lambda x: (int(x[1].get("confidence", "0") or 0), x[0]))
 
 
@@ -203,11 +205,15 @@ def gen_board(project) -> str:
         fm = e["fm"]
         L.append(f"## 実験{i} — {fm.get('title', '')}"
                  f"（{fm.get('date', '')}・{fm.get('type', '')}） [[{s}]]")
+        target = (f"- **対象仮説**: 顧客/行動 {hyp_links(project, e['ids'], CUSTOMER_TYPES)}"
+                  f" ｜ 課題 {hyp_links(project, e['ids'], PROBLEM_TYPES)}"
+                  f" ｜ 解決策 {hyp_links(project, e['ids'], SOLUTION_TYPES)}")
+        team = hyp_links(project, e['ids'], TEAM_TYPES)   # 自分たち仮説は該当時のみ表示（役割の取りこぼし防止）
+        if team != "—":
+            target += f" ｜ 自分たち {team}"
         L += [
             "",
-            f"- **対象仮説**: 顧客/行動 {hyp_links(project, e['ids'], CUSTOMER_TYPES)}"
-            f" ｜ 課題 {hyp_links(project, e['ids'], PROBLEM_TYPES)}"
-            f" ｜ 解決策 {hyp_links(project, e['ids'], SOLUTION_TYPES)}",
+            target,
             f"- **最もリスクの高い前提**: {e['risk']}",
             f"- **検証方法**: {e['method']}",
             f"- **成功基準**: {e['criteria']}",
@@ -219,7 +225,10 @@ def gen_board(project) -> str:
         ]
 
     # 現在地（機械集計＋最新DECの戦略的現在地）
-    L += ["## 現在地", "", f"- ステージ: **{stage}**"]
+    progress = " → ".join(f"**{st}**" if st == stage else st for st in STAGE_ORDER)
+    L += ["## 現在地", "",
+          f"- ステージ: **{stage}** {STAGE_NAMES.get(stage, '')}",
+          f"- 進捗: {progress}"]
     dec_stem, next_move = latest_dec_next_move(project)
     if next_move:
         L.append(f"- 次の一手（[[{dec_stem}]] より）: {next_move}")
@@ -230,7 +239,7 @@ def gen_board(project) -> str:
         emo = STATUS_EMOJI.get(fm.get("status", ""), "")
         L.append(f"| [[{stem}]] {fm.get('title', '')} | {fm.get('type', '')} | "
                  f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm, stage)} |")
-    L += ["", "**次に検証すべき仮説**（重要度8 × 確信度低 × 未検証/検証中）:", ""]
+    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中）:", ""]
     for stem, fm in next_to_verify(hyps, stage):
         L.append(f"- [[{stem}]] {fm.get('title', '')}"
                  f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）")
@@ -476,21 +485,18 @@ def gen_relations(project):
         L.append(f"    {mermaid_id(s)} -->|{rel.label}| {mermaid_id(t)}")
     L += ["```", ""]
 
-    # 関係インデックス（forward・関係型ごと）
+    # 関係インデックス（forward・全関係型を必ず節として出す。0件でも「該当なし」で存在を示す）
     L += ["## 関係インデックス", ""]
-    any_rel = False
     for rel in RELATIONS:
         rel_edges = [(s, t) for r, s, t in edges if r.name == rel.name]
+        L += [f"### {rel.label}（`{rel.field}`: {rel.domain}→{rel.range}）", ""]
         if not rel_edges:
+            L += ["（該当なし）", ""]
             continue
-        any_rel = True
-        L += [f"### {rel.label}（`{rel.field}`: {rel.domain}→{rel.range}）", "",
-              "| 始点 | 関係 | 終点 |", "|---|---|---|"]
+        L += ["| 始点 | 関係 | 終点 |", "|---|---|---|"]
         for s, t in rel_edges:
             L.append(f"| [[{s}]] | {rel.label} → | [[{t}]] |")
         L.append("")
-    if not any_rel:
-        L += ["（関係リンクがまだ無い）", ""]
 
     # バックリンク索引（inverse・誰から参照されているか）
     incoming = {}

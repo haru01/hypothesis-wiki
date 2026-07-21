@@ -68,6 +68,7 @@ CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
 PROBLEM_TYPES = _h_role("problem")       # {課題仮説}
 VALUE_TYPES = _h_role("solution")        # {ソリューション仮説}
 WILLING_TYPES = _h_role("market")        # {買ってもらえる仮説}
+TEAM_TYPES = _h_role("team")             # {自分たち仮説}
 SOLUTION_TYPES = VALUE_TYPES | WILLING_TYPES
 
 # list の mermaid subgraph / タイプ別テーブル: (key, heading, chain-label, {type})
@@ -80,6 +81,9 @@ STAGES = set(_SM["stages"]["order"])
 STAGE_ORDER = list(_SM["stages"]["order"])
 STAGE_NAMES = dict(_SM["stages"]["names"])
 STAGE_FOCUS = {stage: set(types) for stage, types in _SM["stage-focus"].items()}
+_IW = _SM.get("importance-weights", {})
+IMPORTANCE_FOCUS = _IW.get("focus", 8)      # 重点タイプの重要度
+IMPORTANCE_OTHER = _IW.get("other", 4)      # 非重点タイプの重要度
 
 _STATUS_LIST = _SM["statuses"]
 STATUSES = {s["name"] for s in _STATUS_LIST}
