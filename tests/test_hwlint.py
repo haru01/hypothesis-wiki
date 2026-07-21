@@ -568,5 +568,31 @@ class RelationWikilinkTest(unittest.TestCase):
                               if p.check == "relation-wikilink"], [])
 
 
+class OntologyDerivationTest(unittest.TestCase):
+    """語彙が ontology.yaml から一元導出され、コード側に再定義が残っていないこと（ドリフト防止）。"""
+
+    def test_evidence_tags_derived_from_ladder_and_aux(self):
+        # 山括弧つきタグ = 階梯（序列）＋補助タグ。ハードコードでなく導出。
+        expected = tuple(f"〈{t}〉" for t in ontology.EVIDENCE_LADDER + ontology.EVIDENCE_AUX)
+        self.assertEqual(ontology.EVIDENCE_TAGS, expected)
+        # 補助タグ 〈二次〉〈架空〉が SSoT に取り込まれている。
+        self.assertIn("〈二次〉", ontology.EVIDENCE_TAGS)
+        self.assertIn("〈架空〉", ontology.EVIDENCE_TAGS)
+
+    def test_evidence_rank_orders_ladder(self):
+        self.assertEqual(ontology.EVIDENCE_RANK["発言"], 0)
+        self.assertLess(ontology.EVIDENCE_RANK["自認"], ontology.EVIDENCE_RANK["実コスト"])
+        self.assertLess(ontology.EVIDENCE_RANK["実コスト"], ontology.EVIDENCE_RANK["支払い"])
+
+    def test_fictional_markers_from_ontology(self):
+        self.assertIn("架空", ontology.FICTIONAL_MARKERS)
+        self.assertIn("シミュレーション", ontology.FICTIONAL_MARKERS)
+
+    def test_hwlint_uses_ontology_vocab(self):
+        # hwlint はローカル再定義でなく ontology の定数を参照する。
+        self.assertIs(hwlint.EVIDENCE_TAGS, ontology.EVIDENCE_TAGS)
+        self.assertIs(hwlint.FICTIONAL_MARKERS, ontology.FICTIONAL_MARKERS)
+
+
 if __name__ == "__main__":
     unittest.main()

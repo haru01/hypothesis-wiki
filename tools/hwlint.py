@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
     STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
-    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, RELATIONS,
+    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
+    EVIDENCE_TAGS, RELATIONS,
 )
 
 
@@ -353,9 +354,6 @@ def check_index_sync(project) -> list:
     return problems
 
 
-FICTIONAL_MARKERS = ("架空", "シミュレーション")
-
-
 def check_fictional_cap(project) -> list:
     """架空/シミュレーションデータ由来の確信度は上限 FICTIONAL_CAP（それ超は実観測に限る）。"""
     problems = []
@@ -371,9 +369,6 @@ def check_fictional_cap(project) -> list:
             problems.append(Problem("error", stem, "fictional-cap",
                 f"confidence={c} だが直近の根拠 {hit} は架空/シミュレーションデータ（上限{FICTIONAL_CAP}）"))
     return problems
-
-
-EVIDENCE_TAGS = ("〈発言〉", "〈自認〉", "〈実コスト〉", "〈行動〉", "〈支払い〉", "〈二次〉", "〈架空〉")
 
 
 def check_evidence_tags(project) -> list:

@@ -89,7 +89,15 @@ STATUS_EMOJI = {s["name"]: s["emoji"] for s in _STATUS_LIST}
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
 FICTIONAL_CAP = _SM["confidence"].get("fictional-cap", 8)
+FICTIONAL_MARKERS = tuple(_SM["confidence"].get("fictional-markers", ("架空", "シミュレーション")))
+
+# 証拠の階梯（序列あり）＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
 EVIDENCE_LADDER = list(_SM["evidence-ladder"])
+EVIDENCE_AUX = list(_SM.get("evidence-aux", []))
+# 階梯上の順位（0=最弱）。0件は補助タグ。確信度×証拠の整合チェック（hwlint）に使う。
+EVIDENCE_RANK = {name: i for i, name in enumerate(EVIDENCE_LADDER)}
+# 本文の根拠セルで許容される証拠種別タグ（山括弧つき。階梯＋補助）。
+EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 
 # ── 関係 ────────────────────────────────────────────────────────────
 RELATIONS = [Relation(d) for d in load()["relations"]]

@@ -21,11 +21,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hwlint import Project, parse_id_array, strip_comments, entity_of, FICTIONAL_MARKERS  # noqa: E402
+from hwlint import Project, parse_id_array, strip_comments, entity_of  # noqa: E402
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES,
-    STAGE_FOCUS, STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
+    STAGE_FOCUS, STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
 )
 
 
