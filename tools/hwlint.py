@@ -18,7 +18,7 @@ from ontology import (  # noqa: E402
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
-    IMPORTANCE_FOCUS,
+    IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
 )
 
 
@@ -80,6 +80,30 @@ def parse_history(body: str) -> list:
                 rows.append({"date": cells[0], "confidence": cells[1],
                              "status": cells[2], "reason": cells[3], "activity": cells[4]})
     return rows
+
+
+def referenced_ids(project, field, infix=None, where=None) -> set:
+    """`field`（frontmatter の関係キー）で指されている終点IDの集合を返す。
+
+    infix を渡すと始点レコード種別（例 "-ACT-"）で、where(fm)->bool を渡すと始点 frontmatter で
+    さらに絞る。関係グラフの入次数（被参照）を「有無」で見る用途の共有ヘルパ。"""
+    out = set()
+    for stem, (_, fm, _) in project.records.items():
+        if infix and infix not in stem:
+            continue
+        if where and not where(fm):
+            continue
+        out.update(parse_id_array(fm.get(field, "")))
+    return out
+
+
+def importance(fm, stage) -> int:
+    """仮説の重要度。手動指定(1-10)が優先。auto は現ステージの重点タイプ=IMPORTANCE_FOCUS・
+    それ以外=IMPORTANCE_OTHER（重みの正本は ontology.yaml の importance-weights）。"""
+    imp = fm.get("importance", "auto")
+    if imp != "auto" and imp.isdigit():
+        return int(imp)
+    return IMPORTANCE_FOCUS if fm.get("type") in STAGE_FOCUS.get(stage, set()) else IMPORTANCE_OTHER
 
 
 class Project:
@@ -470,16 +494,9 @@ def check_untested_focus(project) -> list:
     探索域ギャップ検出（docs/ontology-improvements.md OI-F1）。status が検証中/検証済みなら、
     検証したと主張しているのに ACT からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
     problems = []
-    focus = STAGE_FOCUS.get(project.stage, set())
-    indeg = {}
-    for stem, (_, fm, _) in project.records.items():
-        if "-ACT-" in stem:
-            for rid in parse_id_array(fm.get("hypotheses", "")):
-                indeg[rid] = indeg.get(rid, 0) + 1
+    tested = referenced_ids(project, "hypotheses", infix="-ACT-")
     for stem, fm, _, _ in project.hyp_records():
-        imp = fm.get("importance", "auto")
-        is_focus = fm.get("type") in focus or (imp.isdigit() and int(imp) >= IMPORTANCE_FOCUS)
-        if not is_focus or indeg.get(stem, 0) > 0:
+        if importance(fm, project.stage) < IMPORTANCE_FOCUS or stem in tested:
             continue
         status = fm.get("status", "")
         if status in ("検証中", "検証済み"):
@@ -503,17 +520,12 @@ def check_addresses_gaps(project) -> list:
       1本も無い＝未開拓の機会。ただし解決設計フェーズ（ソリューション仮説が重点になる
       ステージ以降）でのみ拾う。CPF/FPF で課題に解決が無いのは正常なため。"""
     problems = []
-    addr = RELATIONS_BY_FIELD.get("addresses")
-    if addr is None:
-        return problems
+    addr = RELATIONS_BY_FIELD["addresses"]
     sol_types = addr.domain_subtypes
     prob_types = addr.range_subtypes
-    # addresses の入次数（反証のソリューションは実質的な対応にならないので数えない）
-    addressed = {}
-    for stem, (_, fm, _) in project.records.items():
-        if fm.get("type") in sol_types and fm.get("status") != "反証":
-            for tgt in parse_id_array(fm.get("addresses", "")):
-                addressed[tgt] = addressed.get(tgt, 0) + 1
+    # 反証のソリューションは実質的な対応にならないので除いて「対応済みの課題」集合を作る
+    addressed = referenced_ids(project, "addresses",
+                               where=lambda fm: fm.get("type") in sol_types and fm.get("status") != "反証")
     # 課題なき解決
     for stem, fm, _, _ in project.hyp_records():
         if (fm.get("type") in sol_types and fm.get("status") != "反証"
@@ -521,17 +533,16 @@ def check_addresses_gaps(project) -> list:
             problems.append(Problem("warning", stem, "addresses-gap",
                 "ソリューション仮説だが addresses（対応課題）が空"
                 "（課題なき解決の疑い。どの課題を解くのか frontmatter に明示する）"))
-    # 未対応の課題（解決設計フェーズのみ）
+    # 未対応の課題（解決設計フェーズ＝ソリューション仮説が重点になる最早ステージ以降のみ）
     sol_stages = {s for s, types in STAGE_FOCUS.items() if types & sol_types}
-    if sol_stages and project.stage in STAGE_ORDER:
-        earliest = min(STAGE_ORDER.index(s) for s in sol_stages)
-        if STAGE_ORDER.index(project.stage) >= earliest:
-            for stem, fm, _, _ in project.hyp_records():
-                if (fm.get("type") in prob_types and fm.get("status") == "検証済み"
-                        and addressed.get(stem, 0) == 0):
-                    problems.append(Problem("warning", stem, "addresses-gap",
-                        "検証済みの課題仮説だが、対応するソリューション仮説（addresses）が無い"
-                        "（未開拓の機会。解決設計フェーズでは要検討）"))
+    cur = STAGE_ORDER.index(project.stage) if project.stage in STAGE_ORDER else -1
+    if any(cur >= STAGE_ORDER.index(s) for s in sol_stages):
+        for stem, fm, _, _ in project.hyp_records():
+            if (fm.get("type") in prob_types and fm.get("status") == "検証済み"
+                    and stem not in addressed):
+                problems.append(Problem("warning", stem, "addresses-gap",
+                    "検証済みの課題仮説だが、対応するソリューション仮説（addresses）が無い"
+                    "（未開拓の機会。解決設計フェーズでは要検討）"))
     return problems
 
 
