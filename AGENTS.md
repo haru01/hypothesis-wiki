@@ -15,11 +15,20 @@
   python3 tools/hwlint.py
   ```
 
-- 機械生成ビュー（現状 `board`）はレコードから決定論射影する。レコード（ACT/DEC/H）を変更したら再生成する
-  （Claude Code では Stop フックが自動再生成。他エージェントは手動で）:
+- 型・関係・状態機械の正本は [ontology.yaml](ontology.yaml)（人間可読は `ontology.md`）。ツールは
+  `tools/ontology.py` 経由でこれを読む。`ontology.yaml` を変更したら人間可読版を再生成する:
+
+  ```bash
+  python3 tools/gen_ontology_doc.py         # ontology.yaml → ontology.md
+  ```
+
+- 機械生成ビュー（`board`・`list`・`relations`）はレコードから決定論射影する。レコード（ACT/DEC/H）を
+  変更したら再生成する（Claude Code では Stop フックが自動再生成。他エージェントは手動で）:
 
   ```bash
   python3 tools/gen_views.py board          # 現在プロジェクト（--project <slug> で指定可）
+  python3 tools/gen_views.py list           # 全仮説リスト（バリューチェーン）
+  python3 tools/gen_views.py relations      # 型付き関係グラフ・バックリンク索引
   ```
 
 - 初回クローン後に `git config core.hooksPath .githooks` を一度実行し、コミット時フック（不変ルールの強制）を

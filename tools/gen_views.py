@@ -21,22 +21,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hwlint import Project, parse_id_array, strip_comments, FICTIONAL_MARKERS  # noqa: E402
-
-CUSTOMER_TYPES = {"状況・行動仮説"}
-PROBLEM_TYPES = {"課題仮説"}
-SOLUTION_TYPES = {"ソリューション仮説", "買ってもらえる仮説"}
-
-# ステージ→重点仮説タイプ（CLAUDE.md「ステージ→重点仮説タイプ」表。importance: auto の解決に使う）
-STAGE_FOCUS = {
-    "CPF": {"状況・行動仮説", "課題仮説"},
-    "FPF": {"課題仮説", "自分たち仮説"},
-    "PSF": {"ソリューション仮説"},
-    "SPF": {"ソリューション仮説", "買ってもらえる仮説"},
-    "PMF": {"買ってもらえる仮説"},
-}
-STATUS_EMOJI = {"未検証": "⚪", "検証中": "🔄", "検証済み": "✅", "反証": "❌"}
-STATUS_ORDER = ["検証済み", "検証中", "未検証", "反証"]
+from hwlint import Project, parse_id_array, strip_comments, entity_of, FICTIONAL_MARKERS  # noqa: E402
+# 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
+from ontology import (  # noqa: E402
+    CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES,
+    STAGE_FOCUS, STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
+)
 
 
 # ---- 共通ヘルパ ----
@@ -249,15 +239,8 @@ def gen_board(project) -> str:
 
 
 # ---- list ビュー ----
-
-# (mermaid subgraph の ascii key, テーブル見出し, subgraph ラベル, 該当タイプ)
-LIST_GROUPS = [
-    ("beh", "状況・行動仮説", "状況・行動", {"状況・行動仮説"}),
-    ("prob", "課題仮説", "切実な課題", {"課題仮説"}),
-    ("sol", "ソリューション仮説", "ソリューション", {"ソリューション仮説"}),
-    ("mkt", "買ってもらえる仮説", "市場（買ってもらえる）", {"買ってもらえる仮説"}),
-    ("team", "自分たち仮説", "自分たち", {"自分たち仮説"}),
-]
+# mermaid subgraph / タイプ別テーブルのグループ（key, 見出し, subgraph ラベル, 該当タイプ）は
+# ontology.yaml の H サブタイプ（key / chain-label）から LIST_GROUPS として供給される。
 
 
 def mermaid_id(stem: str) -> str:
@@ -366,9 +349,8 @@ def gen_list(project) -> str:
 # ---- vp（バリュープロポジション）ビュー ----
 # vp は現在 VIEWS 未登録・生成停止中（「直近の根拠」は list へ統合済み）。
 # 復活させるときは VIEWS に "vp": ("value-proposition.md", gen_vp) を再登録するだけでよい。
-
-VALUE_TYPES = {"ソリューション仮説"}
-WILLING_TYPES = {"買ってもらえる仮説"}
+# VALUE_TYPES（ソリューション仮説）/ WILLING_TYPES（買ってもらえる仮説）は ontology.yaml の
+# H サブタイプ role（solution / market）から供給される。
 
 
 def gen_vp(project):
@@ -435,9 +417,125 @@ def gen_vp(project):
     return "\n".join(L)
 
 
+# ---- relations（関係グラフ）ビュー ----
+# オントロジーの型付き関係（derived-from/leads-to/addresses/hypotheses/based-on）を
+# frontmatter から射影する。list の mermaid が leads-to だけなのに対し、こちらは全関係型を
+# 1枚のグラフに描き、逆方向(inverse)のバックリンク索引と addresses フィットも出す。
+
+def node_label(project, stem) -> str:
+    """関係グラフのノードラベル（H は核心★・ステータス、ACT/DEC はタイトル）。"""
+    fm = project.records[stem][1]
+    if entity_of(stem) == "H":
+        core = "★" if is_core(fm) else ""
+        emo = STATUS_EMOJI.get(fm.get("status", ""), "")
+        label = fm.get("short-title", "").strip() or trunc(fm.get("title", ""))
+        return f'{short_id(stem)}{core} {label}<br/>{emo}{fm.get("status", "")}'
+    return f'{short_id(stem)} {trunc(fm.get("title", ""), 20)}'
+
+
+def relation_edges(project) -> list:
+    """(relation, 始点stem, 終点stem) を frontmatter から収集する。
+    終点が同一プロジェクトに実在し range 種別が一致する辺だけを返す。"""
+    edges = []
+    for stem, (_, fm, _) in project.records.items():
+        ent = entity_of(stem)
+        for rel in RELATIONS:
+            if rel.domain != ent:
+                continue
+            for tgt in parse_id_array(fm.get(rel.field, "")):
+                if tgt in project.records and entity_of(tgt) == rel.range:
+                    edges.append((rel, stem, tgt))
+    return edges
+
+
+def gen_relations(project):
+    if not project.records:
+        return None
+    stage = read_stage(project)
+    today = datetime.date.today().isoformat()
+    edges = relation_edges(project)
+
+    L = header_lines("relations", stage, today, fictional_acts(project))
+    L += ["", f"# 関係グラフ（{project.slug}）", ""]
+    L.append("レコード間の型付きリンク（オントロジーの関係）を frontmatter から射影する。"
+             "ノード=レコード、矢印=関係（ラベル=関係名）。関係の定義は "
+             "[ontology.md](../../../../ontology.md) を参照。")
+
+    # 型付き関係グラフ（全関係型を1枚に）
+    L += ["", "## 型付き関係グラフ", "", "```mermaid", "flowchart LR"]
+    for ent, sub_label in (("H", "仮説 H"), ("ACT", "活動 ACT"), ("DEC", "意思決定 DEC")):
+        members = sorted(s for s in project.records if entity_of(s) == ent)
+        if not members:
+            continue
+        L.append(f'    subgraph {ent}["{sub_label}"]')
+        for s in members:
+            L.append(f'      {mermaid_id(s)}["{node_label(project, s)}"]')
+        L.append("    end")
+    for rel, s, t in edges:
+        L.append(f"    {mermaid_id(s)} -->|{rel.label}| {mermaid_id(t)}")
+    L += ["```", ""]
+
+    # 関係インデックス（forward・関係型ごと）
+    L += ["## 関係インデックス", ""]
+    any_rel = False
+    for rel in RELATIONS:
+        rel_edges = [(s, t) for r, s, t in edges if r.name == rel.name]
+        if not rel_edges:
+            continue
+        any_rel = True
+        L += [f"### {rel.label}（`{rel.field}`: {rel.domain}→{rel.range}）", "",
+              "| 始点 | 関係 | 終点 |", "|---|---|---|"]
+        for s, t in rel_edges:
+            L.append(f"| [[{s}]] | {rel.label} → | [[{t}]] |")
+        L.append("")
+    if not any_rel:
+        L += ["（関係リンクがまだ無い）", ""]
+
+    # バックリンク索引（inverse・誰から参照されているか）
+    incoming = {}
+    for rel, s, t in edges:
+        incoming.setdefault(t, {}).setdefault(rel.inverse_label, []).append(s)
+    L += ["## バックリンク索引（誰から・どの関係で参照されているか）", ""]
+    referenced = [s for s in sorted(project.records) if s in incoming]
+    for stem in referenced:
+        seg = " ／ ".join(f"{lbl}: " + " ".join(f"[[{x}]]" for x in srcs)
+                          for lbl, srcs in incoming[stem].items())
+        L.append(f"- [[{stem}]] ← {seg}")
+    if not referenced:
+        L.append("（被参照リンクがまだ無い）")
+    L.append("")
+
+    # 課題↔ソリューション フィット（addresses の復活）
+    pains = [(s, project.records[s][1]) for s in sorted(project.records)
+             if project.records[s][1].get("type") in PROBLEM_TYPES]
+    values = [s for s in sorted(project.records)
+              if project.records[s][1].get("type") in SOLUTION_TYPES]
+    if pains and values:
+        values_by_pain = {}
+        for r, s, t in edges:
+            if r.name == "addresses":
+                values_by_pain.setdefault(t, []).append(s)
+        L += ["## 課題↔ソリューション フィット（addresses）", "",
+              "ソリューション/買ってもらえる仮説の `addresses`（対応課題）で突き合わせる。", "",
+              "| 課題 | 対応する価値（ソリューション） |", "|---|---|"]
+        for s, fm in pains:
+            vs = values_by_pain.get(s, [])
+            cov = " ".join(f"[[{v}]]" for v in vs) if vs else "**空白**"
+            L.append(f"| [[{s}]] {fm.get('title', '')} | {cov} |")
+        uncovered = [s for s, _ in pains if s not in values_by_pain]
+        L += ["", "- **未カバーの課題**（対応する価値がない）: "
+              + (" ".join(f"[[{s}]]" for s in uncovered) if uncovered else "なし")]
+        if not values_by_pain:
+            L.append("- ※ どの課題にも `addresses` が張られていない"
+                     "（ソリューション仮説の frontmatter に `addresses: [課題ID]` を書くとフィットが埋まる）")
+        L.append("")
+    return "\n".join(L)
+
+
 VIEWS = {
     "board": ("board.md", gen_board),
     "list": ("hypotheses-list.md", gen_list),
+    "relations": ("relations.md", gen_relations),
 }
 
 

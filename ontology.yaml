@@ -1,0 +1,165 @@
+# 仮説検証Wiki オントロジー（SSoT・全プロジェクト共有）
+#
+# このファイルが語彙・型・関係・状態機械の唯一の正本(Single Source of Truth)。
+# - ツール（tools/hwlint.py・tools/gen_views.py）は tools/ontology.py 経由でここを読む。
+#   enum や STAGE_FOCUS 等をコードに再定義しない（＝二重管理・ドリフト防止）。
+# - 人間可読な要約 ontology.md は `python3 tools/gen_ontology_doc.py` でここから生成する（手編集禁止）。
+#
+# 用語（Ontology-Playground 流）:
+#   entity   = レコード種別（H / ACT / DEC）とそのサブタイプ（frontmatter type の enum）
+#   relation = レコード間の型付きリンク。domain（始点の型）→ range（終点の型）、
+#              cardinality（one=単一 / many=配列）、inverse（逆方向の呼称）を宣言する。
+#   各 relation は frontmatter 配列 と 本文 wikilink の二重表現を持つ（must-wikilink: true）。
+
+version: 1
+
+# ── エンティティ（レコード種別とサブタイプ） ─────────────────────────────
+entities:
+  H:
+    label: 仮説
+    dir: hypotheses
+    # サブタイプは価値連鎖（行動→課題→解決→市場／自分たち）の順。
+    # key        = list の mermaid subgraph ID / chain-label = その表示名 / role = 価値連鎖上の役割
+    subtypes:
+      - name: 状況・行動仮説
+        key: beh
+        chain-label: 状況・行動
+        role: customer
+      - name: 課題仮説
+        key: prob
+        chain-label: 切実な課題
+        role: problem
+      - name: ソリューション仮説
+        key: sol
+        chain-label: ソリューション
+        role: solution
+      - name: 買ってもらえる仮説    # = ステージ表現上の「市場仮説」（playbooks/pmf.md）
+        key: mkt
+        chain-label: 市場（買ってもらえる）
+        role: market
+      - name: 自分たち仮説
+        key: team
+        chain-label: 自分たち
+        role: team
+
+  ACT:
+    label: 活動
+    dir: activities
+    subtypes:
+      - {name: interview}
+      - {name: demo}
+      - {name: survey}
+      - {name: mvp-test}
+      - {name: desk-research}
+      - {name: self-reflection}
+
+  DEC:
+    label: 意思決定
+    dir: decisions
+    subtypes:
+      - {name: stage-transition}
+      - {name: pivot}
+      - {name: persevere}
+      - {name: rollback}
+      - {name: kill}
+
+# ── 関係（型付きリンク） ─────────────────────────────────────────────
+# field         = frontmatter キー
+# domain / range= 始点 / 終点のエンティティ種別
+# *-subtypes    = 省略可。サブタイプまで制約する場合のみ
+# cardinality   = one（単一）| many（配列）
+# inverse       = 逆方向の呼称（バックリンク表示・ナビゲーションに使う）
+# must-wikilink = true なら本文にも wikilink を張る（Obsidian グラフに辺を出すため）
+relations:
+  - name: derived-from
+    field: derived-from
+    domain: H
+    range: H
+    cardinality: one
+    inverse: derives
+    must-wikilink: true
+    label: 派生元
+    inverse-label: 派生先
+    description: 派生・ピボット・巻き戻し再出発の系譜（この仮説の派生元）
+
+  - name: leads-to
+    field: leads-to
+    domain: H
+    range: H
+    cardinality: many
+    inverse: led-from
+    must-wikilink: true
+    label: 因果先
+    inverse-label: 因果元
+    description: 因果的に導く先の仮説。list の mermaid バリューチェーン矢印になる
+
+  - name: addresses
+    field: addresses
+    domain: H
+    domain-subtypes: [ソリューション仮説, 買ってもらえる仮説]
+    range: H
+    range-subtypes: [課題仮説]
+    cardinality: many
+    inverse: addressed-by
+    must-wikilink: false      # 現在フィット表は休眠。本文 wikilink 必須にしない
+    label: 対応課題
+    inverse-label: 対応する価値
+    description: ソリューション仮説→対応する課題仮説（バリュープロポジションのフィット）
+
+  - name: hypotheses
+    field: hypotheses
+    domain: ACT
+    range: H
+    cardinality: many
+    inverse: validated-by
+    must-wikilink: true
+    label: 検証対象
+    inverse-label: 検証活動
+    description: この活動が検証する仮説
+
+  - name: based-on
+    field: based-on
+    domain: DEC
+    range: ACT
+    cardinality: many
+    inverse: informs
+    must-wikilink: true
+    label: 根拠活動
+    inverse-label: 導いた判断
+    description: この意思決定の根拠となった活動
+
+# ── 状態機械 ────────────────────────────────────────────────────────
+state-machines:
+  # 検証ステージ（正式名称は playbooks/<stage>.md の見出しが正典）
+  stages:
+    order: [CPF, FPF, PSF, SPF, PMF]
+    names:
+      CPF: Customer Problem Fit
+      FPF: Founder Problem Fit
+      PSF: Problem Solution Fit
+      SPF: Solution Product Fit
+      PMF: Product Market Fit
+
+  # ステージ→重点仮説タイプ（importance: auto の解決に使う。重点=8・その他=4）
+  stage-focus:
+    CPF: [状況・行動仮説, 課題仮説]
+    FPF: [課題仮説, 自分たち仮説]
+    PSF: [ソリューション仮説]
+    SPF: [ソリューション仮説, 買ってもらえる仮説]
+    PMF: [買ってもらえる仮説]
+
+  # 検証ステータス（並び順 = ビューの集計・表示順）
+  statuses:
+    - {name: 検証済み, emoji: "✅"}
+    - {name: 検証中,   emoji: "🔄"}
+    - {name: 未検証,   emoji: "⚪"}
+    - {name: 反証,     emoji: "❌"}
+
+  # 確信度（1-10）
+  confidence:
+    min: 1
+    max: 10
+    fictional-cap: 8          # 架空/シミュレーションデータ由来の確信度は上限8
+
+  # 証拠の階梯（弱→強）。確信度を上げる根拠の強さの序列
+  evidence-ladder: [発言, 自認, 実コスト, 行動, 支払い]
