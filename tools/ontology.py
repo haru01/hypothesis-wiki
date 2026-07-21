@@ -68,6 +68,7 @@ CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
 PROBLEM_TYPES = _h_role("problem")       # {課題仮説}
 VALUE_TYPES = _h_role("solution")        # {ソリューション仮説}
 WILLING_TYPES = _h_role("market")        # {買ってもらえる仮説}
+TEAM_TYPES = _h_role("team")             # {自分たち仮説}
 SOLUTION_TYPES = VALUE_TYPES | WILLING_TYPES
 
 # list の mermaid subgraph / タイプ別テーブル: (key, heading, chain-label, {type})
@@ -80,6 +81,9 @@ STAGES = set(_SM["stages"]["order"])
 STAGE_ORDER = list(_SM["stages"]["order"])
 STAGE_NAMES = dict(_SM["stages"]["names"])
 STAGE_FOCUS = {stage: set(types) for stage, types in _SM["stage-focus"].items()}
+_IW = _SM.get("importance-weights", {})
+IMPORTANCE_FOCUS = _IW.get("focus", 8)      # 重点タイプの重要度
+IMPORTANCE_OTHER = _IW.get("other", 4)      # 非重点タイプの重要度
 
 _STATUS_LIST = _SM["statuses"]
 STATUSES = {s["name"] for s in _STATUS_LIST}
@@ -89,7 +93,21 @@ STATUS_EMOJI = {s["name"]: s["emoji"] for s in _STATUS_LIST}
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
 FICTIONAL_CAP = _SM["confidence"].get("fictional-cap", 8)
+FICTIONAL_MARKERS = tuple(_SM["confidence"].get("fictional-markers", ("架空", "シミュレーション")))
+# status → 確信度の許容域 {status: {"min"/"max": n}}（status↔confidence 矛盾検出に使う）
+STATUS_BOUNDS = {k: dict(v) for k, v in _SM["confidence"].get("status-bounds", {}).items()}
+# 確信度の帯 → 要求する証拠の階梯の最低段 [(min_confidence, floor_name), ...]（強い順に評価）
+EVIDENCE_FLOOR = sorted(
+    ((e["min-confidence"], e["floor"]) for e in _SM["confidence"].get("evidence-floor", [])),
+    reverse=True)
+
+# 証拠の階梯（序列あり）＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
 EVIDENCE_LADDER = list(_SM["evidence-ladder"])
+EVIDENCE_AUX = list(_SM.get("evidence-aux", []))
+# 階梯上の順位（0=最弱）。0件は補助タグ。確信度×証拠の整合チェック（hwlint）に使う。
+EVIDENCE_RANK = {name: i for i, name in enumerate(EVIDENCE_LADDER)}
+# 本文の根拠セルで許容される証拠種別タグ（山括弧つき。階梯＋補助）。
+EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 
 # ── 関係 ────────────────────────────────────────────────────────────
 RELATIONS = [Relation(d) for d in load()["relations"]]

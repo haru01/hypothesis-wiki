@@ -56,26 +56,27 @@ def build() -> str:
                  f"{r.inverse}（{r.inverse_label}） | {wl} | {r.description} |")
     L.append("")
 
-    # 状態機械
-    sm = o["state-machines"]
+    # 状態機械（射影定数 ontology.py 経由。生 YAML を直読みしない＝単一の入口）
+    stage_focus = o["state-machines"]["stage-focus"]   # 順序保持のため元の list を使う
     L += ["## 状態機械", "", "### ステージ", "",
           "検証は次の順に進む（正式名称は `playbooks/<stage>.md` の見出しが正典）。", "",
           "| ステージ | 正式名称 | 重点仮説タイプ（重要度=8） |", "|---|---|---|"]
-    for st in sm["stages"]["order"]:
-        focus = "・".join(sm["stage-focus"].get(st, []))
-        L.append(f"| {st} | {sm['stages']['names'].get(st, '')} | {focus} |")
+    for st in ontology.STAGE_ORDER:
+        focus = "・".join(stage_focus.get(st, []))
+        L.append(f"| {st} | {ontology.STAGE_NAMES.get(st, '')} | {focus} |")
     L.append("")
 
     L += ["### ステータス", "", "| ステータス | 記号 |", "|---|---|"]
-    for s in sm["statuses"]:
-        L.append(f"| {s['name']} | {s['emoji']} |")
+    for name in ontology.STATUS_ORDER:
+        L.append(f"| {name} | {ontology.STATUS_EMOJI[name]} |")
     L.append("")
 
-    conf = sm["confidence"]
     L += ["### 確信度", "",
-          f"- 範囲: **{conf['min']}–{conf['max']}**（証拠の強さの目安）",
-          f"- 架空/シミュレーションデータ由来の確信度は上限 **{conf.get('fictional-cap', 8)}**",
-          "- 証拠の階梯（弱→強）: " + " ＜ ".join(f"〈{t}〉" for t in sm["evidence-ladder"]),
+          f"- 範囲: **{ontology.CONFIDENCE_MIN}–{ontology.CONFIDENCE_MAX}**（証拠の強さの目安）",
+          f"- 架空/シミュレーションデータ由来の確信度は上限 **{ontology.FICTIONAL_CAP}**"
+          f"（本文マーカー: {'・'.join(ontology.FICTIONAL_MARKERS)}）",
+          "- 証拠の階梯（弱→強）: " + " ＜ ".join(f"〈{t}〉" for t in ontology.EVIDENCE_LADDER),
+          "- 階梯外の補助タグ: " + "・".join(f"〈{t}〉" for t in ontology.EVIDENCE_AUX),
           ""]
     return "\n".join(L)
 

@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
     STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
-    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, RELATIONS,
+    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
+    EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
+    STATUS_BOUNDS, RELATIONS,
 )
 
 
@@ -353,27 +355,28 @@ def check_index_sync(project) -> list:
     return problems
 
 
-FICTIONAL_MARKERS = ("架空", "シミュレーション")
-
-
 def check_fictional_cap(project) -> list:
-    """架空/シミュレーションデータ由来の確信度は上限 FICTIONAL_CAP（それ超は実観測に限る）。"""
+    """架空/シミュレーションデータ由来の確信度は上限 FICTIONAL_CAP（それ超は実観測に限る）。
+
+    履歴の**全行**を走査する（最終行だけでなく、確信度を上限超へ押し上げた中間行の
+    架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく ACT が
+    架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、(c) 根拠セルに架空マーカー、のいずれか。"""
     problems = []
     fictional_acts = {stem for stem, (_, _, body) in project.records.items()
                       if "-ACT-" in stem and any(m in body for m in FICTIONAL_MARKERS)}
-    for stem, fm, _, rows in project.hyp_records():
-        c = fm.get("confidence", "0")
-        if not c.isdigit() or int(c) <= FICTIONAL_CAP:
-            continue
-        last_ids = EVIDENCE_RE.findall(rows[-1]["activity"]) if rows else []
-        hit = [rid for rid in last_ids if rid in fictional_acts]
-        if hit:
-            problems.append(Problem("error", stem, "fictional-cap",
-                f"confidence={c} だが直近の根拠 {hit} は架空/シミュレーションデータ（上限{FICTIONAL_CAP}）"))
+    for stem, _, _, rows in project.hyp_records():
+        for row in rows:
+            rc = row["confidence"]
+            if not rc.isdigit() or int(rc) <= FICTIONAL_CAP:
+                continue
+            hit = [rid for rid in EVIDENCE_RE.findall(row["activity"]) if rid in fictional_acts]
+            tagged = "〈架空〉" in row["reason"] or any(m in row["reason"] for m in FICTIONAL_MARKERS)
+            if hit or tagged:
+                src = "・".join(hit) if hit else "〈架空〉タグ"
+                problems.append(Problem("error", stem, "fictional-cap",
+                    f"履歴 {row['date']} 行 confidence={rc} だが根拠が架空/シミュレーション"
+                    f"（{src}）。上限{FICTIONAL_CAP}"))
     return problems
-
-
-EVIDENCE_TAGS = ("〈発言〉", "〈自認〉", "〈実コスト〉", "〈行動〉", "〈支払い〉", "〈二次〉", "〈架空〉")
 
 
 def check_evidence_tags(project) -> list:
@@ -387,10 +390,114 @@ def check_evidence_tags(project) -> list:
     return problems
 
 
+def check_status_confidence(project) -> list:
+    """status × confidence の矛盾検出（2軸の食い違い）。ontology.yaml の status-bounds に照らす。"""
+    problems = []
+    for stem, fm, _, _ in project.hyp_records():
+        status, c = fm.get("status"), fm.get("confidence", "")
+        if not c.isdigit() or status not in STATUS_BOUNDS:
+            continue
+        conf, b = int(c), STATUS_BOUNDS[status]
+        if "min" in b and conf < b["min"]:
+            problems.append(Problem("warning", stem, "status-confidence",
+                f"status={status} なのに confidence={conf}（{b['min']} 以上が自然）"))
+        if "max" in b and conf > b["max"]:
+            problems.append(Problem("warning", stem, "status-confidence",
+                f"status={status} なのに confidence={conf}（{b['max']} 以下が自然）"))
+    return problems
+
+
+def _floor_for(conf: int):
+    """確信度 conf に要求される証拠の階梯の最低段名を返す（無ければ None）。"""
+    for min_conf, name in EVIDENCE_FLOOR:   # min-confidence の降順
+        if conf >= min_conf:
+            return name
+    return None
+
+
+def check_evidence_floor(project) -> list:
+    """確信度の帯に対して証拠の階梯が弱すぎないか（例: confidence 7 を〈発言〉だけで支えていないか）。
+
+    根拠タグに階梯タグが1つも無い場合は evidence-tag / fictional-cap の担当なので二重報告しない。
+    階梯タグが在るのにその最強が要求段未満のときだけ warning にする。"""
+    problems = []
+    for stem, fm, _, rows in project.hyp_records():
+        c = fm.get("confidence", "")
+        if not c.isdigit():
+            continue
+        floor = _floor_for(int(c))
+        if floor is None:
+            continue
+        ranks = [EVIDENCE_RANK[name] for name in EVIDENCE_RANK
+                 for row in rows if f"〈{name}〉" in row["reason"]]
+        if not ranks:
+            continue
+        if max(ranks) < EVIDENCE_RANK[floor]:
+            problems.append(Problem("warning", stem, "evidence-floor",
+                f"confidence={c} には〈{floor}〉以上の証拠が要るが、根拠タグの最強は"
+                f"〈{EVIDENCE_LADDER[max(ranks)]}〉止まり（証拠の階梯に対し確信度が高い）"))
+    return problems
+
+
+def check_dec_based_on(project) -> list:
+    """DEC は根拠となる活動（based-on）に紐づく。根拠なき意思決定を検出する（warning）。"""
+    problems = []
+    for stem, (_, fm, _) in project.records.items():
+        if "-DEC-" not in stem:
+            continue
+        if not parse_id_array(fm.get("based-on", "")):
+            problems.append(Problem("warning", stem, "dec-based-on",
+                "DEC に based-on（根拠活動）が無い（意思決定は活動 [[ACT-NNN]] に紐づける）"))
+    return problems
+
+
+def check_relation_cycles(project) -> list:
+    """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
+    problems = []
+    for rel in RELATIONS:
+        if not (rel.domain == "H" and rel.range == "H"):
+            continue
+        graph = {}
+        for stem, (_, fm, _) in project.records.items():
+            if entity_of(stem) != "H":
+                continue
+            graph[stem] = [r for r in parse_id_array(fm.get(rel.field, "")) if r in project.records]
+        for node, outs in graph.items():
+            if node in outs:
+                problems.append(Problem("error", node, "relation-cycle",
+                    f"{rel.field}（{rel.label}）が自己参照している"))
+        # DFS で閉路検出（自己参照は上で報告済みなので除く）
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color = {n: WHITE for n in graph}
+        reported = set()
+
+        def visit(n, path):
+            color[n] = GRAY
+            for m in graph.get(n, []):
+                if m == n:
+                    continue
+                if color.get(m) == GRAY and m in path:
+                    cyc = path[path.index(m):] + [m]
+                    key = frozenset(cyc)
+                    if key not in reported:
+                        reported.add(key)
+                        problems.append(Problem("error", n, "relation-cycle",
+                            f"{rel.field}（{rel.label}）に循環: {' → '.join(cyc)}"))
+                elif color.get(m) == WHITE:
+                    visit(m, path + [m])
+            color[n] = BLACK
+
+        for n in graph:
+            if color[n] == WHITE:
+                visit(n, [n])
+    return problems
+
+
 CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
-          check_evidence_tags]
+          check_evidence_tags, check_status_confidence, check_evidence_floor,
+          check_dec_based_on, check_relation_cycles]
 
 
 def lint_project(root: Path) -> list:
