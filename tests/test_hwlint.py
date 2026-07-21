@@ -765,5 +765,63 @@ class UntestedFocusTest(unittest.TestCase):
             self.assertTrue(self._hits(root))
 
 
+class AddressesGapTest(unittest.TestCase):
+    """OI-F2: 課題↔解決の構造ギャップ（課題なき解決／未対応の課題）の検出。"""
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "addresses-gap"]
+
+    def _verified_problem(self, id="DEMO-H-001"):
+        rows = [f"| 2026-07-01 | 7 | 検証済み | 初期作成 | — |"]
+        return hyp(id=id, type="課題仮説", status="検証済み", confidence="7", rows=rows)
+
+    def test_solution_without_addresses_detected(self):
+        # ソリューション仮説で addresses が空 → 課題なき解決
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="ソリューション仮説"),
+            })
+            self.assertTrue(any("課題なき解決" in p.message for p in self._hits(root)))
+
+    def test_refuted_solution_without_addresses_ok(self):
+        # 反証されたソリューション仮説は対象外
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = ["| 2026-07-01 | 2 | 反証 | 初期作成 | — |"]
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="ソリューション仮説",
+                                                     status="反証", confidence="2", rows=rows),
+            })
+            self.assertEqual(self._hits(root), [])
+
+    def test_solution_with_addresses_ok(self):
+        sol = with_fm(hyp(id="DEMO-H-002", type="ソリューション仮説"), "addresses: [DEMO-H-001]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: PSF\n",
+                "wiki/hypotheses/DEMO-H-001.md": self._verified_problem(),
+                "wiki/hypotheses/DEMO-H-002.md": sol,
+            })
+            self.assertEqual(self._hits(root), [])
+
+    def test_verified_problem_unaddressed_in_solution_phase_detected(self):
+        # 解決設計フェーズ(PSF)で検証済み課題に対応する解決が無い → 未対応の課題
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: PSF\n",
+                "wiki/hypotheses/DEMO-H-001.md": self._verified_problem(),
+            })
+            self.assertTrue(any("未対応" in p.message or "未開拓" in p.message
+                                for p in self._hits(root)))
+
+    def test_verified_problem_unaddressed_in_cpf_ok(self):
+        # CPF では課題に解決が無いのは正常 → 未対応の課題は出ない
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: CPF\n",
+                "wiki/hypotheses/DEMO-H-001.md": self._verified_problem(),
+            })
+            self.assertEqual(self._hits(root), [])
+
+
 if __name__ == "__main__":
     unittest.main()

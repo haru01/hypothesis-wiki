@@ -555,6 +555,12 @@ def gen_relations(project):
               + (" ".join(f"[[{s}]]" for s in uncovered) if uncovered else "なし")]
         L.append("- **実質未カバー**（反証された価値でしか対応されていない）: "
                  + (" ".join(f"[[{s}]]" for s in effectively) if effectively else "なし"))
+        # 課題なき解決（addresses 先が無いソリューション仮説。反証は除く）＝フィットの逆側の空白
+        no_pain = [v for v in values
+                   if project.records[v][1].get("type") in VALUE_TYPES and not refuted(v)
+                   and not parse_id_array(project.records[v][1].get("addresses", ""))]
+        L.append("- **課題なき解決**（addresses 先が無いソリューション仮説）: "
+                 + (" ".join(f"[[{v}]]" for v in no_pain) if no_pain else "なし"))
         if not values_by_pain:
             L.append("- ※ どの課題にも `addresses` が張られていない"
                      "（ソリューション仮説の frontmatter に `addresses: [課題ID]` を書くとフィットが埋まる）")

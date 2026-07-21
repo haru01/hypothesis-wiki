@@ -17,7 +17,8 @@ from ontology import (  # noqa: E402
     STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
-    STATUS_BOUNDS, RELATIONS, STAGE_FOCUS, IMPORTANCE_FOCUS,
+    STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
+    IMPORTANCE_FOCUS,
 )
 
 
@@ -491,6 +492,49 @@ def check_untested_focus(project) -> list:
     return problems
 
 
+def check_addresses_gaps(project) -> list:
+    """OI-F2: 課題↔解決の構造ギャップを検出する（warning）。
+
+    addresses（ソリューション仮説→課題仮説）のグラフ欠落を2方向で拾う（トポロジー由来の
+    探索域ギャップ検出。docs/ontology-improvements.md OI-F2）:
+    - 課題なき解決: addresses を持てる型（ソリューション仮説）なのに addresses が空。
+      solution in search of problem／PSF の危険信号。反証は対象外。
+    - 未対応の課題: 検証済みの課題仮説を addresses するソリューション仮説（反証を除く）が
+      1本も無い＝未開拓の機会。ただし解決設計フェーズ（ソリューション仮説が重点になる
+      ステージ以降）でのみ拾う。CPF/FPF で課題に解決が無いのは正常なため。"""
+    problems = []
+    addr = RELATIONS_BY_FIELD.get("addresses")
+    if addr is None:
+        return problems
+    sol_types = addr.domain_subtypes
+    prob_types = addr.range_subtypes
+    # addresses の入次数（反証のソリューションは実質的な対応にならないので数えない）
+    addressed = {}
+    for stem, (_, fm, _) in project.records.items():
+        if fm.get("type") in sol_types and fm.get("status") != "反証":
+            for tgt in parse_id_array(fm.get("addresses", "")):
+                addressed[tgt] = addressed.get(tgt, 0) + 1
+    # 課題なき解決
+    for stem, fm, _, _ in project.hyp_records():
+        if (fm.get("type") in sol_types and fm.get("status") != "反証"
+                and not parse_id_array(fm.get("addresses", ""))):
+            problems.append(Problem("warning", stem, "addresses-gap",
+                "ソリューション仮説だが addresses（対応課題）が空"
+                "（課題なき解決の疑い。どの課題を解くのか frontmatter に明示する）"))
+    # 未対応の課題（解決設計フェーズのみ）
+    sol_stages = {s for s, types in STAGE_FOCUS.items() if types & sol_types}
+    if sol_stages and project.stage in STAGE_ORDER:
+        earliest = min(STAGE_ORDER.index(s) for s in sol_stages)
+        if STAGE_ORDER.index(project.stage) >= earliest:
+            for stem, fm, _, _ in project.hyp_records():
+                if (fm.get("type") in prob_types and fm.get("status") == "検証済み"
+                        and addressed.get(stem, 0) == 0):
+                    problems.append(Problem("warning", stem, "addresses-gap",
+                        "検証済みの課題仮説だが、対応するソリューション仮説（addresses）が無い"
+                        "（未開拓の機会。解決設計フェーズでは要検討）"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -537,7 +581,8 @@ CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
-          check_dec_based_on, check_untested_focus, check_relation_cycles]
+          check_dec_based_on, check_untested_focus, check_addresses_gaps,
+          check_relation_cycles]
 
 
 def lint_project(root: Path) -> list:
