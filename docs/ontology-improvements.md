@@ -21,6 +21,21 @@
 改善を A〜E の5カテゴリに整理する。**A・B・C・D は「導入したオントロジーを効かせる」直接の続き**で
 リスクが低く効果が大きい。E は表現力の拡張で設計合意を要する。
 
+## 実装状況（2026-07-21）
+
+A〜D を実装済み（各項目の「状態」を参照）。E は設計合意を要するため未着手（提案のまま）。
+テストは 46 → 64 件に増加、全パス。ビューは意図した差分（D-2/D-3）以外バイト不変、lint は
+既存の evidence-tag warning 15件のみで新規誤検知ゼロ（B の新チェックは潜在ガードとして機能）。
+
+| カテゴリ | 実装コミット（要旨） |
+|---|---|
+| A-2/A-3/A-4 | `feat(ontology): 証拠タグ・架空マーカー語彙を ontology.yaml へ一元化` |
+| A-1 | `docs(ontology): CLAUDE.md の重複表を ontology.md 参照へ一本化` |
+| B-1〜B-5 | `feat(lint): status↔confidence・証拠の階梯・DEC根拠・循環の機械検証を追加` |
+| C-1〜C-4 | `docs(skills): 関係リンクの作成手順を補強し張り忘れを塞ぐ` |
+| D-1〜D-4 | `feat(views): team役割の取りこぼし修正・現在地の充実・関係節の完全化` |
+| E-1〜E-4 | 未着手（要設計合意） |
+
 ---
 
 ## A. SSoT一本化 ／ ドリフト解消
@@ -30,7 +45,7 @@
 ### OI-A1: `CLAUDE.md` の状態機械表が `ontology.yaml` と二重定義
 
 - **対象**: `CLAUDE.md`、`.claude/skills/{plan,ingest,chabudai,prototype}/SKILL.md`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `CLAUDE.md:122-176` が状態機械を `ontology.yaml` と別実体で持つ:
   - ステージ→重点仮説タイプ表（`CLAUDE.md:164-172`）＝ `ontology.yaml:144-149` の `stage-focus` の重複
   - ステータス遷移（`CLAUDE.md:135`）＝ `ontology.yaml:152-156` の `statuses` の重複
@@ -53,7 +68,7 @@
 ### OI-A2: 証拠タグ語彙が hwlint と ontology でドリフト
 
 - **対象**: `ontology.yaml`、`tools/hwlint.py`、`tools/ontology.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `hwlint.py:376` が証拠タグ語彙をハードコードしている:
   ```
   EVIDENCE_TAGS = ("〈発言〉", "〈自認〉", "〈実コスト〉", "〈行動〉", "〈支払い〉", "〈二次〉", "〈架空〉")
@@ -74,7 +89,7 @@
 ### OI-A3: 架空マーカー語彙がオントロジー外
 
 - **対象**: `ontology.yaml`、`tools/hwlint.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `hwlint.py:356` の `FICTIONAL_MARKERS = ("架空", "シミュレーション")` は `ontology.yaml` に無く
   hwlint 側定義。fictional-cap=8 は `ontology.yaml:162` にあるのにマーカー語彙だけコード側という非対称。
   gen_views は hwlint から import（`gen_views.py:24`）しており密結合。
@@ -85,7 +100,7 @@
 ### OI-A4: `ontology.py` のデッドコード整理
 
 - **対象**: `tools/ontology.py`、`tools/gen_ontology_doc.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `STAGE_ORDER`(:80)／`STAGE_NAMES`(:81)／`EVIDENCE_LADDER`(:92)／`RELATIONS_BY_FIELD`(:96) は
   export されるが未消費。さらに `gen_ontology_doc.py` は `ontology.py` の射影定数を使わず生 YAML を直読み
   （`sm["stages"]["names"]` 等）しており、「ontology.py を唯一の入口とする」建付けと矛盾する第2アクセス経路。
@@ -105,7 +120,7 @@
 ### OI-B1: status ↔ confidence の矛盾検出
 
 - **対象**: `tools/hwlint.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `check_vocabulary`(`hwlint.py:135`) は status と confidence を**各々独立に**しか見ない。
   「`status: 反証` なのに confidence が高い」「`検証済み` なのに confidence が低い」「`未検証` なのに
   初期値を超える」といった 2軸間の矛盾を拾えない。
@@ -116,7 +131,7 @@
 ### OI-B2: 証拠の階梯 × 確信度の整合
 
 - **対象**: `tools/hwlint.py`、`tools/ontology.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `check_evidence_tags`(`hwlint.py:379`) はタグの**存在**しか見ない。`EVIDENCE_LADDER` の序列を
   使っていないため、確信度7-8を `〈発言〉`（最弱）だけで支えていても検出できない。CLAUDE.md の規約
   （「5-6 には〈自認〉以上、7-8 には〈実コスト〉か〈行動〉以上」）が機械化されていない。
@@ -127,7 +142,7 @@
 ### OI-B3: DEC の `based-on` 欠落検出
 
 - **対象**: `tools/hwlint.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `check_frontmatter_refs`(`hwlint.py:202`) は based-on が空だと `continue`（`hwlint.py:216-217`）で
   素通りする。based-on 無しの DEC（根拠なき意思決定）や、pivot/rollback が何も参照しない状態を許す。
 - **改善案**: DEC に based-on が最低1件あることを warning（type によっては error）で要求する。
@@ -136,7 +151,7 @@
 ### OI-B4: fictional-cap の中間行取りこぼし
 
 - **対象**: `tools/hwlint.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `check_fictional_cap`(`hwlint.py:359`) は履歴の **最終行**（`rows[-1]`）の根拠しか見ない。
   確信度を8超へ押し上げた架空ACTが中間行にあり最終行が別根拠だと素通りする。また `〈架空〉` タグと
   fictional-cap 判定が連動していない。
@@ -146,7 +161,7 @@
 ### OI-B5: `leads-to`/`derived-from` の循環・自己参照検出（任意）
 
 - **対象**: `tools/hwlint.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: H→H の関係にサイクル・自己参照が入っても検出しない。
 - **改善案**: 関係グラフの閉路検出を追加（warning）。優先度は低め。
 - **根拠**: `check_frontmatter_refs` は個別辺の型のみ検証。グラフ全体の健全性は未検査。
@@ -160,7 +175,7 @@
 ### OI-C1: `derived-from` の frontmatter 記入手順が全スキルに無い
 
 - **対象**: `.claude/skills/{formulate,decide}/SKILL.md`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `formulate/SKILL.md:24` は「派生元があれば**本文の系譜**に `[[H-NNN]]`」としか言わず、frontmatter
   `derived-from`（cardinality:one・must-wikilink:true）への記入を指示しない。派生が最も起きる
   **pivot/rollback を扱う `decide/SKILL.md` は derived-from に一切言及しない**。ピボットで新仮説を派生させても
@@ -174,7 +189,7 @@
 ### OI-C2: `leads-to` が desk-research と ingest創発仮説で抜ける
 
 - **対象**: `.claude/skills/{desk-research,ingest}/SKILL.md`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: leads-to を書く手順があるのは `formulate:24` だけ。`desk-research/SKILL.md:36-42` は行動/課題仮説を
   複数起票するのに leads-to（状況→課題のバリューチェーン矢印）に触れない。`ingest/SKILL.md:25` の
   「取り込み中に創発した仮説の起票」も同様。結果、list の mermaid バリューチェーン矢印が desk-research
@@ -185,7 +200,7 @@
 ### OI-C3: `addresses` の候補自動提案
 
 - **対象**: `.claude/skills/{formulate,plan}/SKILL.md`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `ontology.yaml:96-107` は addresses に domain-subtypes=[ソリューション/買ってもらえる]・
   range-subtypes=[課題仮説] を宣言済み。型があるので機械的に候補列挙できるのに、`formulate:24` は
   「addresses に対応課題を列挙する」と言うだけで自動提案しない。結果 addresses は13仮説中1本の死蔵状態
@@ -198,7 +213,7 @@
 ### OI-C4: `based-on` の frontmatter 記入を decide が明示していない
 
 - **対象**: `.claude/skills/decide/SKILL.md`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `decide/SKILL.md:22` は「本文に根拠 `[[ACT-NNN]]`」としか書かず、frontmatter `based-on`
   （must-wikilink:true）の配列記入を指示しない。テンプレート `templates/decision.md` は持つが、スキル手順が
   本文側しか指さないため二重表現の frontmatter 側が抜けやすい。
@@ -212,7 +227,7 @@
 ### OI-D1: 自分たち仮説（team role）がビューから構造的に欠落
 
 - **対象**: `tools/ontology.py`、`tools/gen_views.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `ontology.yaml:40-43` は `role: team` を宣言するが、`ontology.py` の `_h_role` 呼び出しは
   customer/problem/solution/market の4つだけ（`ontology.py:67-70`）で `TEAM_TYPES` に相当する定数が無い。
   結果、board の「対象仮説」分類（`gen_views.py:208-210` は CUSTOMER/PROBLEM/SOLUTION の3バケツ）から
@@ -223,7 +238,7 @@
 ### OI-D2: 時系列ビュー ／ 現在地の充実
 
 - **対象**: `tools/gen_views.py`、`tools/ontology.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: 確信度履歴（`Project.history`、日付付き）・log.md・DEC の date が揃っているのに、確信度の時間推移や
   検証イベントのタイムラインを出すビューが無い。board の「現在地」(`gen_views.py:222`) は `stage` の生記号
   （例 "CPF"）のみで、`STAGE_NAMES`/`STAGE_ORDER`（未使用定数）を使えば正式名称と CPF→…→PMF の進捗位置を
@@ -236,7 +251,7 @@
 ### OI-D3: ai-reskilling の `relations.md` が薄い ／ DEC節欠落
 
 - **対象**: `tools/gen_views.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `ai-reskilling/wiki/views/relations.md` は5関係のうち leads-to(2辺) と hypotheses しか出ず、
   based-on/derived-from/addresses の節がまるごと欠落。DEC 0件が原因だが、空でも節の見出しと
   「該当なし」を出さないと「そもそもその関係が存在する」ことが読者に伝わらない。board の「判断(DEC)」列も
@@ -247,7 +262,7 @@
 ### OI-D4: 「次に検証すべき仮説」の高度化
 
 - **対象**: `tools/gen_views.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `next_to_verify`(`gen_views.py:57`) は importance>=8 × 低確信度 × 未検証/検証中 の2軸のみ。
   未カバー課題（addresses、relations で算出済み）や関係グラフ上の依存度（崩れると波及が大きい「背骨」）を
   優先度に織り込んでいない。閾値 8/4 も `ontology.yaml` に無くコード側の暗黙値（`gen_views.py:48,60` 等に散在）。
