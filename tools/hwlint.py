@@ -17,7 +17,7 @@ from ontology import (  # noqa: E402
     STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
-    STATUS_BOUNDS, RELATIONS,
+    STATUS_BOUNDS, RELATIONS, STAGE_FOCUS, IMPORTANCE_FOCUS,
 )
 
 
@@ -104,6 +104,16 @@ class Project:
                     self.history[p.stem] = parse_history(text)
         log_path = self.wiki / "log.md"
         self.log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
+
+    @cached_property
+    def stage(self) -> str:
+        """現在ステージ（stage.md の current-stage）。無ければ空。"""
+        p = self.wiki / "stage.md"
+        if p.exists():
+            m = re.search(r"current-stage:\s*(\w+)", p.read_text(encoding="utf-8"))
+            if m:
+                return m.group(1)
+        return ""
 
     @cached_property
     def prefix(self) -> str:
@@ -451,6 +461,36 @@ def check_dec_based_on(project) -> list:
     return problems
 
 
+def check_untested_focus(project) -> list:
+    """OI-F1: 重点仮説なのに検証活動(ACT)の hypotheses 入次数が0のものを検出する（warning）。
+
+    重点＝現ステージの重点タイプ（stage-focus）か、手動 importance>=IMPORTANCE_FOCUS のH。
+    「重要なのに検証実験が1本も紐づいていない」を構造事実（入次数0）で拾う。トポロジー由来の
+    探索域ギャップ検出（docs/ontology-improvements.md OI-F1）。status が検証中/検証済みなら、
+    検証したと主張しているのに ACT からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
+    problems = []
+    focus = STAGE_FOCUS.get(project.stage, set())
+    indeg = {}
+    for stem, (_, fm, _) in project.records.items():
+        if "-ACT-" in stem:
+            for rid in parse_id_array(fm.get("hypotheses", "")):
+                indeg[rid] = indeg.get(rid, 0) + 1
+    for stem, fm, _, _ in project.hyp_records():
+        imp = fm.get("importance", "auto")
+        is_focus = fm.get("type") in focus or (imp.isdigit() and int(imp) >= IMPORTANCE_FOCUS)
+        if not is_focus or indeg.get(stem, 0) > 0:
+            continue
+        status = fm.get("status", "")
+        if status in ("検証中", "検証済み"):
+            problems.append(Problem("warning", stem, "untested-focus",
+                f"重点仮説で status={status} なのに検証活動(ACT)の hypotheses から1本も"
+                f"参照されていない（二重表現の破れ／検証実態の欠落の疑い）"))
+        else:
+            problems.append(Problem("warning", stem, "untested-focus",
+                "重点仮説だが検証活動(ACT)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -497,7 +537,7 @@ CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
-          check_dec_based_on, check_relation_cycles]
+          check_dec_based_on, check_untested_focus, check_relation_cycles]
 
 
 def lint_project(root: Path) -> list:

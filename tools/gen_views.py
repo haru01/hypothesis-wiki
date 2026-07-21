@@ -56,11 +56,19 @@ def fictional_acts(project) -> list:
                   and any(m in project.records[s][2] for m in FICTIONAL_MARKERS))
 
 
-def next_to_verify(hyps, stage) -> list:
-    """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。"""
-    nxt = [(s, fm) for s, fm, *_ in hyps
+def next_to_verify(project, hyps, stage) -> list:
+    """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。
+
+    検証活動(ACT)が1本も紐づかない（hypotheses 入次数0＝未着手）ものを最優先に並べる
+    （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, indeg)。"""
+    indeg = {}
+    for stem, (_, fm, _) in project.records.items():
+        if "-ACT-" in stem:
+            for rid in parse_id_array(fm.get("hypotheses", "")):
+                indeg[rid] = indeg.get(rid, 0) + 1
+    nxt = [(s, fm, indeg.get(s, 0)) for s, fm, *_ in hyps
            if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
-    return sorted(nxt, key=lambda x: (int(x[1].get("confidence", "0") or 0), x[0]))
+    return sorted(nxt, key=lambda x: (x[2] != 0, int(x[1].get("confidence", "0") or 0), x[0]))
 
 
 def testcard(text: str) -> str:
@@ -239,10 +247,13 @@ def gen_board(project) -> str:
         emo = STATUS_EMOJI.get(fm.get("status", ""), "")
         L.append(f"| [[{stem}]] {fm.get('title', '')} | {fm.get('type', '')} | "
                  f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm, stage)} |")
-    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中）:", ""]
-    for stem, fm in next_to_verify(hyps, stage):
+    nxt = next_to_verify(project, hyps, stage)
+    legend = "・⚠️＝検証活動なし＝最優先" if any(d == 0 for *_, d in nxt) else ""
+    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中{legend}）:", ""]
+    for stem, fm, indeg in nxt:
+        mark = " ⚠️未着手（検証活動なし）" if indeg == 0 else ""
         L.append(f"- [[{stem}]] {fm.get('title', '')}"
-                 f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）")
+                 f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
     L.append("")
     return "\n".join(L)
 
@@ -336,9 +347,12 @@ def gen_list(project) -> str:
         L.append("")
 
     # 次に検証すべき
-    L += ["## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中）", ""]
-    for s, fm in next_to_verify(hyps, stage):
-        L.append(f"- [[{s}]] {fm.get('title', '')}（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）")
+    nxt = next_to_verify(project, hyps, stage)
+    legend = "。⚠️＝検証活動なし＝最優先" if any(d == 0 for *_, d in nxt) else ""
+    L += [f"## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中{legend}）", ""]
+    for s, fm, indeg in nxt:
+        mark = " ⚠️未着手（検証活動なし）" if indeg == 0 else ""
+        L.append(f"- [[{s}]] {fm.get('title', '')}（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
     L.append("")
 
     # タイプ別サマリ（クロス集計）

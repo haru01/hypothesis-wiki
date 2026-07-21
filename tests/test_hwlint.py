@@ -710,5 +710,60 @@ class OntologyDerivationTest(unittest.TestCase):
                          ontology.IMPORTANCE_OTHER)   # CPF では非重点
 
 
+class UntestedFocusTest(unittest.TestCase):
+    """OI-F1: 重点仮説なのに検証活動(ACT)の hypotheses 入次数が0（未着手）の検出。"""
+    STAGE = "current-stage: CPF\n"
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "untested-focus"]
+
+    def test_focus_without_activity_detected(self):
+        # CPF の重点タイプ(課題仮説)で検証活動が1本も無い → 未着手として警告
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": self.STAGE,
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="課題仮説"),
+            })
+            self.assertTrue(any("未着手" in p.message for p in self._hits(root)))
+
+    def test_focus_with_activity_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": self.STAGE,
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="課題仮説"),
+                "wiki/activities/DEMO-ACT-001.md": act(),   # hypotheses:[DEMO-H-001]
+            })
+            self.assertEqual(self._hits(root), [])
+
+    def test_in_progress_focus_without_activity_flags_mismatch(self):
+        # status:検証中 なのに紐づく ACT が無い → 二重表現の破れとして警告
+        rows = ["| 2026-07-01 | 1 | 検証中 | 初期作成 | — |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": self.STAGE,
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="課題仮説", status="検証中", rows=rows),
+            })
+            self.assertTrue(any("二重表現の破れ" in p.message for p in self._hits(root)))
+
+    def test_non_focus_type_without_activity_ok(self):
+        # CPF では ソリューション仮説 は非重点 → 未着手警告は出ない
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": self.STAGE,
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="ソリューション仮説"),
+            })
+            self.assertEqual(self._hits(root), [])
+
+    def test_manual_importance_makes_focus(self):
+        # 非重点タイプでも手動 importance>=IMPORTANCE_FOCUS なら重点扱い
+        rec = hyp(type="ソリューション仮説").replace("importance: auto", "importance: 8")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": self.STAGE,
+                "wiki/hypotheses/DEMO-H-001.md": rec,
+            })
+            self.assertTrue(self._hits(root))
+
+
 if __name__ == "__main__":
     unittest.main()
