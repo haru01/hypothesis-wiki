@@ -1,8 +1,8 @@
 # projects/ — 仮説検証プロジェクト（案件単位）
 
 仮説検証は**案件（プロジェクト）単位**で分ける。各プロジェクトは自分の生データ（`sources/`）と
-Wiki（`wiki/`）を1フォルダに持つ。スキーマ層（`CLAUDE.md`・`playbooks/`・`templates/`・
-`.claude/skills/`）はリポジトリ全体で共有する。
+Wiki（`wiki/`）を1フォルダに持つ。スキーマ層（`ontology.yaml`・`CLAUDE.md`・`AGENTS.md`・
+`playbooks/`・`templates/`・`.claude/skills/`）はリポジトリ全体で共有する。
 
 ```
 projects/
