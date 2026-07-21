@@ -90,6 +90,12 @@ CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
 FICTIONAL_CAP = _SM["confidence"].get("fictional-cap", 8)
 FICTIONAL_MARKERS = tuple(_SM["confidence"].get("fictional-markers", ("架空", "シミュレーション")))
+# status → 確信度の許容域 {status: {"min"/"max": n}}（status↔confidence 矛盾検出に使う）
+STATUS_BOUNDS = {k: dict(v) for k, v in _SM["confidence"].get("status-bounds", {}).items()}
+# 確信度の帯 → 要求する証拠の階梯の最低段 [(min_confidence, floor_name), ...]（強い順に評価）
+EVIDENCE_FLOOR = sorted(
+    ((e["min-confidence"], e["floor"]) for e in _SM["confidence"].get("evidence-floor", [])),
+    reverse=True)
 
 # 証拠の階梯（序列あり）＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
 EVIDENCE_LADDER = list(_SM["evidence-ladder"])

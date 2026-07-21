@@ -568,6 +568,108 @@ class RelationWikilinkTest(unittest.TestCase):
                               if p.check == "relation-wikilink"], [])
 
 
+class StatusConfidenceTest(unittest.TestCase):
+    def _one(self, tmp, status, confidence):
+        rows = [f"| 2026-07-01 | {confidence} | {status} | 初期作成 | — |"]
+        return make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md":
+                                  hyp(status=status, confidence=confidence, rows=rows)})
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "status-confidence"]
+
+    def test_refuted_high_confidence_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(self._hits(self._one(tmp, "反証", "8")))
+
+    def test_unverified_high_confidence_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(self._hits(self._one(tmp, "未検証", "7")))
+
+    def test_verified_low_confidence_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(self._hits(self._one(tmp, "検証済み", "3")))
+
+    def test_consistent_pairs_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self._hits(self._one(tmp, "反証", "2")), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self._hits(self._one(tmp, "未検証", "3")), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self._hits(self._one(tmp, "検証中", "5")), [])   # 検証中は境界なし
+
+
+class EvidenceFloorTest(unittest.TestCase):
+    def _proj(self, tmp, confidence, tag):
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                f"| 2026-07-05 | {confidence} | 検証中 | {tag}手応え | [[DEMO-ACT-001]] |"]
+        return make_project(tmp, {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence=str(confidence), rows=rows),
+            "wiki/activities/DEMO-ACT-001.md": act(),
+        })
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "evidence-floor"]
+
+    def test_high_confidence_weak_evidence_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:   # conf 7 を〈発言〉だけで支える
+            self.assertTrue(self._hits(self._proj(tmp, 7, "〈発言〉")))
+
+    def test_high_confidence_strong_evidence_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:   # conf 7 を〈実コスト〉で支える
+            self.assertEqual(self._hits(self._proj(tmp, 7, "〈実コスト〉")), [])
+
+    def test_no_ladder_tag_not_double_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:   # 階梯タグ無し → evidence-tag の担当（二重報告しない）
+            self.assertEqual(self._hits(self._proj(tmp, 7, "〈二次〉")), [])
+
+
+class DecBasedOnTest(unittest.TestCase):
+    def _dec(self, based):
+        return (f"---\nid: DEMO-DEC-001\ntitle: テスト決定\ndate: 2026-07-02\n"
+                f"type: pivot\nbased-on: {based}\n---\n\n# テスト決定\n\n"
+                f"根拠: [[DEMO-ACT-001]]\n")
+
+    def test_missing_based_on_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/decisions/DEMO-DEC-001.md": self._dec("")})
+            self.assertTrue(any(p.check == "dec-based-on" for p in hwlint.lint_project(root)))
+
+    def test_present_based_on_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/decisions/DEMO-DEC-001.md": self._dec("[DEMO-ACT-001]"),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "dec-based-on"], [])
+
+
+class RelationCycleTest(unittest.TestCase):
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "relation-cycle"]
+
+    def test_self_reference_detected(self):
+        rec = with_fm(hyp(id="DEMO-H-001"), "derived-from: DEMO-H-001")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            self.assertTrue(self._hits(root))
+
+    def test_cycle_detected(self):
+        h1 = with_fm(hyp(id="DEMO-H-001"), "leads-to: [DEMO-H-002]") + "\n因果先: [[DEMO-H-002]]\n"
+        h2 = with_fm(hyp(id="DEMO-H-002"), "leads-to: [DEMO-H-001]") + "\n因果先: [[DEMO-H-001]]\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": h1,
+                                      "wiki/hypotheses/DEMO-H-002.md": h2})
+            self.assertTrue(self._hits(root))
+
+    def test_acyclic_ok(self):
+        h1 = with_fm(hyp(id="DEMO-H-001"), "leads-to: [DEMO-H-002]") + "\n因果先: [[DEMO-H-002]]\n"
+        h2 = hyp(id="DEMO-H-002")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": h1,
+                                      "wiki/hypotheses/DEMO-H-002.md": h2})
+            self.assertEqual(self._hits(root), [])
+
+
 class OntologyDerivationTest(unittest.TestCase):
     """語彙が ontology.yaml から一元導出され、コード側に再定義が残っていないこと（ドリフト防止）。"""
 
