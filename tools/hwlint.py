@@ -11,12 +11,12 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
-STATUSES = {"未検証", "検証中", "検証済み", "反証"}
-STAGES = {"CPF", "FPF", "PSF", "SPF", "PMF"}
-H_TYPES = {"状況・行動仮説", "課題仮説", "ソリューション仮説", "買ってもらえる仮説", "自分たち仮説"}
-ACT_TYPES = {"interview", "demo", "survey", "mvp-test", "desk-research", "self-reflection"}
-DEC_TYPES = {"stage-transition", "pivot", "persevere", "rollback", "kill"}
-ID_RE = re.compile(r"^[A-Z0-9]+-(?:H|ACT|DEC)-\d+$")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
+from ontology import (  # noqa: E402
+    STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
+    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, RELATIONS,
+)
 
 
 @dataclass
@@ -42,6 +42,14 @@ def parse_frontmatter(text: str) -> dict:
 
 def parse_id_array(value: str) -> list:
     return [x.strip() for x in value.strip("[]").split(",") if x.strip()]
+
+
+def entity_of(stem: str) -> str:
+    """レコード stem からエンティティ種別（H/ACT/DEC）を返す。該当なしは空。"""
+    for infix in ("H", "ACT", "DEC"):
+        if f"-{infix}-" in stem:
+            return infix
+    return ""
 
 
 def strip_frontmatter(text: str) -> str:
@@ -132,13 +140,15 @@ def check_vocabulary(project) -> list:
             if fm.get("status") not in STATUSES:
                 problems.append(Problem("error", stem, "vocab", f"status '{fm.get('status')}' は規約外"))
             c = fm.get("confidence", "")
-            if not (c.isdigit() and 1 <= int(c) <= 10):
-                problems.append(Problem("error", stem, "vocab", f"confidence '{c}' は 1-10 の整数でない"))
+            if not (c.isdigit() and CONFIDENCE_MIN <= int(c) <= CONFIDENCE_MAX):
+                problems.append(Problem("error", stem, "vocab",
+                    f"confidence '{c}' は {CONFIDENCE_MIN}-{CONFIDENCE_MAX} の整数でない"))
             if fm.get("type") not in H_TYPES:
                 problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
             imp = fm.get("importance", "auto")
-            if imp != "auto" and not (imp.isdigit() and 1 <= int(imp) <= 10):
-                problems.append(Problem("error", stem, "vocab", f"importance '{imp}' は auto か 1-10"))
+            if imp != "auto" and not (imp.isdigit() and CONFIDENCE_MIN <= int(imp) <= CONFIDENCE_MAX):
+                problems.append(Problem("error", stem, "vocab",
+                    f"importance '{imp}' は auto か {CONFIDENCE_MIN}-{CONFIDENCE_MAX}"))
         if "-ACT-" in stem and fm.get("type") not in ACT_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
         if "-DEC-" in stem and fm.get("type") not in DEC_TYPES:
@@ -190,26 +200,71 @@ WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
 
 
 def check_frontmatter_refs(project) -> list:
-    """frontmatter の ID 参照は接頭辞つきで実在するレコードを指す。
-    ACT の hypotheses（配列）／ DEC の based-on（配列）／ H の derived-from（単一・省略可）。"""
+    """frontmatter の関係リンクを ontology.yaml の宣言で検証する。
+
+    各関係（derived-from / leads-to / addresses / hypotheses / based-on）について、
+    その関係の domain 種別を持つレコードの frontmatter 参照を、接頭辞つき・実在・
+    range 種別・（サブタイプ制約があればサブタイプ）・（単一関係の）cardinality で検証する。
+    """
     problems = []
     prefix = project.prefix
     for stem, (_, fm, _) in project.records.items():
-        groups = []
-        if "-ACT-" in stem and fm.get("hypotheses"):
-            groups.append(("hypotheses", parse_id_array(fm["hypotheses"])))
-        if "-DEC-" in stem and fm.get("based-on"):
-            groups.append(("based-on", parse_id_array(fm["based-on"])))
-        if "-H-" in stem and fm.get("derived-from"):
-            groups.append(("derived-from", [fm["derived-from"].strip()]))
-        for label, ids in groups:
+        ent = entity_of(stem)
+        for rel in RELATIONS:
+            if rel.domain != ent:
+                continue
+            ids = parse_id_array(fm.get(rel.field, ""))
+            if not ids:
+                continue
+            # domain サブタイプ制約（例: addresses はソリューション/買ってもらえる仮説だけが持てる）
+            if rel.domain_subtypes and fm.get("type") not in rel.domain_subtypes:
+                problems.append(Problem("error", stem, "refs",
+                    f"frontmatter {rel.field} は {'・'.join(sorted(rel.domain_subtypes))} だけが持てる"
+                    f"（この仮説は '{fm.get('type')}'）"))
+            # cardinality（単一関係に複数）
+            if rel.is_single and len(ids) > 1:
+                problems.append(Problem("error", stem, "refs",
+                    f"frontmatter {rel.field} は単一参照（cardinality one）だが {len(ids)} 件ある"))
             for rid in ids:
                 if not rid.startswith(prefix + "-"):
                     problems.append(Problem("error", stem, "refs",
-                        f"frontmatter {label} '{rid}' が接頭辞つきでない（{prefix}-… に統一する）"))
-                elif rid not in project.records:
+                        f"frontmatter {rel.field} '{rid}' が接頭辞つきでない（{prefix}-… に統一する）"))
+                    continue
+                if rid not in project.records:
                     problems.append(Problem("error", stem, "refs",
-                        f"frontmatter {label} '{rid}' のレコードが存在しない"))
+                        f"frontmatter {rel.field} '{rid}' のレコードが存在しない"))
+                    continue
+                # range 種別（例: hypotheses は H を、based-on は ACT を指す）
+                target_fm = project.records[rid][1]
+                if entity_of(rid) != rel.range:
+                    problems.append(Problem("error", stem, "refs",
+                        f"frontmatter {rel.field} '{rid}' は {rel.range} を指すべき"
+                        f"（{entity_of(rid)} を指している）"))
+                elif rel.range_subtypes and target_fm.get("type") not in rel.range_subtypes:
+                    problems.append(Problem("error", stem, "refs",
+                        f"frontmatter {rel.field} '{rid}' は {'・'.join(sorted(rel.range_subtypes))} を指すべき"
+                        f"（'{target_fm.get('type')}' を指している）"))
+    return problems
+
+
+def check_relation_wikilinks(project) -> list:
+    """二重表現規約: must-wikilink な関係は frontmatter 参照が本文 wikilink にも現れる。
+
+    frontmatter 配列だけでは Obsidian グラフに辺が出ないため、本文に [[…]] を張る規約。
+    新規約のため warning 運用（検出のみ）。"""
+    problems = []
+    prefix = project.prefix
+    for stem, (_, fm, body) in project.records.items():
+        ent = entity_of(stem)
+        body_links = {t.strip() for t in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body)))}
+        for rel in RELATIONS:
+            if rel.domain != ent or not rel.must_wikilink:
+                continue
+            for rid in parse_id_array(fm.get(rel.field, "")):
+                if rid.startswith(prefix + "-") and rid in project.records and rid not in body_links:
+                    problems.append(Problem("warning", stem, "relation-wikilink",
+                        f"frontmatter {rel.field}（{rel.label}）'{rid}' が本文 wikilink [[{rid}]] に無い"
+                        f"（二重表現規約: Obsidian グラフに辺を出すため本文にも張る）"))
     return problems
 
 
@@ -302,19 +357,19 @@ FICTIONAL_MARKERS = ("架空", "シミュレーション")
 
 
 def check_fictional_cap(project) -> list:
-    """架空/シミュレーションデータ由来の確信度は上限8（9-10 は実観測に限る）。"""
+    """架空/シミュレーションデータ由来の確信度は上限 FICTIONAL_CAP（それ超は実観測に限る）。"""
     problems = []
     fictional_acts = {stem for stem, (_, _, body) in project.records.items()
                       if "-ACT-" in stem and any(m in body for m in FICTIONAL_MARKERS)}
     for stem, fm, _, rows in project.hyp_records():
         c = fm.get("confidence", "0")
-        if not c.isdigit() or int(c) < 9:
+        if not c.isdigit() or int(c) <= FICTIONAL_CAP:
             continue
         last_ids = EVIDENCE_RE.findall(rows[-1]["activity"]) if rows else []
         hit = [rid for rid in last_ids if rid in fictional_acts]
         if hit:
             problems.append(Problem("error", stem, "fictional-cap",
-                f"confidence={c} だが直近の根拠 {hit} は架空/シミュレーションデータ（上限8）"))
+                f"confidence={c} だが直近の根拠 {hit} は架空/シミュレーションデータ（上限{FICTIONAL_CAP}）"))
     return problems
 
 
@@ -333,7 +388,7 @@ def check_evidence_tags(project) -> list:
 
 
 CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
-          check_frontmatter_refs, check_wikilinks,
+          check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags]
 

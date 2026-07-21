@@ -8,6 +8,12 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent.parent / "tools"
 sys.path.insert(0, str(TOOLS))
 import hwlint  # noqa: E402
+import ontology  # noqa: E402
+
+
+def with_fm(record: str, line: str) -> str:
+    """テスト用ヘルパ: hyp()/act() の frontmatter に1行足す（importance 行の直後に挿入）。"""
+    return record.replace("importance: auto\n", f"importance: auto\n{line}\n")
 
 
 def write(root: Path, rel: str, text: str):
@@ -452,6 +458,114 @@ class EvidenceTagTest(unittest.TestCase):
                 "wiki/activities/DEMO-ACT-001.md": act(),
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "evidence-tag"], [])
+
+
+class OntologyLoaderTest(unittest.TestCase):
+    def test_selfcheck_passes(self):
+        self.assertEqual(ontology._selfcheck(), 0)
+
+    def test_constants_derived_from_yaml(self):
+        self.assertEqual(ontology.STATUS_ORDER, ["検証済み", "検証中", "未検証", "反証"])
+        self.assertIn("課題仮説", ontology.PROBLEM_TYPES)
+        self.assertEqual(ontology.SOLUTION_TYPES, ontology.VALUE_TYPES | ontology.WILLING_TYPES)
+        self.assertEqual({r.field for r in ontology.RELATIONS},
+                         {"derived-from", "leads-to", "addresses", "hypotheses", "based-on"})
+        self.assertTrue(ontology.ID_RE.match("SELF-H-001"))
+        self.assertFalse(ontology.ID_RE.match("SELF-X-001"))
+
+    def test_hwlint_uses_ontology_values(self):
+        # 二重管理をやめ ontology を単一の真実源にしている
+        self.assertEqual(hwlint.H_TYPES, ontology.H_TYPES)
+        self.assertEqual(hwlint.STATUSES, ontology.STATUSES)
+        self.assertIs(hwlint.RELATIONS, ontology.RELATIONS)
+
+
+class RelationOntologyTest(unittest.TestCase):
+    """ontology 駆動の関係検証（domain/range/cardinality/サブタイプ）。"""
+
+    def test_range_violation_based_on_points_to_hypothesis(self):
+        dec = ("---\nid: DEMO-DEC-001\ntitle: t\ndate: 2026-07-01\ntype: pivot\n"
+               "based-on: [DEMO-H-001]\n---\n\n# t\n\n根拠: [[DEMO-H-001]]\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/decisions/DEMO-DEC-001.md": dec,
+            })
+            self.assertTrue(any(p.check == "refs" and "ACT を指すべき" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_cardinality_violation_derived_from_multiple(self):
+        rec = with_fm(hyp(id="DEMO-H-003"), "derived-from: [DEMO-H-001, DEMO-H-002]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-002.md": hyp(id="DEMO-H-002"),
+                "wiki/hypotheses/DEMO-H-003.md": rec,
+            })
+            self.assertTrue(any(p.check == "refs" and "単一参照" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_addresses_domain_subtype_violation(self):
+        # 課題仮説 は addresses を持てない（domain サブタイプ違反）
+        rec = with_fm(hyp(id="DEMO-H-002", type="課題仮説"), "addresses: [DEMO-H-001]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="課題仮説"),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            self.assertTrue(any(p.check == "refs" and "だけが持てる" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_addresses_range_subtype_violation(self):
+        # ソリューション仮説 の addresses は 課題仮説 を指すべき
+        rec = with_fm(hyp(id="DEMO-H-002", type="ソリューション仮説"), "addresses: [DEMO-H-001]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="ソリューション仮説"),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            self.assertTrue(any(p.check == "refs" and "課題仮説 を指すべき" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_addresses_valid_ok(self):
+        rec = with_fm(hyp(id="DEMO-H-002", type="ソリューション仮説"),
+                      "addresses: [DEMO-H-001]") + "\n対応課題: [[DEMO-H-001]]\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(type="課題仮説"),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "refs"], [])
+
+    def test_leads_to_missing_record_now_validated(self):
+        # leads-to も一般化により実在検証の対象になった
+        rec = with_fm(hyp(id="DEMO-H-002"), "leads-to: [DEMO-H-404]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-002.md": rec})
+            self.assertTrue(any(p.check == "refs" and "DEMO-H-404" in p.message
+                                for p in hwlint.lint_project(root)))
+
+
+class RelationWikilinkTest(unittest.TestCase):
+    def test_missing_body_wikilink_warned(self):
+        rec = with_fm(hyp(id="DEMO-H-002"), "leads-to: [DEMO-H-001]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            hits = [p for p in hwlint.lint_project(root) if p.check == "relation-wikilink"]
+            self.assertTrue(any("DEMO-H-001" in p.message and p.level == "warning" for p in hits))
+
+    def test_present_body_wikilink_ok(self):
+        rec = with_fm(hyp(id="DEMO-H-002"), "leads-to: [DEMO-H-001]") + "\n因果先: [[DEMO-H-001]]\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-002.md": rec,
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root)
+                              if p.check == "relation-wikilink"], [])
 
 
 if __name__ == "__main__":
