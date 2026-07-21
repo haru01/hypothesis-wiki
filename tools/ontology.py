@@ -67,7 +67,7 @@ ID_RE = re.compile(r"^[A-Z0-9]+-(?:" + "|".join(map(re.escape, ENTITY_INFIXES)) 
 CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
 PROBLEM_TYPES = _h_role("problem")       # {課題仮説}
 VALUE_TYPES = _h_role("solution")        # {ソリューション仮説}
-WILLING_TYPES = _h_role("market")        # {個別購買仮説}
+WILLING_TYPES = _h_role("market")        # {市場スケール仮説}
 TEAM_TYPES = _h_role("team")             # {自分たち仮説}
 SOLUTION_TYPES = VALUE_TYPES | WILLING_TYPES
 

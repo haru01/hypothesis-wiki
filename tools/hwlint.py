@@ -218,7 +218,7 @@ def check_frontmatter_refs(project) -> list:
             ids = parse_id_array(fm.get(rel.field, ""))
             if not ids:
                 continue
-            # domain サブタイプ制約（例: addresses はソリューション/個別購買仮説だけが持てる）
+            # domain サブタイプ制約（例: addresses はソリューション仮説だけが持てる）
             if rel.domain_subtypes and fm.get("type") not in rel.domain_subtypes:
                 problems.append(Problem("error", stem, "refs",
                     f"frontmatter {rel.field} は {'・'.join(sorted(rel.domain_subtypes))} だけが持てる"

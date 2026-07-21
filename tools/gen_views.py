@@ -358,7 +358,7 @@ def gen_list(project) -> str:
 # ---- vp（バリュープロポジション）ビュー ----
 # vp は現在 VIEWS 未登録・生成停止中（「直近の根拠」は list へ統合済み）。
 # 復活させるときは VIEWS に "vp": ("value-proposition.md", gen_vp) を再登録するだけでよい。
-# VALUE_TYPES（ソリューション仮説）/ WILLING_TYPES（個別購買仮説）は ontology.yaml の
+# VALUE_TYPES（ソリューション仮説）/ WILLING_TYPES（市場スケール仮説）は ontology.yaml の
 # H サブタイプ role（solution / market）から供給される。
 
 
@@ -411,7 +411,7 @@ def gen_vp(project):
         L.append(f"| [[{s}]] {fm.get('title', '')} | {fm.get('confidence', '')} | "
                  f"{emo}{fm.get('status', '')} | {addr_s} |")
     if willing:
-        L += ["", "**個別購買（対価・乗り換え）**: "
+        L += ["", "**市場スケール（規模・チャネル・プル）**: "
               + " ".join(f"[[{s}]]（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）"
                          for s, fm in willing)]
 
@@ -526,7 +526,7 @@ def gen_relations(project):
             return project.records[v][1].get("status") == "反証"
 
         L += ["## 課題↔ソリューション フィット（addresses）", "",
-              "ソリューション/個別購買仮説の `addresses`（対応課題）で突き合わせる。"
+              "ソリューション仮説の `addresses`（対応課題）で突き合わせる。"
               "反証された価値は ⚠️反証 を付す（実質的な対応にならない）。", "",
               "| 課題 | 対応する価値（ソリューション） |", "|---|---|"]
         for s, fm in pains:

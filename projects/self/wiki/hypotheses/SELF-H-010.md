@@ -2,7 +2,7 @@
 id: SELF-H-010
 title: 実践者は対価を払い既存ツールから乗り換える
 short-title: 対価/乗り換え
-type: 個別購買仮説
+type: ソリューション仮説
 status: 反証
 confidence: 2
 stage: SPF
