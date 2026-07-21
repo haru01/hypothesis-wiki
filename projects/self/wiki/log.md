@@ -28,3 +28,5 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 
 ## [2026-07-19] self-reflection | SELF-ACT-005 揺さぶり監査（ちゃぶ台返し）。架空データは〈実コスト〉〈行動〉に乗らず「検証済み」を満たさない → SELF-H-001 7→6, SELF-H-002 7→6, SELF-H-004 8→6, SELF-H-006 8→6, SELF-H-008 8→6（いずれも検証済み→検証中）。SELF-DEC-001 の巻き戻しシグナル1が点灯、CPF巻き戻しを /decide 候補として記録
 ## [2026-07-19] decision | SELF-DEC-002 FPF→CPF巻き戻し（架空依存の偽検証済みを是正・DEC-001シグナル1点灯） → ステージ CPF へ。核心クラスタは検証中6のまま実データ再検証を最優先
+
+## [2026-07-21] lint | 二重表現の補完（relation-wikilink 警告9件）。H-001/002/003/004/006/008/009 の leads-to 因果先を系譜節に本文 wikilink で追記し Obsidian グラフに辺を出す → 確信度・ステータス変更なし（残 evidence-tag 15件は別debtとして据え置き）
