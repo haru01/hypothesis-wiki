@@ -18,7 +18,7 @@ entities:
   H:
     label: 仮説
     dir: hypotheses
-    # サブタイプは価値連鎖（行動→課題→解決→市場／自分たち）の順。
+    # サブタイプは価値連鎖（行動→課題→解決→個別購買／自分たち）の順。
     # key        = list の mermaid subgraph ID / chain-label = その表示名 / role = 価値連鎖上の役割
     subtypes:
       - name: 状況・行動仮説
@@ -33,9 +33,9 @@ entities:
         key: sol
         chain-label: ソリューション
         role: solution
-      - name: 買ってもらえる仮説    # = ステージ表現上の「市場仮説」（playbooks/pmf.md）
+      - name: 個別購買仮説    # PMF では市場スケール仮説（playbooks/pmf.md）と対で扱う。frontmatter 型は本型に集約
         key: mkt
-        chain-label: 市場（買ってもらえる）
+        chain-label: 個別購買
         role: market
       - name: 自分たち仮説
         key: team
@@ -96,7 +96,7 @@ relations:
   - name: addresses
     field: addresses
     domain: H
-    domain-subtypes: [ソリューション仮説, 買ってもらえる仮説]
+    domain-subtypes: [ソリューション仮説, 個別購買仮説]
     range: H
     range-subtypes: [課題仮説]
     cardinality: many
@@ -145,8 +145,8 @@ state-machines:
     CPF: [状況・行動仮説, 課題仮説]
     FPF: [課題仮説, 自分たち仮説]
     PSF: [ソリューション仮説]
-    SPF: [ソリューション仮説, 買ってもらえる仮説]
-    PMF: [買ってもらえる仮説]
+    SPF: [ソリューション仮説, 個別購買仮説]
+    PMF: [個別購買仮説]
 
   # importance: auto の重み。現在ステージの重点タイプ=focus、それ以外=other。
   # 手動指定（1-10）があればそれが優先（ビュー側で処理）。「次に検証すべき」の閾値も focus を使う。
