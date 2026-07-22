@@ -926,5 +926,108 @@ class IdSequenceBoundaryTest(unittest.TestCase):
                                 for p in hwlint.lint_project(root)))
 
 
+class GenViewsTest(unittest.TestCase):
+    """AR-07: ビュー生成（gen_views）の射影ロジックを fixture ベースで検証する。
+
+    最も複雑で脆い正規表現層（テストカード抽出・next_to_verify・mermaid・addresses フィット）を
+    カバーする。厳密なバイト一致でなく、主要な射影が出力に現れることを部分文字列で確認する。"""
+
+    def _views_project(self, tmp, extra=None):
+        import gen_views
+        sol = hyp(id="DEMO-H-002", type="ソリューション仮説").replace(
+            "importance: auto\n", "importance: auto\naddresses: [DEMO-H-001]\n")
+        files = {
+            "wiki/stage.md": "current-stage: CPF\n",
+            "wiki/hypotheses/DEMO-H-001.md": hyp(),                 # 課題仮説（CPF 重点）
+            "wiki/hypotheses/DEMO-H-002.md": sol,                   # ソリューション仮説（H-001 に addresses）
+            "wiki/activities/DEMO-ACT-001.md": act(),
+        }
+        files.update(extra or {})
+        root = make_project(tmp, files)
+        return gen_views, gen_views.Project(root)
+
+    def test_field_value_heading_and_bullet_forms(self):
+        import gen_views
+        heading = "## テストカード\n\n### 方法\n\n5名に問題インタビュー。\n\n### 指標\n\n該当数。\n"
+        bullet = "## テストカード\n\n- **方法**: 5名に問題インタビュー。\n- **成功基準**（開始前に確定）: 3名以上。\n"
+        self.assertEqual(gen_views.field_value(heading, "方法"), "5名に問題インタビュー。")
+        self.assertEqual(gen_views.field_value(bullet, "方法"), "5名に問題インタビュー。")
+        self.assertEqual(gen_views.field_value(bullet, "成功基準"), "3名以上。")
+        self.assertEqual(gen_views.field_value(heading, "存在しない"), "—")
+
+    def test_next_to_verify_marks_untested_focus_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # ACT を置かず、重点仮説(課題仮説)を未検証で1本だけにする → has_act=False。
+            import gen_views
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: CPF\n",
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+            })
+            proj = gen_views.Project(root)
+            nxt = gen_views.next_to_verify(proj, list(proj.hyp_records()), "CPF")
+            self.assertEqual([(s, has_act) for s, _, has_act in nxt], [("DEMO-H-001", False)])
+            bullets = gen_views.next_to_verify_bullets(nxt)
+            self.assertTrue(any("⚠️未着手" in b for b in bullets))
+
+    def test_gen_board_contains_core_sections(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen_views, proj = self._views_project(tmp)
+            out = gen_views.gen_board(proj)
+            self.assertIn("# ジャベリン実験ボード", out)
+            self.assertIn("DEMO-ACT-001", out)
+            self.assertIn("次に検証すべき仮説", out)
+
+    def test_gen_list_has_mermaid_and_next_to_verify(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen_views, proj = self._views_project(tmp)
+            out = gen_views.gen_list(proj)
+            self.assertIn("```mermaid", out)
+            self.assertIn("DEMO-H-001", out)
+            self.assertIn("次に検証すべき仮説", out)
+
+    def test_gen_relations_addresses_fit_table(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen_views, proj = self._views_project(tmp)
+            out = gen_views.gen_relations(proj)
+            self.assertIn("課題↔ソリューション フィット", out)
+            # 課題 H-001 の行に、addresses で対応するソリューション H-002 が現れる。
+            fit_rows = [ln for ln in out.splitlines() if ln.startswith("| [[DEMO-H-001]]")]
+            self.assertTrue(fit_rows and "[[DEMO-H-002]]" in fit_rows[0], out)
+
+    def test_gen_relations_solution_without_problem_flagged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # addresses を持たないソリューション仮説 → 「課題なき解決」に載る。
+            lonely = hyp(id="DEMO-H-003", type="ソリューション仮説")
+            gen_views, proj = self._views_project(
+                tmp, {"wiki/hypotheses/DEMO-H-003.md": lonely})
+            out = gen_views.gen_relations(proj)
+            no_pain = [ln for ln in out.splitlines() if "課題なき解決" in ln]
+            self.assertTrue(no_pain and "DEMO-H-003" in no_pain[0], out)
+
+    def test_is_executed_distinguishes_placeholder(self):
+        import gen_views
+        real = "## 学習カード\n\n### 事実（observed）\n\n5名中3名が実コストを払っていた。\n"
+        placeholder = "## 学習カード\n\n### 事実（observed）\n\n（観測した事実をここに記入）\n"
+        self.assertTrue(gen_views.is_executed(real))
+        self.assertFalse(gen_views.is_executed(placeholder))
+
+
+class RecordsModuleTest(unittest.TestCase):
+    """AR-06: レコードモデルが records.py に集約され、hwlint/gen_views が同一実装を共有すること。"""
+
+    def test_shared_model_is_same_object(self):
+        import records
+        import gen_views
+        # hwlint と gen_views は records の Project/パーサを再利用する（重複実装でない）。
+        self.assertIs(hwlint.Project, records.Project)
+        self.assertIs(gen_views.Project, records.Project)
+        self.assertIs(hwlint.parse_frontmatter, records.parse_frontmatter)
+        self.assertIs(gen_views.importance, records.importance)
+        # testcard 抽出は records に一元化され、不変チェックと gen_views で共有される。
+        import check_testcard_immutable
+        self.assertIs(check_testcard_immutable.testcard, records.testcard)
+        self.assertIs(gen_views.testcard, records.testcard)
+
+
 if __name__ == "__main__":
     unittest.main()

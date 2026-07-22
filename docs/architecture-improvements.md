@@ -124,7 +124,7 @@
 ### AR-06: レコードモデル層が linter に同居し、view 生成が linter に密結合
 
 - **対象**: `tools/hwlint.py`、`tools/gen_views.py`、`tools/check_testcard_immutable.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。新規 `tools/records.py` にレコードモデル（`Project`・parse/strip 系・`entity_of`・`referenced_ids`・`importance`・`testcard` 抽出・`current_slug` 解決）を抽出。hwlint/gen_views/check_testcard_immutable/hooks が records から import し、gen_views は linter への依存を持たなくなった。`testcard` を records に一元化（gen_views と不変チェックで共有）、`next_to_verify` 描画を `next_to_verify_bullets` に共通化、プロジェクト解決を `current_slug` に一元化。挙動不変（全テストパス・ビュー内容バイト不変・hwlint 出力不変）。`RecordsModuleTest` で共有実装の同一性を assertIs 検証）
 - **課題**: レコードモデル（`Project`・`parse_frontmatter`・`parse_id_array`・`parse_history` 等）が
   `hwlint.py` に置かれ、`gen_views.py:24` がそれを直接 import する。つまり **linter が事実上の
   レコードモデルライブラリ**になっており、lint のリファクタが黙って view 生成を壊しうる。加えて重複が散在:
@@ -141,7 +141,7 @@
 ### AR-07: 最も複雑な view 生成層のテストが最も薄い
 
 - **対象**: `tests/`、`tools/gen_views.py`、`tools/gen_ontology_doc.py`、`tools/hooks/stop_view_gen.py`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。`GenViewsTest` 7ケースを追加。`field_value` の二形式（見出し／箇条書き）抽出、`next_to_verify`＋`next_to_verify_bullets`（⚠️未着手マーカー・並び）、`gen_board`/`gen_list`/`gen_relations` の主要節、addresses フィット表（対応・課題なき解決）、`is_executed` のプレースホルダ判別を fixture ベースで検証。gen_ontology_doc は ontology.md 差分ゼロを検証フローで担保。残: `stop_view_gen.py` 専用テストは今後）
 - **課題**: `test_hwlint.py` は lint の各チェックとフック（`stop_lint`/`guard_sources`）に肯定・否定
   両ケースを持つ一方、`gen_views.py` の出力（board/list/relations の生成、テストカード/学習カードの
   正規表現抽出、mermaid 描画）は `importance()` を除きほぼ未テスト。**脆い正規表現に依存する最も複雑な層の
