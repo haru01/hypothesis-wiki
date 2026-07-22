@@ -29,7 +29,7 @@ def main() -> int:
 
     sys.path.insert(0, str(TOOLS))
     from gen_views import VIEWS, resolve_slug  # noqa: E402
-    from hwlint import Project  # noqa: E402
+    from records import Project  # noqa: E402
 
     slug = resolve_slug(repo, None)
     root = repo / "projects" / (slug or "")

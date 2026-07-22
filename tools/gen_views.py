@@ -12,7 +12,7 @@
   - 因果・核心・対応課題 = H frontmatter `leads-to` / `core` / `addresses`
 確信度・ステータス・log は一切変更しない（読み取り専用）。
 
-hwlint.py の Project クラス（records/history/log のパーサ）と共有ヘルパをそのまま再利用する。
+レコードモデル（Project／パーサ／共有ヘルパ）は records.py から取り込む（linter への依存を持たない）。
 """
 import argparse
 import datetime
@@ -21,8 +21,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hwlint import (  # noqa: E402
+from records import (  # noqa: E402
     Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
+    testcard, current_slug,
 )
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
@@ -56,9 +57,14 @@ def next_to_verify(project, hyps, stage) -> list:
     return sorted(nxt, key=lambda x: (x[2], int(x[1].get("confidence", "0") or 0), x[0]))
 
 
-def testcard(text: str) -> str:
-    m = re.search(r"## テストカード.*?(?=## 学習カード|\Z)", text, re.DOTALL)
-    return m.group(0) if m else ""
+def next_to_verify_bullets(nxt) -> list:
+    """next_to_verify の各項目を箇条書き行に整形する（board/list 共通の逐語部分）。"""
+    lines = []
+    for stem, fm, has_act in nxt:
+        mark = "" if has_act else " ⚠️未着手（検証活動なし）"
+        lines.append(f"- [[{stem}]] {fm.get('title', '')}"
+                     f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
+    return lines
 
 
 def learning(text: str) -> str:
@@ -235,10 +241,7 @@ def gen_board(project) -> str:
     nxt = next_to_verify(project, hyps, stage)
     legend = "・⚠️＝検証活動なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
     L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中{legend}）:", ""]
-    for stem, fm, has_act in nxt:
-        mark = "" if has_act else " ⚠️未着手（検証活動なし）"
-        L.append(f"- [[{stem}]] {fm.get('title', '')}"
-                 f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
+    L += next_to_verify_bullets(nxt)
     L.append("")
     return "\n".join(L)
 
@@ -335,9 +338,7 @@ def gen_list(project) -> str:
     nxt = next_to_verify(project, hyps, stage)
     legend = "。⚠️＝検証活動なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
     L += [f"## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中{legend}）", ""]
-    for s, fm, has_act in nxt:
-        mark = "" if has_act else " ⚠️未着手（検証活動なし）"
-        L.append(f"- [[{s}]] {fm.get('title', '')}（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
+    L += next_to_verify_bullets(nxt)
     L.append("")
 
     # タイプ別サマリ（クロス集計）
@@ -561,11 +562,8 @@ VIEWS = {
 
 
 def resolve_slug(repo: Path, project):
-    if project:
-        return project
-    cur = (repo / "projects" / "current.md").read_text(encoding="utf-8")
-    m = re.search(r"current-project:\s*(\S+)", cur)
-    return m.group(1) if m else None
+    # プロジェクト解決は records.current_slug に一元化（hwlint とも共有）。
+    return project or current_slug(repo)
 
 
 def main() -> int:

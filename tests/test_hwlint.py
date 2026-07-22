@@ -823,5 +823,211 @@ class AddressesGapTest(unittest.TestCase):
             self.assertEqual(self._hits(root), [])
 
 
+class ParseFrontmatterTest(unittest.TestCase):
+    """AR-03: frontmatter を PyYAML(BaseLoader) でパースしつつ「素の文字列」契約を保つ。"""
+
+    def test_flat_scalars_and_array_contract(self):
+        # スカラーは文字列、配列は "[a, b]" 文字列、空値は "" に正規化される（従来契約）。
+        text = ("---\n"
+                "id: DEMO-H-001\n"
+                "confidence: 5\n"
+                "importance: auto\n"
+                "leads-to: [DEMO-H-002, DEMO-H-003]\n"
+                "derived-from:\n"
+                "---\n\n# body\n")
+        fm = hwlint.parse_frontmatter(text)
+        self.assertEqual(fm["id"], "DEMO-H-001")
+        self.assertEqual(fm["confidence"], "5")          # int でなく文字列
+        self.assertEqual(fm["leads-to"], "[DEMO-H-002, DEMO-H-003]")
+        self.assertEqual(hwlint.parse_id_array(fm["leads-to"]), ["DEMO-H-002", "DEMO-H-003"])
+        self.assertEqual(fm["derived-from"], "")         # 空値は ""
+
+    def test_bool_like_kept_as_string(self):
+        # core: true は真偽値化せず文字列 "true"（gen_views は == "true" で判定）。
+        fm = hwlint.parse_frontmatter("---\ncore: true\n---\n")
+        self.assertEqual(fm["core"], "true")
+
+    def test_inline_comment_stripped(self):
+        fm = hwlint.parse_frontmatter("---\nid: DEMO-H-001   # コメント\n---\n")
+        self.assertEqual(fm["id"], "DEMO-H-001")
+
+    def test_quoted_colon_value_handled(self):
+        # 手書きパーサでは崩れうる引用符内コロンを正しく扱う（robustness の主目的）。
+        fm = hwlint.parse_frontmatter('---\ntitle: "課題: 記録の散逸"\n---\n')
+        self.assertEqual(fm["title"], "課題: 記録の散逸")
+
+    def test_no_frontmatter_returns_empty(self):
+        self.assertEqual(hwlint.parse_frontmatter("# 本文だけ\n"), {})
+
+
+class WikilinkScopeTest(unittest.TestCase):
+    """AR-05: wikilink の解決対象は当該プロジェクト配下に限定（クロスプロジェクト解決を防ぐ）。"""
+
+    def test_cross_project_link_is_broken(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # demo プロジェクト（対象）の本文に、別プロジェクトの ID へのリンクを張る。
+            rec = hyp().replace("> テスト。", "> テスト。\n\n関連: [[OTHER-H-001]]")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            # 兄弟プロジェクト other に OTHER-H-001 を作る（親を走査すると解決してしまう配置）。
+            write(Path(tmp) / "projects" / "other", "wiki/hypotheses/OTHER-H-001.md",
+                  hyp(id="OTHER-H-001"))
+            self.assertTrue(any(p.check == "wikilink" and "OTHER-H-001" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_same_project_link_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("> テスト。", "> テスト。\n\n関連: [[DEMO-H-002]]")
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": rec,
+                "wiki/hypotheses/DEMO-H-002.md": hyp(id="DEMO-H-002"),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "wikilink"], [])
+
+
+class FictionalCapProseTest(unittest.TestCase):
+    """AR-04: 架空判定は構造化シグナル（〈架空〉タグ／紐づく架空ACT）に限定。地の文の語だけでは判定しない。"""
+
+    def test_prose_marker_in_reason_without_tag_not_flagged(self):
+        # 根拠セルに「架空」の語が地の文で出るが、〈架空〉タグも架空ACTも無い → 誤検出しない。
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 9 | 検証済み | 〈行動〉架空データではなく実観測 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),   # 架空マーカーを含まない実 ACT
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
+
+    def test_fictional_tag_still_flagged(self):
+        # 〈架空〉タグがあれば従来どおり上限超を検出する。
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 9 | 検証済み | 〈架空〉シミュレーション由来 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertTrue(any(p.check == "fictional-cap" for p in hwlint.lint_project(root)))
+
+
+class IdSequenceBoundaryTest(unittest.TestCase):
+    """AR-04: 欠番の取り下げ照合は数字境界つき（長い数字 ID への部分一致で誤って満たされない）。"""
+
+    def test_longer_numeric_id_does_not_satisfy_withdrawal(self):
+        # 欠番 DEMO-H-002 だが log の取り下げ記録は別 ID(DEMO-H-0025 相当)。部分一致で満たさない。
+        log = "## [2026-07-02] hypothesis | DEMO-H-0025 取り下げ → レコード削除\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-003.md": hyp(id="DEMO-H-003"),
+                "wiki/log.md": log,
+            })
+            self.assertTrue(any(p.check == "id-seq" and "DEMO-H-002" in p.where
+                                for p in hwlint.lint_project(root)))
+
+
+class GenViewsTest(unittest.TestCase):
+    """AR-07: ビュー生成（gen_views）の射影ロジックを fixture ベースで検証する。
+
+    最も複雑で脆い正規表現層（テストカード抽出・next_to_verify・mermaid・addresses フィット）を
+    カバーする。厳密なバイト一致でなく、主要な射影が出力に現れることを部分文字列で確認する。"""
+
+    def _views_project(self, tmp, extra=None):
+        import gen_views
+        sol = hyp(id="DEMO-H-002", type="ソリューション仮説").replace(
+            "importance: auto\n", "importance: auto\naddresses: [DEMO-H-001]\n")
+        files = {
+            "wiki/stage.md": "current-stage: CPF\n",
+            "wiki/hypotheses/DEMO-H-001.md": hyp(),                 # 課題仮説（CPF 重点）
+            "wiki/hypotheses/DEMO-H-002.md": sol,                   # ソリューション仮説（H-001 に addresses）
+            "wiki/activities/DEMO-ACT-001.md": act(),
+        }
+        files.update(extra or {})
+        root = make_project(tmp, files)
+        return gen_views, gen_views.Project(root)
+
+    def test_field_value_heading_and_bullet_forms(self):
+        import gen_views
+        heading = "## テストカード\n\n### 方法\n\n5名に問題インタビュー。\n\n### 指標\n\n該当数。\n"
+        bullet = "## テストカード\n\n- **方法**: 5名に問題インタビュー。\n- **成功基準**（開始前に確定）: 3名以上。\n"
+        self.assertEqual(gen_views.field_value(heading, "方法"), "5名に問題インタビュー。")
+        self.assertEqual(gen_views.field_value(bullet, "方法"), "5名に問題インタビュー。")
+        self.assertEqual(gen_views.field_value(bullet, "成功基準"), "3名以上。")
+        self.assertEqual(gen_views.field_value(heading, "存在しない"), "—")
+
+    def test_next_to_verify_marks_untested_focus_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # ACT を置かず、重点仮説(課題仮説)を未検証で1本だけにする → has_act=False。
+            import gen_views
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: CPF\n",
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+            })
+            proj = gen_views.Project(root)
+            nxt = gen_views.next_to_verify(proj, list(proj.hyp_records()), "CPF")
+            self.assertEqual([(s, has_act) for s, _, has_act in nxt], [("DEMO-H-001", False)])
+            bullets = gen_views.next_to_verify_bullets(nxt)
+            self.assertTrue(any("⚠️未着手" in b for b in bullets))
+
+    def test_gen_board_contains_core_sections(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen_views, proj = self._views_project(tmp)
+            out = gen_views.gen_board(proj)
+            self.assertIn("# ジャベリン実験ボード", out)
+            self.assertIn("DEMO-ACT-001", out)
+            self.assertIn("次に検証すべき仮説", out)
+
+    def test_gen_list_has_mermaid_and_next_to_verify(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen_views, proj = self._views_project(tmp)
+            out = gen_views.gen_list(proj)
+            self.assertIn("```mermaid", out)
+            self.assertIn("DEMO-H-001", out)
+            self.assertIn("次に検証すべき仮説", out)
+
+    def test_gen_relations_addresses_fit_table(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen_views, proj = self._views_project(tmp)
+            out = gen_views.gen_relations(proj)
+            self.assertIn("課題↔ソリューション フィット", out)
+            # 課題 H-001 の行に、addresses で対応するソリューション H-002 が現れる。
+            fit_rows = [ln for ln in out.splitlines() if ln.startswith("| [[DEMO-H-001]]")]
+            self.assertTrue(fit_rows and "[[DEMO-H-002]]" in fit_rows[0], out)
+
+    def test_gen_relations_solution_without_problem_flagged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # addresses を持たないソリューション仮説 → 「課題なき解決」に載る。
+            lonely = hyp(id="DEMO-H-003", type="ソリューション仮説")
+            gen_views, proj = self._views_project(
+                tmp, {"wiki/hypotheses/DEMO-H-003.md": lonely})
+            out = gen_views.gen_relations(proj)
+            no_pain = [ln for ln in out.splitlines() if "課題なき解決" in ln]
+            self.assertTrue(no_pain and "DEMO-H-003" in no_pain[0], out)
+
+    def test_is_executed_distinguishes_placeholder(self):
+        import gen_views
+        real = "## 学習カード\n\n### 事実（observed）\n\n5名中3名が実コストを払っていた。\n"
+        placeholder = "## 学習カード\n\n### 事実（observed）\n\n（観測した事実をここに記入）\n"
+        self.assertTrue(gen_views.is_executed(real))
+        self.assertFalse(gen_views.is_executed(placeholder))
+
+
+class RecordsModuleTest(unittest.TestCase):
+    """AR-06: レコードモデルが records.py に集約され、hwlint/gen_views が同一実装を共有すること。"""
+
+    def test_shared_model_is_same_object(self):
+        import records
+        import gen_views
+        # hwlint と gen_views は records の Project/パーサを再利用する（重複実装でない）。
+        self.assertIs(hwlint.Project, records.Project)
+        self.assertIs(gen_views.Project, records.Project)
+        self.assertIs(hwlint.parse_frontmatter, records.parse_frontmatter)
+        self.assertIs(gen_views.importance, records.importance)
+        # testcard 抽出は records に一元化され、不変チェックと gen_views で共有される。
+        import check_testcard_immutable
+        self.assertIs(check_testcard_immutable.testcard, records.testcard)
+        self.assertIs(gen_views.testcard, records.testcard)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,17 +8,23 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass
-from functools import cached_property
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
-    STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
+    STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
-    IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
+    IMPORTANCE_FOCUS,
+)
+# レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
+# ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
+from records import (  # noqa: E402
+    HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
+    strip_frontmatter, strip_comments, parse_history, referenced_ids,
+    importance, current_slug, Project,
 )
 
 
@@ -28,131 +34,6 @@ class Problem:
     where: str    # レコードID または パス
     check: str    # チェック名（kebab-case）
     message: str
-
-
-def parse_frontmatter(text: str) -> dict:
-    m = re.match(r"^---\n(.*?)\n---(?:\n|$)", text, re.DOTALL)
-    if not m:
-        return {}
-    fm = {}
-    for line in m.group(1).splitlines():
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        fm[key.strip()] = re.sub(r"\s+#.*$", "", value).strip()
-    return fm
-
-
-def parse_id_array(value: str) -> list:
-    return [x.strip() for x in value.strip("[]").split(",") if x.strip()]
-
-
-def entity_of(stem: str) -> str:
-    """レコード stem からエンティティ種別（H/ACT/DEC）を返す。該当なしは空。"""
-    for infix in ("H", "ACT", "DEC"):
-        if f"-{infix}-" in stem:
-            return infix
-    return ""
-
-
-def strip_frontmatter(text: str) -> str:
-    return re.sub(r"^---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
-
-
-def strip_comments(text: str) -> str:
-    """HTMLコメント（<!-- ... -->）を除去する。コメント内の例示 wikilink は
-    Obsidian でもグラフ辺を作らないため、リンク検査の対象から外す。"""
-    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-
-
-HISTORY_HEADER = "## 確信度履歴"
-
-
-def parse_history(body: str) -> list:
-    rows, in_section = [], False
-    for line in body.splitlines():
-        if line.startswith("## "):
-            in_section = line.strip() == HISTORY_HEADER
-            continue
-        if in_section and line.lstrip().startswith("|"):
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) >= 5 and re.match(r"\d{4}-\d{2}-\d{2}$", cells[0]):
-                rows.append({"date": cells[0], "confidence": cells[1],
-                             "status": cells[2], "reason": cells[3], "activity": cells[4]})
-    return rows
-
-
-def referenced_ids(project, field, infix=None, where=None) -> set:
-    """`field`（frontmatter の関係キー）で指されている終点IDの集合を返す。
-
-    infix を渡すと始点レコード種別（例 "-ACT-"）で、where(fm)->bool を渡すと始点 frontmatter で
-    さらに絞る。関係グラフの入次数（被参照）を「有無」で見る用途の共有ヘルパ。"""
-    out = set()
-    for stem, (_, fm, _) in project.records.items():
-        if infix and infix not in stem:
-            continue
-        if where and not where(fm):
-            continue
-        out.update(parse_id_array(fm.get(field, "")))
-    return out
-
-
-def importance(fm, stage) -> int:
-    """仮説の重要度。手動指定(1-10)が優先。auto は現ステージの重点タイプ=IMPORTANCE_FOCUS・
-    それ以外=IMPORTANCE_OTHER（重みの正本は ontology.yaml の importance-weights）。"""
-    imp = fm.get("importance", "auto")
-    if imp != "auto" and imp.isdigit():
-        return int(imp)
-    return IMPORTANCE_FOCUS if fm.get("type") in STAGE_FOCUS.get(stage, set()) else IMPORTANCE_OTHER
-
-
-class Project:
-    def __init__(self, root: Path):
-        self.root = root
-        self.slug = root.name
-        self.wiki = root / "wiki"
-        self.records = {}
-        self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
-        self.stray = []
-        for sub in ("hypotheses", "activities", "decisions"):
-            d = self.wiki / sub
-            if not d.is_dir():
-                continue
-            for p in sorted(d.glob("*.md")):
-                if not ID_RE.match(p.stem):
-                    if not p.stem.endswith("-script"):
-                        self.stray.append(p)
-                    continue
-                text = p.read_text(encoding="utf-8")
-                self.records[p.stem] = (p, parse_frontmatter(text), text)
-                if "-H-" in p.stem:
-                    self.history[p.stem] = parse_history(text)
-        log_path = self.wiki / "log.md"
-        self.log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
-
-    @cached_property
-    def stage(self) -> str:
-        """現在ステージ（stage.md の current-stage）。無ければ空。"""
-        p = self.wiki / "stage.md"
-        if p.exists():
-            m = re.search(r"current-stage:\s*(\w+)", p.read_text(encoding="utf-8"))
-            if m:
-                return m.group(1)
-        return ""
-
-    @cached_property
-    def prefix(self) -> str:
-        for rid in self.records:
-            m = re.match(r"^([A-Z0-9]+)-", rid)
-            if m:
-                return m.group(1)
-        return self.slug.upper()
-
-    def hyp_records(self):
-        """仮説レコードを (stem, fm, body, history) で列挙する。history はキャッシュ済み。"""
-        for stem, (_, fm, body) in self.records.items():
-            if "-H-" in stem:
-                yield stem, fm, body, self.history[stem]
 
 
 def check_id_matches_filename(project) -> list:
@@ -306,9 +187,13 @@ def check_relation_wikilinks(project) -> list:
 
 
 def check_wikilinks(project) -> list:
-    """本文の wikilink が vault 内で解決すること。schema層（/入り）への wikilink は規約違反。"""
+    """本文の wikilink が当該プロジェクトの wiki 内で解決すること。schema層（/入り）への wikilink は規約違反。
+
+    解決対象は当該プロジェクト配下（`root/wiki/`）に限定する。接頭辞で ID 衝突を防ぐ設計に対し
+    親ディレクトリ（＝全プロジェクトの wiki）を走査すると、別プロジェクトに同名があるだけで
+    リンクが解決してしまいリンク切れ検出がプロジェクト境界を越えて緩くなるため（共通規約1: lint は現在プロジェクトのみ対象）。"""
     problems = []
-    all_names = {p.stem for p in project.root.parent.glob("*/wiki/**/*.md")}
+    all_names = {p.stem for p in project.root.glob("wiki/**/*.md")}
     for stem, (_, _, body) in project.records.items():
         for target in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body))):
             target = target.strip()
@@ -341,7 +226,9 @@ def check_id_sequence(project) -> list:
             continue
         for missing in sorted(set(range(1, max(nums) + 1)) - set(nums)):
             mid = f"{prefix}-{kind}-{missing:03d}"
-            if not any(mid in line and "取り下げ" in line for line in log_lines):
+            # 数字境界つきで照合（例: DEMO-H-002 が DEMO-H-0025 に部分一致しない）
+            mid_re = re.compile(rf"(?<![0-9A-Za-z]){re.escape(mid)}(?![0-9])")
+            if not any(mid_re.search(line) and "取り下げ" in line for line in log_lines):
                 problems.append(Problem("warning", mid, "id-seq",
                                         "欠番だが log.md に取り下げ記録が見当たらない"))
     return problems
@@ -358,10 +245,13 @@ def check_log_sync(project) -> list:
     for stem, _, _, rows in project.hyp_records():
         m = re.search(r"(H-\d+)$", stem)
         short = m.group(1) if m else stem
+        # 数字境界つきで ID 照合（例: H-001 が H-0012 に部分一致しない）
+        stem_re = re.compile(rf"(?<![0-9A-Za-z]){re.escape(stem)}(?![0-9])")
+        short_re = re.compile(rf"(?<![0-9A-Za-z]){re.escape(short)}(?![0-9])")
         for row in rows[1:]:
             conf = row["confidence"]
             pattern = rf"(?:→\s*|確信度[^|]*?){re.escape(conf)}(?!\d)"
-            if not any((stem in line or short in line) and re.search(pattern, line)
+            if not any((stem_re.search(line) or short_re.search(line)) and re.search(pattern, line)
                        for line in log_lines):
                 problems.append(Problem("warning", stem, "log-sync",
                     f"履歴 {row['date']} 行（確信度{conf}）に対応する log.md 記録が見当たらない"))
@@ -395,7 +285,9 @@ def check_fictional_cap(project) -> list:
 
     履歴の**全行**を走査する（最終行だけでなく、確信度を上限超へ押し上げた中間行の
     架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく ACT が
-    架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、(c) 根拠セルに架空マーカー、のいずれか。"""
+    架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、のいずれか。根拠セルの地の文に
+    架空マーカー語が出るだけ（例: 架空データに言及した注記）では判定しない
+    （構造化シグナルに一本化して誤検出を避ける）。"""
     problems = []
     fictional_acts = {stem for stem, (_, _, body) in project.records.items()
                       if "-ACT-" in stem and any(m in body for m in FICTIONAL_MARKERS)}
@@ -405,7 +297,7 @@ def check_fictional_cap(project) -> list:
             if not rc.isdigit() or int(rc) <= FICTIONAL_CAP:
                 continue
             hit = [rid for rid in EVIDENCE_RE.findall(row["activity"]) if rid in fictional_acts]
-            tagged = "〈架空〉" in row["reason"] or any(m in row["reason"] for m in FICTIONAL_MARKERS)
+            tagged = "〈架空〉" in row["reason"]
             if hit or tagged:
                 src = "・".join(hit) if hit else "〈架空〉タグ"
                 problems.append(Problem("error", stem, "fictional-cap",
@@ -608,11 +500,7 @@ def resolve_targets(repo: Path, args) -> list:
     projects_dir = repo / "projects"
     if args.all:
         return [d for d in sorted(projects_dir.iterdir()) if (d / "wiki").is_dir()]
-    slug = args.project
-    if not slug:
-        current = (projects_dir / "current.md").read_text(encoding="utf-8")
-        m = re.search(r"current-project:\s*(\S+)", current)
-        slug = m.group(1) if m else None
+    slug = args.project or current_slug(repo)   # プロジェクト解決は records.current_slug に一元化
     if not slug or not (projects_dir / slug / "wiki").is_dir():
         sys.exit(f"プロジェクトが見つからない: {slug!r}")
     return [projects_dir / slug]

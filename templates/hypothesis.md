@@ -9,7 +9,7 @@ stage: CPF | FPF | PSF | SPF | PMF
 importance: auto
 derived-from:            # 省略可。派生元を接頭辞つきで1件（例 SELF-H-003）。派生・ピボット・巻き戻し再出発の系譜
 leads-to:                # 省略可。因果的に導く先の仮説（接頭辞つき配列。例 [SELF-H-004]）。list の mermaid 矢印になる
-addresses:               # 省略可（ソリューション仮説）。対応する課題仮説（接頭辞つき配列）。vp のフィット表になる
+addresses:               # 省略可（ソリューション仮説）。対応する課題仮説（接頭辞つき配列）。relations のフィット表になる
 core:                    # 省略可。核心仮説なら true（list で ★ 表示）
 ---
 

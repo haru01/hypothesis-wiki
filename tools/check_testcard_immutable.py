@@ -10,18 +10,16 @@ import argparse
 import re
 import subprocess
 import sys
+from pathlib import Path
 
-TEST_SECTION_RE = re.compile(r"## テストカード.*?(?=## 学習カード|\Z)", re.DOTALL)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from records import testcard  # noqa: E402  テストカード節の抽出は records に一元化（gen_views と共有）
+
 FACTS_RE = re.compile(r"### 事実（observed）(.*?)(?=###|\Z)", re.DOTALL)
 
 
 def git(*args) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
-
-
-def testcard(text: str) -> str:
-    m = TEST_SECTION_RE.search(text)
-    return m.group(0) if m else ""
 
 
 def learning_filled(text: str) -> bool:
