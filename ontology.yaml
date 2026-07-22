@@ -101,7 +101,7 @@ relations:
     range-subtypes: [課題仮説]
     cardinality: many
     inverse: addressed-by
-    must-wikilink: false      # 現在フィット表は休眠。本文 wikilink 必須にしない
+    must-wikilink: false      # relations のフィット表は frontmatter から射影。本文 wikilink は必須にしない
     label: 対応課題
     inverse-label: 対応する価値
     description: ソリューション仮説→対応する課題仮説（バリュープロポジションのフィット）

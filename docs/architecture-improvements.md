@@ -30,7 +30,7 @@
 ### AR-01: `projects/current.md` のスキル一覧が `chabudai` を欠く（実ドリフト）
 
 - **対象**: `projects/current.md`
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。current.md:9 のスキル逐一列挙を `../CLAUDE.md`「ワークフロー」節への1行参照に置換し、一覧の正本を CLAUDE.md 1箇所に一本化）
 - **課題**: `current.md:9` がスキルを9個列挙（`/new-project /desk-research /formulate /plan /prototype
   /ingest /view /decide /lint`）するが **`/chabudai` を欠いている**。`CLAUDE.md` のワークフロー表・
   `README.md` のクイックスタート表には chabudai が含まれる。SI-012 で共通規約は集約したが、
@@ -45,7 +45,7 @@
 ### AR-02: `/formulate` の addresses 記述と ontology（must-wikilink:false）・休眠 vp ビューの不整合
 
 - **対象**: `.claude/skills/formulate/SKILL.md`、`ontology.yaml`、`tools/gen_views.py`（`gen_vp`）
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。全整合で対応。formulate:24 の不要な本文 wikilink 要求を削除し、`addresses` の表記を template:12・CLAUDE.md:79・CLAUDE.md:35・ontology.yaml:104 コメントで「relations のフィット表（frontmatter から射影）」に統一。フィット表は休眠でなく登録済み relations ビューがライブ生成しているという実態に合わせた。vp ビュー自体の復活は見送り＝案1採用。挙動変更なし）
 - **課題**: `addresses` 関係は `ontology.yaml:104` で `must-wikilink: false`（「現在フィット表は休眠」と注記）、
   それを描画する `vp` ビュー（`gen_vp`、`gen_views.py:364`）も `VIEWS`(:556) に未登録の死んだ経路。
   にもかかわらず `formulate/SKILL.md:24` は今も「ソリューション仮説なら addresses に対応課題を列挙し、
