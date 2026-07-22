@@ -21,33 +21,22 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hwlint import Project, parse_id_array, strip_comments, entity_of  # noqa: E402
+from hwlint import (  # noqa: E402
+    Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
+)
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
-    STAGE_FOCUS, STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
-    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
+    STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
+    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS,
 )
 
 
 # ---- 共通ヘルパ ----
 
 def read_stage(project) -> str:
-    p = project.wiki / "stage.md"
-    if p.exists():
-        m = re.search(r"current-stage:\s*(\w+)", p.read_text(encoding="utf-8"))
-        if m:
-            return m.group(1)
-    return "?"
-
-
-def importance(fm, stage) -> int:
-    """手動指定(1-10)が優先。auto は重点タイプ=IMPORTANCE_FOCUS・それ以外=IMPORTANCE_OTHER
-    （重みの正本は ontology.yaml の importance-weights）。"""
-    imp = fm.get("importance", "auto")
-    if imp != "auto" and imp.isdigit():
-        return int(imp)
-    return IMPORTANCE_FOCUS if fm.get("type") in STAGE_FOCUS.get(stage, set()) else IMPORTANCE_OTHER
+    """現在ステージ（無ければ "?"）。読取ロジックの正本は Project.stage。"""
+    return project.stage or "?"
 
 
 def fictional_acts(project) -> list:
@@ -56,11 +45,15 @@ def fictional_acts(project) -> list:
                   and any(m in project.records[s][2] for m in FICTIONAL_MARKERS))
 
 
-def next_to_verify(hyps, stage) -> list:
-    """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。"""
-    nxt = [(s, fm) for s, fm, *_ in hyps
+def next_to_verify(project, hyps, stage) -> list:
+    """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。
+
+    検証活動(ACT)が1本も紐づかない（未着手）ものを最優先に並べる
+    （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, has_act)。"""
+    tested = referenced_ids(project, "hypotheses", infix="-ACT-")
+    nxt = [(s, fm, s in tested) for s, fm, *_ in hyps
            if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
-    return sorted(nxt, key=lambda x: (int(x[1].get("confidence", "0") or 0), x[0]))
+    return sorted(nxt, key=lambda x: (x[2], int(x[1].get("confidence", "0") or 0), x[0]))
 
 
 def testcard(text: str) -> str:
@@ -239,10 +232,13 @@ def gen_board(project) -> str:
         emo = STATUS_EMOJI.get(fm.get("status", ""), "")
         L.append(f"| [[{stem}]] {fm.get('title', '')} | {fm.get('type', '')} | "
                  f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm, stage)} |")
-    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中）:", ""]
-    for stem, fm in next_to_verify(hyps, stage):
+    nxt = next_to_verify(project, hyps, stage)
+    legend = "・⚠️＝検証活動なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
+    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中{legend}）:", ""]
+    for stem, fm, has_act in nxt:
+        mark = "" if has_act else " ⚠️未着手（検証活動なし）"
         L.append(f"- [[{stem}]] {fm.get('title', '')}"
-                 f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）")
+                 f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
     L.append("")
     return "\n".join(L)
 
@@ -336,9 +332,12 @@ def gen_list(project) -> str:
         L.append("")
 
     # 次に検証すべき
-    L += ["## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中）", ""]
-    for s, fm in next_to_verify(hyps, stage):
-        L.append(f"- [[{s}]] {fm.get('title', '')}（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）")
+    nxt = next_to_verify(project, hyps, stage)
+    legend = "。⚠️＝検証活動なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
+    L += [f"## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中{legend}）", ""]
+    for s, fm, has_act in nxt:
+        mark = "" if has_act else " ⚠️未着手（検証活動なし）"
+        L.append(f"- [[{s}]] {fm.get('title', '')}（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
     L.append("")
 
     # タイプ別サマリ（クロス集計）
@@ -541,6 +540,12 @@ def gen_relations(project):
               + (" ".join(f"[[{s}]]" for s in uncovered) if uncovered else "なし")]
         L.append("- **実質未カバー**（反証された価値でしか対応されていない）: "
                  + (" ".join(f"[[{s}]]" for s in effectively) if effectively else "なし"))
+        # 課題なき解決（addresses 先が無いソリューション仮説。反証は除く）＝フィットの逆側の空白
+        no_pain = [v for v in values
+                   if (vfm := project.records[v][1]).get("type") in VALUE_TYPES and not refuted(v)
+                   and not parse_id_array(vfm.get("addresses", ""))]
+        L.append("- **課題なき解決**（addresses 先が無いソリューション仮説）: "
+                 + (" ".join(f"[[{v}]]" for v in no_pain) if no_pain else "なし"))
         if not values_by_pain:
             L.append("- ※ どの課題にも `addresses` が張られていない"
                      "（ソリューション仮説の frontmatter に `addresses: [課題ID]` を書くとフィットが埋まる）")

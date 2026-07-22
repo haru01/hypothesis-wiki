@@ -17,7 +17,8 @@ from ontology import (  # noqa: E402
     STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES, ID_RE,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
-    STATUS_BOUNDS, RELATIONS,
+    STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
+    IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
 )
 
 
@@ -81,6 +82,30 @@ def parse_history(body: str) -> list:
     return rows
 
 
+def referenced_ids(project, field, infix=None, where=None) -> set:
+    """`field`（frontmatter の関係キー）で指されている終点IDの集合を返す。
+
+    infix を渡すと始点レコード種別（例 "-ACT-"）で、where(fm)->bool を渡すと始点 frontmatter で
+    さらに絞る。関係グラフの入次数（被参照）を「有無」で見る用途の共有ヘルパ。"""
+    out = set()
+    for stem, (_, fm, _) in project.records.items():
+        if infix and infix not in stem:
+            continue
+        if where and not where(fm):
+            continue
+        out.update(parse_id_array(fm.get(field, "")))
+    return out
+
+
+def importance(fm, stage) -> int:
+    """仮説の重要度。手動指定(1-10)が優先。auto は現ステージの重点タイプ=IMPORTANCE_FOCUS・
+    それ以外=IMPORTANCE_OTHER（重みの正本は ontology.yaml の importance-weights）。"""
+    imp = fm.get("importance", "auto")
+    if imp != "auto" and imp.isdigit():
+        return int(imp)
+    return IMPORTANCE_FOCUS if fm.get("type") in STAGE_FOCUS.get(stage, set()) else IMPORTANCE_OTHER
+
+
 class Project:
     def __init__(self, root: Path):
         self.root = root
@@ -104,6 +129,16 @@ class Project:
                     self.history[p.stem] = parse_history(text)
         log_path = self.wiki / "log.md"
         self.log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
+
+    @cached_property
+    def stage(self) -> str:
+        """現在ステージ（stage.md の current-stage）。無ければ空。"""
+        p = self.wiki / "stage.md"
+        if p.exists():
+            m = re.search(r"current-stage:\s*(\w+)", p.read_text(encoding="utf-8"))
+            if m:
+                return m.group(1)
+        return ""
 
     @cached_property
     def prefix(self) -> str:
@@ -451,6 +486,66 @@ def check_dec_based_on(project) -> list:
     return problems
 
 
+def check_untested_focus(project) -> list:
+    """OI-F1: 重点仮説なのに検証活動(ACT)の hypotheses 入次数が0のものを検出する（warning）。
+
+    重点＝現ステージの重点タイプ（stage-focus）か、手動 importance>=IMPORTANCE_FOCUS のH。
+    「重要なのに検証実験が1本も紐づいていない」を構造事実（入次数0）で拾う。トポロジー由来の
+    探索域ギャップ検出（docs/ontology-improvements.md OI-F1）。status が検証中/検証済みなら、
+    検証したと主張しているのに ACT からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
+    problems = []
+    tested = referenced_ids(project, "hypotheses", infix="-ACT-")
+    for stem, fm, _, _ in project.hyp_records():
+        if importance(fm, project.stage) < IMPORTANCE_FOCUS or stem in tested:
+            continue
+        status = fm.get("status", "")
+        if status in ("検証中", "検証済み"):
+            problems.append(Problem("warning", stem, "untested-focus",
+                f"重点仮説で status={status} なのに検証活動(ACT)の hypotheses から1本も"
+                f"参照されていない（二重表現の破れ／検証実態の欠落の疑い）"))
+        else:
+            problems.append(Problem("warning", stem, "untested-focus",
+                "重点仮説だが検証活動(ACT)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
+    return problems
+
+
+def check_addresses_gaps(project) -> list:
+    """OI-F2: 課題↔解決の構造ギャップを検出する（warning）。
+
+    addresses（ソリューション仮説→課題仮説）のグラフ欠落を2方向で拾う（トポロジー由来の
+    探索域ギャップ検出。docs/ontology-improvements.md OI-F2）:
+    - 課題なき解決: addresses を持てる型（ソリューション仮説）なのに addresses が空。
+      solution in search of problem／PSF の危険信号。反証は対象外。
+    - 未対応の課題: 検証済みの課題仮説を addresses するソリューション仮説（反証を除く）が
+      1本も無い＝未開拓の機会。ただし解決設計フェーズ（ソリューション仮説が重点になる
+      ステージ以降）でのみ拾う。CPF/FPF で課題に解決が無いのは正常なため。"""
+    problems = []
+    addr = RELATIONS_BY_FIELD["addresses"]
+    sol_types = addr.domain_subtypes
+    prob_types = addr.range_subtypes
+    # 反証のソリューションは実質的な対応にならないので除いて「対応済みの課題」集合を作る
+    addressed = referenced_ids(project, "addresses",
+                               where=lambda fm: fm.get("type") in sol_types and fm.get("status") != "反証")
+    # 課題なき解決
+    for stem, fm, _, _ in project.hyp_records():
+        if (fm.get("type") in sol_types and fm.get("status") != "反証"
+                and not parse_id_array(fm.get("addresses", ""))):
+            problems.append(Problem("warning", stem, "addresses-gap",
+                "ソリューション仮説だが addresses（対応課題）が空"
+                "（課題なき解決の疑い。どの課題を解くのか frontmatter に明示する）"))
+    # 未対応の課題（解決設計フェーズ＝ソリューション仮説が重点になる最早ステージ以降のみ）
+    sol_stages = {s for s, types in STAGE_FOCUS.items() if types & sol_types}
+    cur = STAGE_ORDER.index(project.stage) if project.stage in STAGE_ORDER else -1
+    if any(cur >= STAGE_ORDER.index(s) for s in sol_stages):
+        for stem, fm, _, _ in project.hyp_records():
+            if (fm.get("type") in prob_types and fm.get("status") == "検証済み"
+                    and stem not in addressed):
+                problems.append(Problem("warning", stem, "addresses-gap",
+                    "検証済みの課題仮説だが、対応するソリューション仮説（addresses）が無い"
+                    "（未開拓の機会。解決設計フェーズでは要検討）"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -497,7 +592,8 @@ CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
-          check_dec_based_on, check_relation_cycles]
+          check_dec_based_on, check_untested_focus, check_addresses_gaps,
+          check_relation_cycles]
 
 
 def lint_project(root: Path) -> list:
