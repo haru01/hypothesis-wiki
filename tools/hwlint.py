@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
@@ -31,15 +33,31 @@ class Problem:
 
 
 def parse_frontmatter(text: str) -> dict:
+    """frontmatter（--- で囲まれた YAML ブロック）を dict で返す。
+
+    値は従来どおり「素の文字列」契約で返す（下流は文字列前提で .isdigit()/parse_id_array を使う）。
+    yaml.BaseLoader を使うことで、引用符内コロン・複数行値・コメントを正しく扱いつつ、
+    型強制（int 化・真偽値化・日付化・いわゆる Norway 問題）を避けて元の文字列表現を保つ。
+    空値（None）は ""、配列は "[a, b]" の文字列に正規化して契約を維持する。
+    パースできない frontmatter は空 dict を返す（従来同様、寛容に扱う）。
+    """
     m = re.match(r"^---\n(.*?)\n---(?:\n|$)", text, re.DOTALL)
     if not m:
         return {}
+    try:
+        data = yaml.load(m.group(1), Loader=yaml.BaseLoader)
+    except yaml.YAMLError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
     fm = {}
-    for line in m.group(1).splitlines():
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        fm[key.strip()] = re.sub(r"\s+#.*$", "", value).strip()
+    for key, value in data.items():
+        if value is None:
+            fm[str(key)] = ""
+        elif isinstance(value, list):
+            fm[str(key)] = "[" + ", ".join(str(v) for v in value) + "]"
+        else:
+            fm[str(key)] = str(value)
     return fm
 
 
@@ -306,9 +324,13 @@ def check_relation_wikilinks(project) -> list:
 
 
 def check_wikilinks(project) -> list:
-    """本文の wikilink が vault 内で解決すること。schema層（/入り）への wikilink は規約違反。"""
+    """本文の wikilink が当該プロジェクトの wiki 内で解決すること。schema層（/入り）への wikilink は規約違反。
+
+    解決対象は当該プロジェクト配下（`root/wiki/`）に限定する。接頭辞で ID 衝突を防ぐ設計に対し
+    親ディレクトリ（＝全プロジェクトの wiki）を走査すると、別プロジェクトに同名があるだけで
+    リンクが解決してしまいリンク切れ検出がプロジェクト境界を越えて緩くなるため（共通規約1: lint は現在プロジェクトのみ対象）。"""
     problems = []
-    all_names = {p.stem for p in project.root.parent.glob("*/wiki/**/*.md")}
+    all_names = {p.stem for p in project.root.glob("wiki/**/*.md")}
     for stem, (_, _, body) in project.records.items():
         for target in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body))):
             target = target.strip()
@@ -341,7 +363,9 @@ def check_id_sequence(project) -> list:
             continue
         for missing in sorted(set(range(1, max(nums) + 1)) - set(nums)):
             mid = f"{prefix}-{kind}-{missing:03d}"
-            if not any(mid in line and "取り下げ" in line for line in log_lines):
+            # 数字境界つきで照合（例: DEMO-H-002 が DEMO-H-0025 に部分一致しない）
+            mid_re = re.compile(rf"(?<![0-9A-Za-z]){re.escape(mid)}(?![0-9])")
+            if not any(mid_re.search(line) and "取り下げ" in line for line in log_lines):
                 problems.append(Problem("warning", mid, "id-seq",
                                         "欠番だが log.md に取り下げ記録が見当たらない"))
     return problems
@@ -358,10 +382,13 @@ def check_log_sync(project) -> list:
     for stem, _, _, rows in project.hyp_records():
         m = re.search(r"(H-\d+)$", stem)
         short = m.group(1) if m else stem
+        # 数字境界つきで ID 照合（例: H-001 が H-0012 に部分一致しない）
+        stem_re = re.compile(rf"(?<![0-9A-Za-z]){re.escape(stem)}(?![0-9])")
+        short_re = re.compile(rf"(?<![0-9A-Za-z]){re.escape(short)}(?![0-9])")
         for row in rows[1:]:
             conf = row["confidence"]
             pattern = rf"(?:→\s*|確信度[^|]*?){re.escape(conf)}(?!\d)"
-            if not any((stem in line or short in line) and re.search(pattern, line)
+            if not any((stem_re.search(line) or short_re.search(line)) and re.search(pattern, line)
                        for line in log_lines):
                 problems.append(Problem("warning", stem, "log-sync",
                     f"履歴 {row['date']} 行（確信度{conf}）に対応する log.md 記録が見当たらない"))
@@ -395,7 +422,9 @@ def check_fictional_cap(project) -> list:
 
     履歴の**全行**を走査する（最終行だけでなく、確信度を上限超へ押し上げた中間行の
     架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく ACT が
-    架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、(c) 根拠セルに架空マーカー、のいずれか。"""
+    架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、のいずれか。根拠セルの地の文に
+    架空マーカー語が出るだけ（例: 架空データに言及した注記）では判定しない
+    （構造化シグナルに一本化して誤検出を避ける）。"""
     problems = []
     fictional_acts = {stem for stem, (_, _, body) in project.records.items()
                       if "-ACT-" in stem and any(m in body for m in FICTIONAL_MARKERS)}
@@ -405,7 +434,7 @@ def check_fictional_cap(project) -> list:
             if not rc.isdigit() or int(rc) <= FICTIONAL_CAP:
                 continue
             hit = [rid for rid in EVIDENCE_RE.findall(row["activity"]) if rid in fictional_acts]
-            tagged = "〈架空〉" in row["reason"] or any(m in row["reason"] for m in FICTIONAL_MARKERS)
+            tagged = "〈架空〉" in row["reason"]
             if hit or tagged:
                 src = "・".join(hit) if hit else "〈架空〉タグ"
                 problems.append(Problem("error", stem, "fictional-cap",

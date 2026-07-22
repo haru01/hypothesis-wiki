@@ -73,7 +73,7 @@
 ### AR-03: 手書き frontmatter パーサが systemic な脆弱性
 
 - **対象**: `tools/hwlint.py`（`parse_frontmatter`）
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。`yaml.load(..., Loader=yaml.BaseLoader)` に置換。BaseLoader で型強制（int/bool/date 化・Norway 問題）を避け、None→""・list→"[a, b]" の正規化で従来の文字列契約を完全維持。引用符内コロン・複数行・コメントを正しく処理。実データで hwlint --all バイト一致・既存74テスト不変、`ParseFrontmatterTest` 5ケース追加）
 - **課題**: `parse_frontmatter`(`hwlint.py:33`) は本物の YAML ではなく行ベースの近似（最初の `:` で split・
   末尾 `#…` を正規表現で除去）。ネスト構造・複数行値・引用符内コロン・ブロックリストは誤パースする。
   現状フラットな `key: value` / `key: [a, b]` 規約でたまたま成立しているだけ。しかも **この1つのパーサが
@@ -87,7 +87,7 @@
 ### AR-04: 架空検出・log/id 照合が部分一致依存で誤検出しうる
 
 - **対象**: `tools/hwlint.py`（`check_fictional_cap`／`check_log_sync`／`check_id_sequence`）
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。(1) `check_fictional_cap` の根拠セル地の文マーカー検出を外し、構造化シグナル（`〈架空〉` タグ＋紐づく架空 ACT）に一本化。(2) `check_log_sync`・`check_id_sequence` の ID 照合を数字境界つき正規表現 `(?<![0-9A-Za-z])…(?![0-9])` に。`FictionalCapProseTest` 2ケース・`IdSequenceBoundaryTest` 1ケース追加）
 - **課題**: 3つのチェックが素朴な文字列包含に依存する:
   - `check_fictional_cap` は本文に「架空/シミュレーション」の語があれば架空 ACT 扱い。架空データを
     **説明・注意喚起しているだけ**のレコードでも誤検出しうる。
@@ -105,7 +105,7 @@
 ### AR-05: `check_wikilinks` がリポジトリ親を glob しクロスプロジェクト解決になっている
 
 - **対象**: `tools/hwlint.py`（`check_wikilinks`）
-- **状態**: 未対応
+- **状態**: 対応済み（2026-07-22。解決対象を `project.root.parent.glob("*/wiki/**/*.md")` から当該プロジェクト配下 `project.root.glob("wiki/**/*.md")` に限定。クロスプロジェクト解決を排除し共通規約1と整合。`WikilinkScopeTest` 2ケース追加。実データで新規 wikilink エラーなし）
 - **課題**: `check_wikilinks`(`hwlint.py:308`) は解決可能名の集合を
   `project.root.parent.glob("*/wiki/**/*.md")`(`:311`) で作る。これは**現在プロジェクトの兄弟ディレクトリ
   （＝他プロジェクトの `wiki/`）まで走査**するため、`[[AIRE-H-001]]` のようなリンクが**別プロジェクトに

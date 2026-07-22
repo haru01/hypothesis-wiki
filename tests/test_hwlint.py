@@ -823,5 +823,108 @@ class AddressesGapTest(unittest.TestCase):
             self.assertEqual(self._hits(root), [])
 
 
+class ParseFrontmatterTest(unittest.TestCase):
+    """AR-03: frontmatter を PyYAML(BaseLoader) でパースしつつ「素の文字列」契約を保つ。"""
+
+    def test_flat_scalars_and_array_contract(self):
+        # スカラーは文字列、配列は "[a, b]" 文字列、空値は "" に正規化される（従来契約）。
+        text = ("---\n"
+                "id: DEMO-H-001\n"
+                "confidence: 5\n"
+                "importance: auto\n"
+                "leads-to: [DEMO-H-002, DEMO-H-003]\n"
+                "derived-from:\n"
+                "---\n\n# body\n")
+        fm = hwlint.parse_frontmatter(text)
+        self.assertEqual(fm["id"], "DEMO-H-001")
+        self.assertEqual(fm["confidence"], "5")          # int でなく文字列
+        self.assertEqual(fm["leads-to"], "[DEMO-H-002, DEMO-H-003]")
+        self.assertEqual(hwlint.parse_id_array(fm["leads-to"]), ["DEMO-H-002", "DEMO-H-003"])
+        self.assertEqual(fm["derived-from"], "")         # 空値は ""
+
+    def test_bool_like_kept_as_string(self):
+        # core: true は真偽値化せず文字列 "true"（gen_views は == "true" で判定）。
+        fm = hwlint.parse_frontmatter("---\ncore: true\n---\n")
+        self.assertEqual(fm["core"], "true")
+
+    def test_inline_comment_stripped(self):
+        fm = hwlint.parse_frontmatter("---\nid: DEMO-H-001   # コメント\n---\n")
+        self.assertEqual(fm["id"], "DEMO-H-001")
+
+    def test_quoted_colon_value_handled(self):
+        # 手書きパーサでは崩れうる引用符内コロンを正しく扱う（robustness の主目的）。
+        fm = hwlint.parse_frontmatter('---\ntitle: "課題: 記録の散逸"\n---\n')
+        self.assertEqual(fm["title"], "課題: 記録の散逸")
+
+    def test_no_frontmatter_returns_empty(self):
+        self.assertEqual(hwlint.parse_frontmatter("# 本文だけ\n"), {})
+
+
+class WikilinkScopeTest(unittest.TestCase):
+    """AR-05: wikilink の解決対象は当該プロジェクト配下に限定（クロスプロジェクト解決を防ぐ）。"""
+
+    def test_cross_project_link_is_broken(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # demo プロジェクト（対象）の本文に、別プロジェクトの ID へのリンクを張る。
+            rec = hyp().replace("> テスト。", "> テスト。\n\n関連: [[OTHER-H-001]]")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            # 兄弟プロジェクト other に OTHER-H-001 を作る（親を走査すると解決してしまう配置）。
+            write(Path(tmp) / "projects" / "other", "wiki/hypotheses/OTHER-H-001.md",
+                  hyp(id="OTHER-H-001"))
+            self.assertTrue(any(p.check == "wikilink" and "OTHER-H-001" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_same_project_link_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("> テスト。", "> テスト。\n\n関連: [[DEMO-H-002]]")
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": rec,
+                "wiki/hypotheses/DEMO-H-002.md": hyp(id="DEMO-H-002"),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "wikilink"], [])
+
+
+class FictionalCapProseTest(unittest.TestCase):
+    """AR-04: 架空判定は構造化シグナル（〈架空〉タグ／紐づく架空ACT）に限定。地の文の語だけでは判定しない。"""
+
+    def test_prose_marker_in_reason_without_tag_not_flagged(self):
+        # 根拠セルに「架空」の語が地の文で出るが、〈架空〉タグも架空ACTも無い → 誤検出しない。
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 9 | 検証済み | 〈行動〉架空データではなく実観測 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),   # 架空マーカーを含まない実 ACT
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
+
+    def test_fictional_tag_still_flagged(self):
+        # 〈架空〉タグがあれば従来どおり上限超を検出する。
+        rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-07-05 | 9 | 検証済み | 〈架空〉シミュレーション由来 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertTrue(any(p.check == "fictional-cap" for p in hwlint.lint_project(root)))
+
+
+class IdSequenceBoundaryTest(unittest.TestCase):
+    """AR-04: 欠番の取り下げ照合は数字境界つき（長い数字 ID への部分一致で誤って満たされない）。"""
+
+    def test_longer_numeric_id_does_not_satisfy_withdrawal(self):
+        # 欠番 DEMO-H-002 だが log の取り下げ記録は別 ID(DEMO-H-0025 相当)。部分一致で満たさない。
+        log = "## [2026-07-02] hypothesis | DEMO-H-0025 取り下げ → レコード削除\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-003.md": hyp(id="DEMO-H-003"),
+                "wiki/log.md": log,
+            })
+            self.assertTrue(any(p.check == "id-seq" and "DEMO-H-002" in p.where
+                                for p in hwlint.lint_project(root)))
+
+
 if __name__ == "__main__":
     unittest.main()
