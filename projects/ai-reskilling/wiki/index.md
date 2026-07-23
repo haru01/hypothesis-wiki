@@ -1,6 +1,6 @@
 # 仮説カタログ
 
-全仮説をタイプ別に一覧する。**このファイルは仮説レコードの追加・更新に合わせて保守する**（`/formulate` `/ingest` が更新）。詳細ビューは `/view list` で `views/` に再生成できる。
+全仮説をタイプ別に一覧する。**このファイルは仮説レコードの追加・更新に合わせて保守する**（`/formulate` `/ingest` が更新）。詳細ビューは `wiki/views/`（Stop フックが自動再生成。手動は `python3 tools/gen_views.py list`）にある。
 
 現在ステージ: [stage.md](stage.md) 参照 ／ 活動タイムライン: [log.md](log.md)
 
