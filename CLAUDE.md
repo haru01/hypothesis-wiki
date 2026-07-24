@@ -193,6 +193,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 | 一覧／ボードのビュー生成 | Stop フックが自動生成（手動は `python3 tools/gen_views.py <view>`） |
 | ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |
 | Wikiの確信度に揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけて引き下げ、新しい探索域を発見する | `/chabudai` |
+| リーンキャンバス9ブロックを1マスずつグリルで埋めさせ、証拠の階梯で検証済み/未検証を判定し（SVG図で描画）、空白・脆弱ブロックを次の検証の種にする | `/lean-canvas` |
 | Wikiの健全性チェック | `/lint` |
 
 ## 記述言語
