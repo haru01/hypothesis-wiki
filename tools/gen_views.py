@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""仮説検証Wiki のビュー機械生成（board / list）。
+"""仮説検証Wiki のビュー機械生成（board / list / relations / index）。
 
 レコード（SSoT）からビューを決定論的に生成する。/view（LLM）と違い推論・要約・因果の
 キュレーションは行わず、frontmatter・固定見出し・リンクの射影/逐語転記だけで組む。
 「読ませる鋭さ」はレコード側に構造化フィールドとして書いてある前提で読む:
   - 最もリスクの高い前提 = ACT frontmatter `riskiest-assumption`
-  - 結果の一行要約       = 学習カード `### 学びの要点`
-  - 結果の判定           = ACT frontmatter `outcome`（起票/支持/反証/判断保留/是正）
-  - 判断                 = その ACT を `based-on` に含む DEC の type/title
+  - 結果の一行要約       = LEARN 学習カード `### 学びの要点`
+  - 結果の判定           = LEARN frontmatter `outcome`（起票/支持/反証/判断保留/是正）
+  - 判断                 = その ACT/LEARN を `based-on` に含む DEC の type/title
   - 戦略的現在地         = 最新 DEC 本文の `## 次の一手`
   - 因果・核心・対応課題 = H frontmatter `leads-to` / `core` / `addresses`
 確信度・ステータス・log は一切変更しない（読み取り専用）。
@@ -103,14 +103,6 @@ def h3_block(section: str, header: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def is_executed(lc: str) -> bool:
-    """学習カードが実際に記入済みか（未実施の計画 ACT はプレースホルダのみ）を判定する。"""
-    real = [ln.strip() for ln in strip_comments(h3_block(lc, "事実（observed）")).splitlines()
-            if ln.strip() and not ln.strip().startswith("（") and "記入" not in ln
-            and not ln.strip().startswith("観測した事実")]
-    return bool(real)
-
-
 def learning_point(lc: str) -> str:
     return collapse(h3_block(lc, "学びの要点"))
 
@@ -144,7 +136,7 @@ def latest_dec_next_move(project):
 
 
 def header_lines(view: str, stage: str, today: str, fictional: list) -> list:
-    """生成物マーカー＋架空データ警告。fictional は架空 ACT の stem リスト。"""
+    """生成物マーカー＋架空データ警告。fictional は架空 ACT/LEARN の stem リスト。"""
     lines = [f"<!-- 生成物: gen_views.py {view} による機械生成。手編集禁止。"
              f"`python3 tools/gen_views.py {view}` で再生成する。生成基準日: {today}（ステージ {stage}） -->"]
     if fictional:
@@ -161,16 +153,21 @@ def gen_board(project) -> str:
     today = datetime.date.today().isoformat()
     hyps = list(project.hyp_records())
 
-    # learns-from 逆引き（ACT → 紐づく LEARN 群）と、計画を持たない回顧型 LEARN を1回で仕分ける
-    learns_by_act, retro_learns = {}, []
+    existing_acts = {s for s in project.records if "-ACT-" in s}
+
+    # learns-from 逆引き（ACT → 紐づく LEARN 群）と、計画を持たない/計画が実在しない LEARN を1回で仕分ける。
+    # learns-from は他の関係フィールドと同じく parse_id_array で正規化する（配列表記 [X] も許容）。
+    # 実在 ACT を指さない LEARN（回顧型・または壊れた learns-from）は単独ユニットとして board に必ず出す。
+    learns_by_act, standalone_learns = {}, []
     for stem, (_, fm, _) in project.records.items():
         if "-LEARN-" not in stem:
             continue
-        lf = fm.get("learns-from", "").strip()
-        if lf:
+        lf_ids = parse_id_array(fm.get("learns-from", ""))
+        lf = lf_ids[0] if lf_ids else None
+        if lf and lf in existing_acts:
             learns_by_act.setdefault(lf, []).append(stem)
         else:
-            retro_learns.append(stem)
+            standalone_learns.append(stem)
 
     # (ACT/LEARN)→DEC 逆引きを1回だけ構築（判断列。based-on は ACT・LEARN どちらも指せる）
     dec_by_target = {}
@@ -180,10 +177,9 @@ def gen_board(project) -> str:
             for t in parse_id_array(fm.get("based-on", "")):
                 dec_by_target.setdefault(t, []).append(label)
 
-    def latest_learn(act_stem):
-        ls = sorted(learns_by_act.get(act_stem, []),
-                    key=lambda s: (project.records[s][1].get("date", ""), s))
-        return ls[-1] if ls else None
+    def sorted_learns(act_stem):
+        return sorted(learns_by_act.get(act_stem, []),
+                      key=lambda s: (project.records[s][1].get("date", ""), s))
 
     def judgment_for(stems) -> str:
         labels = []
@@ -191,36 +187,37 @@ def gen_board(project) -> str:
             labels.extend(dec_by_target.get(s, []))
         return " / ".join(dict.fromkeys(labels)) or "—"   # 重複除去（同一DECが複数根拠を持つ場合）
 
+    def learn_row(learn_stem) -> dict:
+        lfm, ltext = project.records[learn_stem][1], project.records[learn_stem][2]
+        return {"stem": learn_stem, "result": learning_point(learning(ltext)) or "—",
+                "outcome": lfm.get("outcome", "").strip() or "—",
+                "ids": parse_id_array(lfm.get("hypotheses", ""))}
+
     def act_unit(act_stem) -> dict:
         _, fm, text = project.records[act_stem]
         tc = testcard(text)
-        learn_stem = latest_learn(act_stem)
-        related = [act_stem] + learns_by_act.get(act_stem, [])
-        if learn_stem:
-            lfm, ltext = project.records[learn_stem][1], project.records[learn_stem][2]
-            result = learning_point(learning(ltext)) or "—"
-            outcome = lfm.get("outcome", "").strip() or "—"
-            ids = parse_id_array(lfm.get("hypotheses", "")) or parse_id_array(fm.get("hypotheses", ""))
-        else:
-            result, outcome, ids = "（未実施・計画のみ）", "未実施", parse_id_array(fm.get("hypotheses", ""))
-        return {"stem": act_stem, "learn": learn_stem, "fm": fm, "ids": ids,
+        learns = sorted_learns(act_stem)                 # 1 ACT に複数 LEARN（追試・2次募集）を全て束ねる
+        rows = [learn_row(s) for s in learns]
+        ids = list(dict.fromkeys(i for r in rows for i in r["ids"])) or parse_id_array(fm.get("hypotheses", ""))
+        return {"stem": act_stem, "kind": "act", "learns": learns, "rows": rows, "fm": fm, "ids": ids,
                 "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
                 "risk": fm.get("riskiest-assumption", "—") or "—",
                 "method": field_value(tc, "方法"), "criteria": field_value(tc, "成功基準"),
-                "result": result, "outcome": outcome, "judgment": judgment_for(related)}
+                "outcome_summary": " / ".join(r["outcome"] for r in rows) if rows else "未実施",
+                "judgment": judgment_for([act_stem] + learns)}
 
     def learn_unit(learn_stem) -> dict:
-        _, fm, text = project.records[learn_stem]
-        return {"stem": learn_stem, "learn": learn_stem, "fm": fm,
-                "ids": parse_id_array(fm.get("hypotheses", "")),
+        fm = project.records[learn_stem][1]
+        row = learn_row(learn_stem)
+        return {"stem": learn_stem, "kind": "learn", "learns": [], "rows": [row], "fm": fm,
+                "ids": row["ids"],
                 "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
                 "risk": "—（回顧型・事前の実験計画なし）",   # desk-research/self-reflection 等は事前計画を持たない
                 "method": "—", "criteria": "—",
-                "result": learning_point(learning(text)) or "—",
-                "outcome": fm.get("outcome", "").strip() or "—", "judgment": judgment_for([learn_stem])}
+                "outcome_summary": row["outcome"], "judgment": judgment_for([learn_stem])}
 
     units = ([act_unit(s) for s in project.records if "-ACT-" in s]
-             + [learn_unit(s) for s in retro_learns])
+             + [learn_unit(s) for s in standalone_learns])
     units.sort(key=lambda e: (e["date"], e["stem"]))
 
     L = header_lines("board", stage, today, fictional_records(project))
@@ -235,12 +232,12 @@ def gen_board(project) -> str:
     # サマリ
     L += ["## サマリ", "", "| # | 実験 | 最もリスクの高い前提 | 判定 | 判断（DEC） |", "|---|---|---|---|---|"]
     for i, e in enumerate(units, 1):
-        L.append(f"| {i} | [[{e['stem']}]] {e['title']} | {e['risk']} | {e['outcome']} | {e['judgment']} |")
+        L.append(f"| {i} | [[{e['stem']}]] {e['title']} | {e['risk']} | {e['outcome_summary']} | {e['judgment']} |")
     L += ["", "---", ""]
 
-    # 各実験（実験計画＋学び＝1エントリ・鋭い一行に集約）
+    # 各実験（実験計画＋学び＝1エントリ。1 ACT に複数 LEARN があれば全て列挙する）
     for i, e in enumerate(units, 1):
-        learn_link = f" → 学び [[{e['learn']}]]" if e.get("learn") and e["learn"] != e["stem"] else ""
+        learn_link = (" → 学び " + " ".join(f"[[{s}]]" for s in e["learns"])) if e["learns"] else ""
         L.append(f"## 実験{i} — {e['title']}（{e['date']}・{e['type']}） [[{e['stem']}]]{learn_link}")
         target = (f"- **対象仮説**: 顧客/行動 {hyp_links(project, e['ids'], CUSTOMER_TYPES)}"
                   f" ｜ 課題 {hyp_links(project, e['ids'], PROBLEM_TYPES)}"
@@ -254,8 +251,15 @@ def gen_board(project) -> str:
             f"- **最もリスクの高い前提**: {e['risk']}",
             f"- **検証方法**: {e['method']}",
             f"- **成功基準**: {e['criteria']}",
-            f"- **結果（学びの要点）**: {e['result']}",
-            f"- **判定 / 判断**: {e['outcome']} ／ {e['judgment']}",
+        ]
+        if not e["rows"]:                       # 計画のみ・未実施
+            L.append("- **結果（学びの要点）**: （未実施・計画のみ）")
+        for r in e["rows"]:                     # 学びごとに1行（複数 LEARN を取りこぼさない）
+            # 回顧型ユニットは行の stem がユニット自身なのでリンク重複を避ける
+            tag = f"[[{r['stem']}]] " if r["stem"] != e["stem"] else ""
+            L.append(f"- **結果（{tag}学びの要点）**: {r['result']}（判定: {r['outcome']}）")
+        L += [
+            f"- **判断（DEC）**: {e['judgment']}",
             "",
             "---",
             "",
@@ -607,7 +611,9 @@ def gen_index(project) -> str:
     stage = read_stage(project)
     today = datetime.date.today().isoformat()
     hyps = list(project.hyp_records())
-    n = lambda infix: sum(1 for s in project.records if infix in s)
+
+    def n(infix):
+        return sum(1 for s in project.records if infix in s)
 
     L = header_lines("index", stage, today, fictional_records(project))
     L += ["", f"# {project.slug} — 仮説インデックス", ""]

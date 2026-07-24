@@ -15,9 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import subprocess  # noqa: E402
-from records import testcard  # noqa: E402  テストカード節の抽出は records に一元化（gen_views と共有）
-
-LEARNS_FROM_RE = re.compile(r"^\s*learns-from:\s*(.+?)\s*$", re.MULTILINE)
+from records import testcard, parse_frontmatter  # noqa: E402  抽出/パースは records に一元化（gen_views と共有）
 
 
 def git(*args) -> subprocess.CompletedProcess:
@@ -39,10 +37,10 @@ def act_has_learning(act_path: str) -> bool:
             text = lp.read_text(encoding="utf-8")
         except OSError:
             continue
-        for m in LEARNS_FROM_RE.finditer(text):
-            # 配列 [X, Y] でも素の X でも当該 id を含めば真
-            if act_id in re.findall(r"[A-Z0-9]+-ACT-\d+", m.group(1)):
-                return True
+        # frontmatter の learns-from のみを見る（本文・コメントの言及で誤検出しない）。配列/素どちらも可。
+        lf = parse_frontmatter(text).get("learns-from", "")
+        if act_id in re.findall(r"[A-Z0-9]+-ACT-\d+", lf):
+            return True
     return False
 
 

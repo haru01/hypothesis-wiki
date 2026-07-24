@@ -562,6 +562,15 @@ class StageDerivationTest(unittest.TestCase):
             root = make_project(tmp, {"wiki/stage.md": "current-stage: PSF\n"})
             self.assertEqual(records.Project(root).stage, "PSF")
 
+    def test_invalid_to_stage_flagged(self):
+        # DEC の to-stage が規約外なら vocab error（誤記でステージ導出が壊れるのを防ぐ）
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/decisions/DEMO-DEC-001.md": dec("DEMO-DEC-001", "2026-07-01", "stage-transition", "FFP"),
+            })
+            self.assertTrue(any(p.check == "vocab" and "to-stage" in p.message
+                                for p in hwlint.lint_project(root)))
+
     def test_latest_to_stage_wins_including_rollback(self):
         # 移行(→FPF) の後に巻き戻し(→CPF)。type によらず最新の to-stage=CPF が現ステージ。
         with tempfile.TemporaryDirectory() as tmp:
@@ -1118,14 +1127,6 @@ class GenViewsTest(unittest.TestCase):
             out = gen_views.gen_relations(proj)
             no_pain = [ln for ln in out.splitlines() if "課題なき解決" in ln]
             self.assertTrue(no_pain and "DEMO-H-003" in no_pain[0], out)
-
-    def test_is_executed_distinguishes_placeholder(self):
-        import gen_views
-        real = "## 学習カード\n\n### 事実（observed）\n\n5名中3名が実コストを払っていた。\n"
-        placeholder = "## 学習カード\n\n### 事実（observed）\n\n（観測した事実をここに記入）\n"
-        self.assertTrue(gen_views.is_executed(real))
-        self.assertFalse(gen_views.is_executed(placeholder))
-
 
 class RecordsModuleTest(unittest.TestCase):
     """AR-06: レコードモデルが records.py に集約され、hwlint/gen_views が同一実装を共有すること。"""
