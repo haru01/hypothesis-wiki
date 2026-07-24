@@ -184,3 +184,47 @@ state-machines:
   evidence-ladder: [発言, 自認, 実コスト, 行動, 支払い]
   # 階梯外の補助タグ（強さの序列を持たない証拠種別）。〈二次〉=二次情報、〈架空〉=架空/シミュレーション由来。
   evidence-aux: [二次, 架空]
+
+# ── リーンキャンバス（仮説検証への写像） ─────────────────────────────
+# リーンキャンバス(Ash Maurya)は**新しいレコード種別ではなく**、既存の仮説(H)群を
+# 事業モデルの9ブロックへ射影した「ビュー」。/lean-canvas スキルが使う。
+#   - 各ブロックは H サブタイプの役割(role)に対応する（maps-to-role。role の正本は
+#     entities.H.subtypes.role。サブタイプ名でなく役割で結ぶのでドリフトに強い）。
+#   - ブロックの検証状態は、対応 role の H の status から導出する（block-status）。新レコードは作らない。
+# 心得(Why=本家準拠の方法論)は playbooks/lean-canvas.md、現場手順(How)は .claude/skills/lean-canvas/。
+lean-canvas:
+  # sketch-order = 本家推奨の記入順（網羅のための順。同値は一緒に描く）。
+  # 検証の優先順は別（validation-order 参照）。
+  blocks:
+    - {key: segment,   label: 顧客セグメント,   en: Customer Segments,          maps-to-role: customer, sketch-order: 1}
+    - {key: problem,   label: 課題,             en: Problem,                    maps-to-role: problem,  sketch-order: 2}
+    - {key: uvp,       label: 独自の価値提案,   en: Unique Value Proposition,   maps-to-role: solution, sketch-order: 3}
+    - {key: solution,  label: ソリューション,   en: Solution,                   maps-to-role: solution, sketch-order: 4}
+    - {key: channels,  label: チャネル,         en: Channels,                   maps-to-role: market,   sketch-order: 5}
+    - {key: revenue,   label: 収益の流れ,       en: Revenue Streams,            maps-to-role: market,   sketch-order: 6}
+    - {key: cost,      label: コスト構造,       en: Cost Structure,             maps-to-role: market,   sketch-order: 6}
+    - {key: metrics,   label: 主要指標,         en: Key Metrics,                maps-to-role: market,   sketch-order: 7}
+    - {key: advantage, label: 圧倒的優位性,     en: Unfair Advantage,           maps-to-role: team,     sketch-order: 8}
+
+  # ブロック検証状態の射影規則（対応 role の H 群から導出。新レコード・新ステータスは作らない）。
+  block-status:
+    - {name: 検証済み, from: 対応roleのHにstatus=検証済みが1件以上}
+    - {name: 未検証,   from: 対応roleのHはあるがstatus=検証済みが無い}
+    - {name: 空白,     from: 対応roleのHが1件も無い（＝未着手の盲点）}
+
+  # 検証の優先順は記入順(sketch-order)と別。本家: 左→右で埋めず、最もリスキー（重要×証拠なし）な前提から検証する。
+  # 具体の優先度は ACT frontmatter の riskiest-assumption と /plan の重要度×証拠マップで決める。
+  validation-order: riskiest-first
+
+  # ブロックの意味はステージで変わる（本家の3段階: 課題解決フィット→PMF→スケール）。
+  # early = 初期(CPF/PSF付近)の検証レンズ / scale = 後期(PMF以降)のレンズ。
+  stage-lens:
+    channels:
+      early: 想定顧客に会って学ぶための経路（Day1から作る「顧客への道」。インタビュー・デモに到達する手段）
+      scale: 反復可能でスケールする流通チャネル
+    metrics:
+      early: 顧客工場(AARRR)のどの一歩が詰まっているかを見る少数の学習指標
+      scale: 事業の健全性を測る主要指標
+    revenue:
+      early: 価格も仮説。〈支払い〉意思の検証対象（interest ≠ intent）
+      scale: 反復可能な収益モデル

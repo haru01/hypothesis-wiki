@@ -78,6 +78,33 @@ def build() -> str:
           "- 証拠の階梯（弱→強）: " + " ＜ ".join(f"〈{t}〉" for t in ontology.EVIDENCE_LADDER),
           "- 階梯外の補助タグ: " + "・".join(f"〈{t}〉" for t in ontology.EVIDENCE_AUX),
           ""]
+
+    # リーンキャンバス（仮説検証への写像）。/lean-canvas が使う。レコードでなくビュー。
+    if ontology.LEAN_CANVAS_BLOCKS:
+        L += ["## リーンキャンバス（仮説検証への写像）", "",
+              "リーンキャンバス(Ash Maurya)は新しいレコード種別ではなく、既存の仮説(H)を事業モデル9ブロックへ"
+              "射影した**ビュー**（`/lean-canvas` が使う）。各ブロックは H サブタイプの**役割(role)**に対応し、"
+              "ブロックの検証状態は対応 role の H の status から導出する。心得は "
+              "[playbooks/lean-canvas.md](playbooks/lean-canvas.md)。", "",
+              "| ブロック | 英名 | 対応role | 対応Hサブタイプ | 記入順 |", "|---|---|---|---|---|"]
+        for b in sorted(ontology.LEAN_CANVAS_BLOCKS, key=lambda x: x.get("sketch-order", 99)):
+            subs = "・".join(sorted(ontology.h_types_for_role(b["maps-to-role"]))) or "—"
+            L.append(f"| {b['label']} | {b['en']} | {b['maps-to-role']} | {subs} | {b.get('sketch-order', '—')} |")
+        L += ["",
+              "**ブロック検証状態の射影**（対応 role の H 群から導出。新レコードは作らない）:", ""]
+        for s in ontology.LEAN_CANVAS_BLOCK_STATUS:
+            L.append(f"- **{s['name']}** — {s['from']}")
+        L += ["",
+              f"**記入順 vs 検証順**: 記入は上表の順（網羅のため）。検証は `{ontology.LEAN_CANVAS_VALIDATION_ORDER}`"
+              "（左→右で埋めず、最もリスキーな前提から。ACT の riskiest-assumption・`/plan` の重要度×証拠マップで決める）。",
+              ""]
+        if ontology.LEAN_CANVAS_STAGE_LENS:
+            label_of = {b["key"]: b["label"] for b in ontology.LEAN_CANVAS_BLOCKS}
+            L += ["**ブロックの意味はステージで変わる（stage-lens）**:", "",
+                  "| ブロック | early（初期の検証レンズ） | scale（後期のレンズ） |", "|---|---|---|"]
+            for bk, lens in ontology.LEAN_CANVAS_STAGE_LENS.items():
+                L.append(f"| {label_of.get(bk, bk)} | {lens.get('early', '—')} | {lens.get('scale', '—')} |")
+            L.append("")
     return "\n".join(L)
 
 

@@ -113,6 +113,21 @@ EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 RELATIONS = [Relation(d) for d in load()["relations"]]
 RELATIONS_BY_FIELD = {r.field: r for r in RELATIONS}
 
+# ── リーンキャンバス（仮説検証への写像。レコードでなくビュー） ──────────
+# 各 block は H サブタイプの役割(role)へ対応。ブロック検証状態は対応 role の H から射影する。
+_LC = load().get("lean-canvas", {})
+LEAN_CANVAS_BLOCKS = list(_LC.get("blocks", []))                 # [{key,label,en,maps-to-role,sketch-order}]
+LEAN_CANVAS_BLOCK_STATUS = list(_LC.get("block-status", []))     # [{name,from}]
+LEAN_CANVAS_STAGE_LENS = dict(_LC.get("stage-lens", {}))         # {block-key: {early,scale}}
+LEAN_CANVAS_VALIDATION_ORDER = _LC.get("validation-order", "")
+# role → H サブタイプ名（写像ドキュメント生成・整合チェック用）。role の正本は entities.H.subtypes.role。
+H_ROLES = {s.get("role") for s in load()["entities"]["H"]["subtypes"] if s.get("role")}
+
+
+def h_types_for_role(role: str) -> set:
+    """指定 role を持つ H サブタイプ名の集合（写像の解決に使う）。"""
+    return _h_role(role)
+
 
 def _selfcheck() -> int:
     """ontology.yaml がパースでき、期待どおりの定数を導出できるか点検する。"""
@@ -124,8 +139,14 @@ def _selfcheck() -> int:
     for r in RELATIONS:
         assert r.domain in ENTITY_INFIXES and r.range in ENTITY_INFIXES, f"{r.name} の domain/range 不正"
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
+    # リーンキャンバス写像: 各 block の maps-to-role が実在する H role か（role ドリフト検出）
+    for b in LEAN_CANVAS_BLOCKS:
+        assert b.get("maps-to-role") in H_ROLES, f"lean-canvas block {b.get('key')} の maps-to-role 不正"
+    for bk in LEAN_CANVAS_STAGE_LENS:
+        assert bk in {b["key"] for b in LEAN_CANVAS_BLOCKS}, f"stage-lens の未知ブロック {bk}"
     print(f"ontology.yaml OK: entities={list(load()['entities'])} "
-          f"relations={[r.name for r in RELATIONS]} stages={STAGE_ORDER} statuses={STATUS_ORDER}")
+          f"relations={[r.name for r in RELATIONS]} stages={STAGE_ORDER} statuses={STATUS_ORDER} "
+          f"lean-canvas-blocks={[b['key'] for b in LEAN_CANVAS_BLOCKS]}")
     return 0
 
 
