@@ -22,16 +22,28 @@ def load() -> dict:
     return yaml.safe_load(ONTOLOGY_PATH.read_text(encoding="utf-8"))
 
 
+def _as_set(value) -> set:
+    """domain/range を集合に正規化する（文字列単一 or 配列の両方を許す）。"""
+    return set(value) if isinstance(value, (list, tuple, set)) else {value}
+
+
 class Relation:
-    """関係型1件。domain→range・cardinality・inverse を保持する。"""
-    __slots__ = ("name", "field", "domain", "range", "domain_subtypes", "range_subtypes",
+    """関係型1件。domain→range・cardinality・inverse を保持する。
+
+    domain/range は複数エンティティ種別を許す（例 hypotheses は ACT/LEARN）。
+    集合は `domains`/`ranges`、表示用の文字列は `domain`/`range`（"ACT/LEARN"）で持つ。
+    種別判定は `in_domain(ent)`/`in_range(ent)` を使う。"""
+    __slots__ = ("name", "field", "domains", "ranges", "domain", "range",
+                 "domain_subtypes", "range_subtypes",
                  "cardinality", "inverse", "must_wikilink", "label", "inverse_label", "description")
 
     def __init__(self, d: dict):
         self.name = d["name"]
         self.field = d["field"]
-        self.domain = d["domain"]                       # エンティティ種別 "H"/"ACT"/"DEC"
-        self.range = d["range"]
+        self.domains = _as_set(d["domain"])             # エンティティ種別の集合 {"ACT"} / {"ACT","LEARN"}
+        self.ranges = _as_set(d["range"])
+        self.domain = "/".join(sorted(self.domains))    # 表示用（例 "ACT/LEARN"）
+        self.range = "/".join(sorted(self.ranges))
         self.domain_subtypes = set(d.get("domain-subtypes", []))
         self.range_subtypes = set(d.get("range-subtypes", []))
         self.cardinality = d.get("cardinality", "many")  # "one" | "many"
@@ -40,6 +52,12 @@ class Relation:
         self.label = d.get("label", self.name)
         self.inverse_label = d.get("inverse-label", self.inverse)
         self.description = d.get("description", "")
+
+    def in_domain(self, ent: str) -> bool:
+        return ent in self.domains
+
+    def in_range(self, ent: str) -> bool:
+        return ent in self.ranges
 
     @property
     def is_single(self) -> bool:
@@ -57,6 +75,7 @@ def _h_role(role: str) -> set:
 # ── エンティティ種別ごとの type 語彙(enum) ───────────────────────────
 H_TYPES = set(_subtype_names("H"))
 ACT_TYPES = set(_subtype_names("ACT"))
+LEARN_TYPES = set(_subtype_names("LEARN"))
 DEC_TYPES = set(_subtype_names("DEC"))
 
 # エンティティ種別 → dir / id-infix
@@ -137,7 +156,8 @@ def _selfcheck() -> int:
     assert STAGE_FOCUS.keys() == STAGES, "stage-focus と stages が不一致"
     assert len(LIST_GROUPS) == len(H_TYPES), "LIST_GROUPS の件数不一致"
     for r in RELATIONS:
-        assert r.domain in ENTITY_INFIXES and r.range in ENTITY_INFIXES, f"{r.name} の domain/range 不正"
+        assert r.domains <= set(ENTITY_INFIXES) and r.ranges <= set(ENTITY_INFIXES), \
+            f"{r.name} の domain/range 不正"
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
     # リーンキャンバス写像: 各 block の maps-to-role が実在する H role か（role ドリフト検出）
     for b in LEAN_CANVAS_BLOCKS:

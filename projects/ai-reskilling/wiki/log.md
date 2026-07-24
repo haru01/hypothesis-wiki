@@ -17,3 +17,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-19] self-reflection | AIRE-ACT-004 揺さぶり監査（ちゃぶ台返し）。仮説群が単一物語の子＝リサーチ設計に確証バイアス → AIRE-H-002 確信度4→3（根拠不足・採点整合）／AIRE-H-001 据え置き4・AIRE-H-003 据え置き3（反証耐性確認）／対抗仮説4件を次アクションに種として記録
 
 ## [2026-07-21] lint | 健全性チェック実施（hwlint: error 0/warning 0・意味チェック: 問題0件） → relation-wikilink 警告2件（AIRE-H-001 の leads-to 因果先が本文 wikilink 未表現）を系譜節に [[AIRE-H-002]]/[[AIRE-H-003]] を追記して解消（確信度・ステータス変更なし）
+
+## [2026-07-24] self-reflection | ACT/LEARN 分割の移行（テストカード=ACT と 学習カード=LEARN を分離）
+## [2026-07-24] self-reflection | AIRE-ACT-001 → AIRE-LEARN-001 に移行（回顧型・学び分離）。AIRE-ACT-001 は欠番として取り下げ・再利用しない
+## [2026-07-24] self-reflection | AIRE-ACT-004 → AIRE-LEARN-002 に移行（回顧型・学び分離）。AIRE-ACT-004 は欠番として取り下げ・再利用しない

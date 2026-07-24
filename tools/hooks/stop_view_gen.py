@@ -2,7 +2,7 @@
 """Stop フック: 現在プロジェクトのレコードが機械ビューより新しければ再生成する。
 
 gen_views は決定論・ゼロトークンなので、ターン終了時に `Project` を1回だけ構築して
-全ビュー（board/list）をインプロセス生成する（サブプロセスを分けず全レコードの再読込を避ける）。
+全ビュー（board/list/relations/index）をインプロセス生成する（サブプロセスを分けず全レコードの再読込を避ける）。
 生成対象・出力ファイル名は gen_views.VIEWS を単一の真実源にする。非ブロック（常に exit 0）。
 """
 import json
@@ -38,7 +38,7 @@ def main() -> int:
         return 0
 
     records = []
-    for sub in ("hypotheses", "activities", "decisions"):
+    for sub in ("hypotheses", "activities", "learnings", "decisions"):
         d = wiki / sub
         if d.is_dir():
             records.extend(d.glob("*.md"))
@@ -46,17 +46,17 @@ def main() -> int:
     if log.exists():
         records.append(log)
 
-    views_dir = wiki / "views"
-    existing = [views_dir / fname for fname, _ in VIEWS.values() if (views_dir / fname).exists()]
+    # 出力先は wiki/ からの相対パス（board/list/relations は views/ 配下、index は wiki 直下）
+    existing = [wiki / relpath for relpath, _ in VIEWS.values() if (wiki / relpath).exists()]
     if existing and newest_mtime(records) <= min(p.stat().st_mtime for p in existing):
         return 0  # 既存の機械ビューがレコードより新しい＝最新。再生成不要
 
     try:
         project = Project(root)
-        for fname, fn in VIEWS.values():
+        for relpath, fn in VIEWS.values():
             out = fn(project)
             if out is not None:  # 生成条件を満たさないビュー（gen が None を返す）はスキップ
-                (views_dir / fname).write_text(out, encoding="utf-8")
+                (wiki / relpath).write_text(out, encoding="utf-8")
     except Exception as e:  # ビュー生成の失敗でターンを止めない
         print(f"gen_views 失敗: {e}", file=sys.stderr)
     return 0

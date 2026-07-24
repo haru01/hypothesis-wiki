@@ -30,3 +30,10 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-19] decision | SELF-DEC-002 FPF→CPF巻き戻し（架空依存の偽検証済みを是正・DEC-001シグナル1点灯） → ステージ CPF へ。核心クラスタは検証中6のまま実データ再検証を最優先
 
 ## [2026-07-21] lint | 二重表現の補完（relation-wikilink 警告9件）。H-001/002/003/004/006/008/009 の leads-to 因果先を系譜節に本文 wikilink で追記し Obsidian グラフに辺を出す → 確信度・ステータス変更なし（残 evidence-tag 15件は別debtとして据え置き）
+
+## [2026-07-24] self-reflection | ACT/LEARN 分割の移行（テストカード=ACT と 学習カード=LEARN を分離）
+## [2026-07-24] self-reflection | SELF-ACT-001 → SELF-LEARN-001 に移行（回顧型・学び分離）。SELF-ACT-001 は欠番として取り下げ・再利用しない
+## [2026-07-24] self-reflection | SELF-ACT-005 → SELF-LEARN-005 に移行（回顧型・学び分離）。SELF-ACT-005 は欠番として取り下げ・再利用しない
+## [2026-07-24] self-reflection | SELF-ACT-002 を学び SELF-LEARN-002 に分割（SELF-ACT-002 はテストカードとして存続。確信度の根拠 citation は SELF-LEARN-002 へ張替）
+## [2026-07-24] self-reflection | SELF-ACT-003 を学び SELF-LEARN-003 に分割（SELF-ACT-003 はテストカードとして存続。確信度の根拠 citation は SELF-LEARN-003 へ張替）
+## [2026-07-24] self-reflection | SELF-ACT-004 を学び SELF-LEARN-004 に分割（SELF-ACT-004 はテストカードとして存続。確信度の根拠 citation は SELF-LEARN-004 へ張替）

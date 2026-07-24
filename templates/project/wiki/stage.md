@@ -7,6 +7,10 @@ updated: YYYY-MM-DD
 
 現在のステージは **CPF（Customer Problem Fit）**。
 
+<!-- 現在ステージの正本は「最新の stage-transition 意思決定(DEC)の to-stage」。まだ移行の DEC が無い
+     プロジェクトはこの current-stage をフォールバックとして使う（`/decide` がステージ移行時に DEC を作る）。 -->
+
+
 このステージの中心の問い・重点仮説タイプ・検証手法・移行基準は [playbooks/cpf.md](../../../playbooks/cpf.md) を参照。
 
 ## 移行基準（このプロジェクトの上書き）

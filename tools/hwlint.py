@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
-    STATUSES, STAGES, H_TYPES, ACT_TYPES, DEC_TYPES,
+    STATUSES, STAGES, H_TYPES, ACT_TYPES, LEARN_TYPES, DEC_TYPES,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
@@ -69,14 +69,19 @@ def check_vocabulary(project) -> list:
                     f"importance '{imp}' は auto か {CONFIDENCE_MIN}-{CONFIDENCE_MAX}"))
         if "-ACT-" in stem and fm.get("type") not in ACT_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
+        if "-LEARN-" in stem and fm.get("type") not in LEARN_TYPES:
+            problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
         if "-DEC-" in stem and fm.get("type") not in DEC_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
-        if ("-H-" in stem or "-ACT-" in stem) and fm.get("stage") not in STAGES:
+        # DEC の to-stage（記入されていれば）は正規のステージ名。現在ステージ導出の正本なので誤記を弾く
+        if "-DEC-" in stem and fm.get("to-stage") and fm.get("to-stage") not in STAGES:
+            problems.append(Problem("error", stem, "vocab", f"to-stage '{fm.get('to-stage')}' は規約外"))
+        if ("-H-" in stem or "-ACT-" in stem or "-LEARN-" in stem) and fm.get("stage") not in STAGES:
             problems.append(Problem("error", stem, "vocab", f"stage '{fm.get('stage')}' は規約外"))
     return problems
 
 
-EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:ACT|DEC)-\d+)\]\]")
+EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:ACT|LEARN|DEC)-\d+)\]\]")
 
 
 def check_history_consistency(project) -> list:
@@ -129,7 +134,7 @@ def check_frontmatter_refs(project) -> list:
     for stem, (_, fm, _) in project.records.items():
         ent = entity_of(stem)
         for rel in RELATIONS:
-            if rel.domain != ent:
+            if not rel.in_domain(ent):
                 continue
             ids = parse_id_array(fm.get(rel.field, ""))
             if not ids:
@@ -152,9 +157,9 @@ def check_frontmatter_refs(project) -> list:
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' のレコードが存在しない"))
                     continue
-                # range 種別（例: hypotheses は H を、based-on は ACT を指す）
+                # range 種別（例: hypotheses は H を、learns-from は ACT を指す）
                 target_fm = project.records[rid][1]
-                if entity_of(rid) != rel.range:
+                if not rel.in_range(entity_of(rid)):
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' は {rel.range} を指すべき"
                         f"（{entity_of(rid)} を指している）"))
@@ -176,7 +181,7 @@ def check_relation_wikilinks(project) -> list:
         ent = entity_of(stem)
         body_links = {t.strip() for t in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body)))}
         for rel in RELATIONS:
-            if rel.domain != ent or not rel.must_wikilink:
+            if not rel.in_domain(ent) or not rel.must_wikilink:
                 continue
             for rid in parse_id_array(fm.get(rel.field, "")):
                 if rid.startswith(prefix + "-") and rid in project.records and rid not in body_links:
@@ -219,7 +224,7 @@ def check_id_sequence(project) -> list:
             problems.append(Problem("error", stem, "id-seq", f"id '{fid}' が {seen[fid]} と重複"))
         seen[fid] = stem
     log_lines = project.log.splitlines()
-    for kind in ("H", "ACT", "DEC"):
+    for kind in ("H", "ACT", "LEARN", "DEC"):
         pat = re.compile(rf"^{re.escape(prefix)}-{kind}-(\d+)$")
         nums = sorted(int(m.group(1)) for rid in project.records if (m := pat.match(rid)))
         if not nums:
@@ -290,7 +295,8 @@ def check_fictional_cap(project) -> list:
     （構造化シグナルに一本化して誤検出を避ける）。"""
     problems = []
     fictional_acts = {stem for stem, (_, _, body) in project.records.items()
-                      if "-ACT-" in stem and any(m in body for m in FICTIONAL_MARKERS)}
+                      if ("-ACT-" in stem or "-LEARN-" in stem)
+                      and any(m in body for m in FICTIONAL_MARKERS)}
     for stem, _, _, rows in project.hyp_records():
         for row in rows:
             rc = row["confidence"]
@@ -374,7 +380,7 @@ def check_dec_based_on(project) -> list:
             continue
         if not parse_id_array(fm.get("based-on", "")):
             problems.append(Problem("warning", stem, "dec-based-on",
-                "DEC に based-on（根拠活動）が無い（意思決定は活動 [[ACT-NNN]] に紐づける）"))
+                "DEC に based-on（根拠活動）が無い（意思決定は活動/学び [[ACT-NNN]]・[[LEARN-NNN]] に紐づける）"))
     return problems
 
 
@@ -386,18 +392,19 @@ def check_untested_focus(project) -> list:
     探索域ギャップ検出（docs/ontology-improvements.md OI-F1）。status が検証中/検証済みなら、
     検証したと主張しているのに ACT からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
     problems = []
-    tested = referenced_ids(project, "hypotheses", infix="-ACT-")
+    tested = (referenced_ids(project, "hypotheses", infix="-ACT-")
+              | referenced_ids(project, "hypotheses", infix="-LEARN-"))
     for stem, fm, _, _ in project.hyp_records():
         if importance(fm, project.stage) < IMPORTANCE_FOCUS or stem in tested:
             continue
         status = fm.get("status", "")
         if status in ("検証中", "検証済み"):
             problems.append(Problem("warning", stem, "untested-focus",
-                f"重点仮説で status={status} なのに検証活動(ACT)の hypotheses から1本も"
+                f"重点仮説で status={status} なのに検証活動(ACT)・学び(LEARN)の hypotheses から1本も"
                 f"参照されていない（二重表現の破れ／検証実態の欠落の疑い）"))
         else:
             problems.append(Problem("warning", stem, "untested-focus",
-                "重点仮説だが検証活動(ACT)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
+                "重点仮説だが検証活動(ACT)・学び(LEARN)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
     return problems
 
 
@@ -442,7 +449,7 @@ def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
     for rel in RELATIONS:
-        if not (rel.domain == "H" and rel.range == "H"):
+        if not (rel.domains == {"H"} and rel.ranges == {"H"}):
             continue
         graph = {}
         for stem, (_, fm, _) in project.records.items():
