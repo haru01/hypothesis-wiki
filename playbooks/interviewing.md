@@ -2,7 +2,9 @@
 
 ステージ横断のインタビュー共通の心得。CPFの問題インタビュー、PSFのソリューションインタビュー、
 その他の対人ヒアリングすべてに適用する。**現場で話す会話スクリプトの雛形は
-[../templates/interview-script.md](../templates/interview-script.md)**（心得＝Why はここ、現場文言＝How は雛形）。
+[../templates/problem-interview-script.md](../templates/problem-interview-script.md)（CPF・課題）／
+[../templates/solution-interview-script.md](../templates/solution-interview-script.md)（PSF/SPF・ソリューション）／
+[../templates/demo-script.md](../templates/demo-script.md)（PSF・デモ）** の3本（心得＝Why はここ、現場文言＝How は雛形）。
 
 ## なぜ心得が要るか（確証バイアス）
 
@@ -65,7 +67,7 @@
 
 ## 関連
 
-- 現場スクリプト雛形: [../templates/interview-script.md](../templates/interview-script.md)
+- 現場スクリプト雛形: [../templates/problem-interview-script.md](../templates/problem-interview-script.md)（CPF・課題）・[../templates/solution-interview-script.md](../templates/solution-interview-script.md)（PSF/SPF・ソリューション）・[../templates/demo-script.md](../templates/demo-script.md)（PSF・デモ）
 - 証拠の階梯・確信度規律: [../CLAUDE.md](../CLAUDE.md)
-- 計画（反証型/発見型の選択）: `/plan`（`.claude/skills/plan/SKILL.md`）／取り込み: `/ingest`
-- ステージ別のインタビュー用途: [cpf.md](cpf.md)（問題インタビュー）・[psf.md](psf.md)（ソリューションインタビュー）
+- 計画（反証型/発見型の選択・ステージ別の雛形選択）: `/plan`（`.claude/skills/plan/SKILL.md`）／取り込み: `/ingest`
+- ステージ別のインタビュー用途: [cpf.md](cpf.md)（問題インタビュー）・[psf.md](psf.md)（ソリューションインタビュー・デモ）

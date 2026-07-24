@@ -24,7 +24,7 @@
 ## SI-002: `/plan` はテストカードと併せてインタビュースクリプト雛形を出せるとよい
 
 - **対象スキル**: `/plan`（および `/ingest` との接続）
-- **状態**: 対応済み（`plan/SKILL.md` 手順5にスクリプト草稿作成、`ingest/SKILL.md` 手順3に〈自認〉〈実コスト〉○×表を追記。2026-07-16）。ただし改善案3（`templates/demo-script.md`）は**未対応の残タスク**。
+- **状態**: 対応済み（`plan/SKILL.md` 手順5にスクリプト草稿作成、`ingest/SKILL.md` 手順3に〈自認〉〈実コスト〉○×表を追記。2026-07-16）。改善案3（`templates/demo-script.md`）も **SI-019 で対応済み**（2026-07-24）。
 - **気づいた文脈**: ACT-001（問題インタビュー）のテストカードを作った直後、「方法」欄だけでは現場で実際に話す会話に落ちておらず、別途スクリプトが要ると気づいた（2026-07-16）。
 - **課題**: テストカードは検証の設計（目的・指標・成功基準）は与えるが、**現場で使える会話スクリプト**を与えない。毎回ゼロから作ると、CPFの鉄則（過去の事実を聞く／ソリューションを見せない／誘導しない）が抜け落ちやすい。
 - **改善案**:
@@ -228,9 +228,9 @@
 ## SI-019: `templates/demo-script.md`（PSFデモ用スクリプト雛形）が未作成（SI-002 残タスク）
 
 - **対象スキル**: `/plan`（demo系スクリプト草稿）／`templates/`
-- **状態**: 未対応（SI-002 改善案3の積み残し）
-- **気づいた文脈**: `interview-script.md` はあるが demo 用が無く、PSF のデモ検証で毎回スクリプトをゼロから作る。
-- **改善案**: `templates/demo-script.md` を新設し、`/plan` の demo 系テストカードから参照させる。
+- **状態**: 対応済み（`templates/demo-script.md` を新設。併せて PSF/SPF 用 `templates/solution-interview-script.md` も新設し、CPF専用の `interview-script.md` を `problem-interview-script.md` にリネーム。`/plan` 手順5 を「ACT `type`×ステージで雛形を自動選択」に改訂。playbooks/README/本バックログの参照を整合。2026-07-24）
+- **気づいた文脈**: `interview-script.md` はあるが demo 用が無く、PSF のデモ検証で毎回スクリプトをゼロから作る。加えて唯一の雛形は「問題インタビュー（CPF）」専用で、PSF のソリューションインタビュー雛形も欠落していた。
+- **改善案（実施済み）**: スクリプト雛形をステージ・種別で3本に分割する。CPF＝`problem-interview-script.md`（課題・ソリューションを見せない）／PSF・SPF＝`solution-interview-script.md`（提示物への反応・乗り換え・〈支払い〉）／PSF＝`demo-script.md`（デモの司会・観察）。`/plan` が ACT の `type`×ステージで基にする雛形を選ぶ。心得の正典は `playbooks/interviewing.md` に一本化したまま（雛形＝How の分担は維持）。
 
 ---
 

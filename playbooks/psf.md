@@ -31,6 +31,7 @@
 | ランディングページ・ティザー（survey） | 提案価値一文への反応を広めに測る |
 
 > インタビューの心得（確証バイアス／立てた仮説を反証する質問を加える／確証済みの前提・仮説にとらわれず視野を広げる発見型の選択権）は [interviewing.md](interviewing.md) を参照。
+> 現場スクリプト雛形は [../templates/solution-interview-script.md](../templates/solution-interview-script.md)（ソリューションインタビュー）・[../templates/demo-script.md](../templates/demo-script.md)（デモ）。CPF と違い**ソリューションを見せる**が、反応は言葉でなく行動で測り、WTP は未来意向でなく〈支払い〉で確かめる。
 
 ## 次ステージ（SPF）への移行基準
 

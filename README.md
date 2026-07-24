@@ -166,7 +166,7 @@ hypothesis-wiki/
 ├── .githooks/              # git pre-commitフック（有効化: git config core.hooksPath .githooks）
 ├── tools/                  # オントロジーローダ（ontology.py）・決定論lint（hwlint.py）・ビュー生成（gen_views.py）・ontology.md生成（gen_ontology_doc.py）・テストカード不変チェック・フック実体
 ├── tests/                  # 上記ツールのunittest
-├── templates/              # 雛形（hypothesis/activity/decision/interview-script/prototype-lp.html/prototype-mockup.html/project・共有）
+├── templates/              # 雛形（hypothesis/activity/decision/problem-interview-script/solution-interview-script/demo-script/prototype-lp.html/prototype-mockup.html/project・共有）
 ├── playbooks/              # ステージプレイブック（cpf/fpf/psf/spf/pmf）＋インタビュー心得（interviewing・共有）
 ├── docs/
 │   ├── skill-improvements.md        # スキル改善バックログ（SI-NNN）

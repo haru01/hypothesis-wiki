@@ -4,6 +4,8 @@
 1インタビュー 45〜60分を想定。`〈…〉` を対象仮説・課題に合わせて置き換えて使う。
 
 > 心得の正典は [../playbooks/interviewing.md](../playbooks/interviewing.md)（確証バイアス・反証質問・発見型の選択権）。この雛形は現場文言（How）、interviewing.md は原則（Why）の分担。
+>
+> **姉妹雛形**: 課題を検証したあと（PSF/SPF）ソリューションへの反応を聞くなら [solution-interview-script.md](solution-interview-script.md)、作らずにデモで価値の芯を当てるなら [demo-script.md](demo-script.md)。この雛形は **CPF（課題が実在するか）** 専用で、**ソリューションは見せない・語らない**。
 
 ## 使う前に（CPFの鉄則）
 

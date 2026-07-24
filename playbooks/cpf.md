@@ -32,6 +32,7 @@
 | デスクリサーチ（desk-research） | 状況の広がり・既存代替手段の相場観 |
 
 > インタビューの心得（確証バイアス／立てた仮説を反証する質問を加える／確証済みの前提・仮説にとらわれず視野を広げる発見型の選択権）は [interviewing.md](interviewing.md) を参照。
+> 現場スクリプト雛形は [../templates/problem-interview-script.md](../templates/problem-interview-script.md)（問題インタビュー。**ソリューションは見せない**）。
 
 ## 次ステージ（FPF）への移行基準
 
