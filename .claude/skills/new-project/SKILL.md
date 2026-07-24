@@ -15,9 +15,9 @@ description: 新しい仮説検証プロジェクト（案件）を projects/<sl
 
 2. **雛形をコピーする** — `templates/project/` の中身を `projects/<slug>/` に複製する:
    `cp -r templates/project/. projects/<slug>/`
-   これで `sources/`（README付き）と `wiki/`（`hypotheses/` `activities/` `decisions/`＝空・`.gitkeep`、`views/`＝README、`index.md`・`log.md`・`stage.md`）が揃う。
+   これで `sources/`（README付き）と `wiki/`（`hypotheses/` `activities/` `learnings/` `decisions/`＝空・`.gitkeep`、`views/`＝README、`index.md`（生成物の雛形）・`log.md`・`stage.md`）が揃う。
 
-3. **雛形のプレースホルダを埋める** — `projects/<slug>/wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。必要なら `index.md` の見出し等はそのままでよい（空表）。
+3. **雛形のプレースホルダを埋める** — `projects/<slug>/wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。`index.md` は生成物（レコードからの射影）なので手で埋めない（最初のレコードができると Stop フックが再生成する）。
 
 4. **現在のプロジェクトに登録する** — `projects/current.md` を更新:
    - `current-project: <slug>` に切り替える。
@@ -30,5 +30,5 @@ description: 新しい仮説検証プロジェクト（案件）を projects/<sl
 - 接頭辞は**全プロジェクトで一意**にする（ファイル名がvault全体で衝突しないため）。既存 `projects/*/wiki/hypotheses/` の接頭辞を確認する。
 - 雛形（`templates/project/`）自体は編集しない（スキーマ層）。コピー先だけを編集する。
 - 既存プロジェクトを上書きしない。`projects/<slug>/` が既にあれば中止してユーザーに確認する。
-- このスキルはレコード（H/ACT/DEC）を作らない。器を用意するだけ。中身は `/formulate` 以降で作る。
-- 雛形の空ディレクトリ（`hypotheses/` `activities/` `decisions/`）の `.gitkeep` は、最初のレコードを作成した後は削除してよい（任意。`/formulate` `/plan` `/ingest` `/decide` の作成手順が削除する）。
+- このスキルはレコード（H/ACT/LEARN/DEC）を作らない。器を用意するだけ。中身は `/formulate` 以降で作る。
+- 雛形の空ディレクトリ（`hypotheses/` `activities/` `learnings/` `decisions/`）の `.gitkeep` は、最初のレコードを作成した後は削除してよい（任意。`/formulate` `/plan` `/ingest` `/decide` の作成手順が削除する）。

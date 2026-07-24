@@ -9,6 +9,7 @@ TOOLS = Path(__file__).resolve().parent.parent / "tools"
 sys.path.insert(0, str(TOOLS))
 import hwlint  # noqa: E402
 import ontology  # noqa: E402
+import records  # noqa: E402
 
 
 def with_fm(record: str, line: str) -> str:
@@ -70,6 +71,32 @@ hypotheses: {hypotheses}
 # テスト活動
 
 {body}
+"""
+
+
+def learn(id="DEMO-LEARN-001", learns_from="DEMO-ACT-001", hypotheses="[DEMO-H-001]",
+          outcome="支持", body=None):
+    lf = f"learns-from: {learns_from}\n" if learns_from else ""
+    lf_link = f"実験計画: [[{learns_from}]]\n" if learns_from else ""
+    body = body if body is not None else f"対象仮説: [[DEMO-H-001]]\n{lf_link}"
+    return f"""---
+id: {id}
+title: テスト学び
+type: interview
+date: 2026-07-02
+stage: CPF
+{lf}hypotheses: {hypotheses}
+outcome: {outcome}
+---
+
+# テスト学び
+
+{body}
+## 学習カード（検証後に記入）
+
+### 事実（observed）
+
+観測した事実。
 """
 
 
@@ -307,23 +334,40 @@ type: interview
 date: 2026-07-01
 stage: CPF
 hypotheses: [DEMO-H-001]
+riskiest-assumption: 実践者は実コストを払っている
 ---
 
 # テスト活動
 
+対象仮説: [[DEMO-H-001]]
+
 ## テストカード（検証前に記入・後から書き換えない）
 
 - **成功基準**: 5名中3名以上が実コストを払っている。
+"""
+
+# この ACT を learns-from で指す学び（LEARN）。これが在ると ACT テストカードは不変になる。
+LEARN_FOR_GIT = """---
+id: DEMO-LEARN-001
+title: テスト活動の学び
+type: interview
+date: 2026-07-02
+stage: CPF
+learns-from: DEMO-ACT-001
+hypotheses: [DEMO-H-001]
+outcome: 反証
+---
+
+# テスト活動の学び
+
+対象仮説: [[DEMO-H-001]]
+実験計画: [[DEMO-ACT-001]]
 
 ## 学習カード（検証後に記入）
 
 ### 事実（observed）
 
 5名に実施し、2名が実コストを払っていた。
-
-### 解釈（inference）
-
-成功基準は未達。
 """
 
 
@@ -341,10 +385,12 @@ class TestcardImmutableTest(unittest.TestCase):
             cwd=repo, capture_output=True, text=True)
 
     def test_rewrite_after_learning_detected(self):
+        # ACT を learns-from で指す LEARN が在れば、ACT テストカードの変更は検出される。
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             run = self._init_repo(repo)
             write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            write(repo, "projects/demo/wiki/learnings/DEMO-LEARN-001.md", LEARN_FOR_GIT)
             run("git", "add", "-A"); run("git", "commit", "-m", "base")
             write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
                   BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
@@ -352,15 +398,16 @@ class TestcardImmutableTest(unittest.TestCase):
             result = self._run_checker(repo, "--base", "HEAD~1")
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
-    def test_learning_card_edit_allowed(self):
+    def test_testcard_edit_before_learning_allowed(self):
+        # LEARN がまだ紐づかない（検証開始前）ACT はテストカードを直してよい。
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             run = self._init_repo(repo)
             write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
             run("git", "add", "-A"); run("git", "commit", "-m", "base")
             write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
-                  BASE_ACT_FOR_GIT + "\n### 次のアクション\n\n- 再検証を計画する。\n")
-            run("git", "add", "-A"); run("git", "commit", "-m", "learning update")
+                  BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
+            run("git", "add", "-A"); run("git", "commit", "-m", "edit before learning")
             result = self._run_checker(repo, "--base", "HEAD~1")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -369,6 +416,7 @@ class TestcardImmutableTest(unittest.TestCase):
             repo = Path(tmp)
             run = self._init_repo(repo)
             write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            write(repo, "projects/demo/wiki/learnings/DEMO-LEARN-001.md", LEARN_FOR_GIT)
             run("git", "add", "-A"); run("git", "commit", "-m", "base")
             write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
                   BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
@@ -469,7 +517,12 @@ class OntologyLoaderTest(unittest.TestCase):
         self.assertIn("課題仮説", ontology.PROBLEM_TYPES)
         self.assertEqual(ontology.SOLUTION_TYPES, ontology.VALUE_TYPES | ontology.WILLING_TYPES)
         self.assertEqual({r.field for r in ontology.RELATIONS},
-                         {"derived-from", "leads-to", "addresses", "hypotheses", "based-on"})
+                         {"derived-from", "leads-to", "addresses", "hypotheses", "learns-from", "based-on"})
+        # hypotheses は ACT/LEARN 両方を domain に、based-on は ACT/LEARN 両方を range に取る（多種別）
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["hypotheses"].domains, {"ACT", "LEARN"})
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["based-on"].ranges, {"ACT", "LEARN"})
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["learns-from"].domains, {"LEARN"})
+        self.assertTrue(ontology.ID_RE.match("SELF-LEARN-001"))
         self.assertTrue(ontology.ID_RE.match("SELF-H-001"))
         self.assertFalse(ontology.ID_RE.match("SELF-X-001"))
 
@@ -491,8 +544,70 @@ class RelationOntologyTest(unittest.TestCase):
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
                 "wiki/decisions/DEMO-DEC-001.md": dec,
             })
+            self.assertTrue(any(p.check == "refs" and "ACT/LEARN を指すべき" in p.message
+                                for p in hwlint.lint_project(root)))
+
+
+def dec(id="DEMO-DEC-001", date="2026-07-01", type="stage-transition", to_stage="FPF"):
+    ts = f"to-stage: {to_stage}\n" if to_stage else ""
+    return (f"---\nid: {id}\ntitle: t\ndate: {date}\ntype: {type}\n"
+            f"based-on: [DEMO-LEARN-001]\n{ts}---\n\n# t\n\n根拠: [[DEMO-LEARN-001]]\n")
+
+
+class StageDerivationTest(unittest.TestCase):
+    """現在ステージは to-stage を持つ最新DEC から導出（type では絞らない＝rollback も反映）。"""
+
+    def test_fallback_to_stage_md_when_no_dec(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/stage.md": "current-stage: PSF\n"})
+            self.assertEqual(records.Project(root).stage, "PSF")
+
+    def test_latest_to_stage_wins_including_rollback(self):
+        # 移行(→FPF) の後に巻き戻し(→CPF)。type によらず最新の to-stage=CPF が現ステージ。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: FPF\n",
+                "wiki/decisions/DEMO-DEC-001.md": dec("DEMO-DEC-001", "2026-07-01", "stage-transition", "FPF"),
+                "wiki/decisions/DEMO-DEC-002.md": dec("DEMO-DEC-002", "2026-07-05", "rollback", "CPF"),
+            })
+            self.assertEqual(records.Project(root).stage, "CPF")
+
+
+class LearnRecordTest(unittest.TestCase):
+    """LEARN（学び）レコードと learns-from / hypotheses(ACT・LEARN) の関係検証。"""
+
+    def test_valid_learn_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(),
+            })
+            errs = [p for p in hwlint.lint_project(root) if p.level == "error"]
+            self.assertEqual(errs, [], errs)
+
+    def test_learns_from_must_point_to_act(self):
+        # learns-from が ACT でなく H を指すと range 違反
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(
+                    learns_from="DEMO-H-001",
+                    body="対象仮説: [[DEMO-H-001]]\n実験計画: [[DEMO-H-001]]\n"),
+            })
             self.assertTrue(any(p.check == "refs" and "ACT を指すべき" in p.message
                                 for p in hwlint.lint_project(root)))
+
+    def test_retrospective_learn_without_learns_from_passes(self):
+        # 回顧型（desk-research 等）は learns-from を持たなくてよい
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(
+                    learns_from="", body="対象仮説: [[DEMO-H-001]]\n"),
+            })
+            errs = [p for p in hwlint.lint_project(root) if p.level == "error"]
+            self.assertEqual(errs, [], errs)
 
     def test_cardinality_violation_derived_from_multiple(self):
         rec = with_fm(hyp(id="DEMO-H-003"), "derived-from: [DEMO-H-001, DEMO-H-002]")

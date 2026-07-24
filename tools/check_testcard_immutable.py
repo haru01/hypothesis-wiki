@@ -1,35 +1,49 @@
 #!/usr/bin/env python3
-"""不変ルール6の git 検出: 学習カード記入済み ACT のテストカードが base と比べて
-書き換えられていないかをチェックする（pre-commit は --staged、レビュー時は --base <ref>）。
+"""不変ルール6の git 検出: 学び(LEARN)が紐づいた実験計画(ACT)のテストカードが
+base と比べて書き換えられていないかをチェックする（pre-commit は --staged、レビュー時は --base <ref>）。
 
-学習カードが未記入（検証開始前）の ACT はテストカードを直してよい。
-判定はヒューリスティック（「### 事実（observed）」節に本文があるか）なので、
-false positive 時は人間がレビューで判断する。
+新モデルでは学習カードは ACT ではなく別レコード LEARN に積むため、テストカードの不変性は
+ほぼ構造的に保証される（ACT は作成後ふつう触らない）。本チェックはその安全網:
+ある ACT を `learns-from` で指す LEARN が存在する＝その実験は実施され学びが記録された、
+とみなし、以後その ACT のテストカードの変更を後知恵バイアスとして弾く。
+LEARN がまだ無い（検証開始前）ACT はテストカードを直してよい。
 """
 import argparse
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import subprocess  # noqa: E402
 from records import testcard  # noqa: E402  テストカード節の抽出は records に一元化（gen_views と共有）
 
-FACTS_RE = re.compile(r"### 事実（observed）(.*?)(?=###|\Z)", re.DOTALL)
+LEARNS_FROM_RE = re.compile(r"^\s*learns-from:\s*(.+?)\s*$", re.MULTILINE)
 
 
 def git(*args) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
 
 
-def learning_filled(text: str) -> bool:
-    m = FACTS_RE.search(text)
-    if not m:
+def act_has_learning(act_path: str) -> bool:
+    """この ACT を learns-from で指す LEARN がワークツリーに存在するか。
+
+    act_path は `projects/<slug>/wiki/activities/<ACT>.md`。同プロジェクトの
+    `wiki/learnings/*.md` を走査し、frontmatter learns-from が当該 ACT id を含むかを見る。"""
+    p = Path(act_path)
+    act_id = p.stem
+    learnings_dir = p.parent.parent / "learnings"
+    if not learnings_dir.is_dir():
         return False
-    body = re.sub(r"<!--.*?-->", "", m.group(1), flags=re.DOTALL)
-    lines = [l for l in body.splitlines()
-             if l.strip() and not l.strip().startswith("観測した事実")]
-    return bool(lines)
+    for lp in learnings_dir.glob("*.md"):
+        try:
+            text = lp.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for m in LEARNS_FROM_RE.finditer(text):
+            # 配列 [X, Y] でも素の X でも当該 id を含めば真
+            if act_id in re.findall(r"[A-Z0-9]+-ACT-\d+", m.group(1)):
+                return True
+    return False
 
 
 def main() -> int:
@@ -60,13 +74,14 @@ def main() -> int:
             except FileNotFoundError:
                 continue  # 削除されたファイルは対象外
         base_text = base_show.stdout
-        if not learning_filled(base_text):
-            continue  # 検証開始前はテストカードを直してよい
+        if not act_has_learning(f):
+            continue  # 学びがまだ紐づかない（検証開始前）ACT はテストカードを直してよい
         if testcard(base_text) != testcard(head_text):
             failures.append(f)
     for f in failures:
         print(f"[error] testcard-immutable | {f} | "
-              "学習カード記入済みACTのテストカードが変更されている（不変ルール6・後知恵バイアス防止）")
+              "学び(LEARN)が紐づいた実験計画(ACT)のテストカードが変更されている"
+              "（不変ルール6・後知恵バイアス防止）")
     return 1 if failures else 0
 
 

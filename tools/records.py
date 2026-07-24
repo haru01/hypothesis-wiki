@@ -58,8 +58,8 @@ def parse_id_array(value: str) -> list:
 
 
 def entity_of(stem: str) -> str:
-    """レコード stem からエンティティ種別（H/ACT/DEC）を返す。該当なしは空。"""
-    for infix in ("H", "ACT", "DEC"):
+    """レコード stem からエンティティ種別（H/ACT/LEARN/DEC）を返す。該当なしは空。"""
+    for infix in ("H", "ACT", "LEARN", "DEC"):
         if f"-{infix}-" in stem:
             return infix
     return ""
@@ -136,7 +136,7 @@ class Project:
         self.records = {}
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
-        for sub in ("hypotheses", "activities", "decisions"):
+        for sub in ("hypotheses", "activities", "learnings", "decisions"):
             d = self.wiki / sub
             if not d.is_dir():
                 continue
@@ -154,7 +154,20 @@ class Project:
 
     @cached_property
     def stage(self) -> str:
-        """現在ステージ（stage.md の current-stage）。無ければ空。"""
+        """現在ステージ。ステージを動かした意思決定(DEC)の `to-stage` のうち最新（date 昇順の末尾）を
+        正本とし、無ければ stage.md の current-stage にフォールバックする。
+
+        ステージ移行は DEC（追記される出来事）として記録されるので、そのイベント列の末尾から
+        現在地を導出する（update より create の思想）。`to-stage` はステージを変える判断
+        （stage-transition・rollback など）が記入する結果ステージで、type では絞らない
+        （rollback もステージを戻すため）。`to-stage` を持つ DEC がまだ無いプロジェクトは stage.md を読む。"""
+        moves = sorted(
+            ((fm.get("date", ""), stem, fm.get("to-stage", "").strip())
+             for stem, (_, fm, _) in self.records.items()
+             if "-DEC-" in stem and fm.get("to-stage")),
+            key=lambda x: (x[0], x[1]))
+        if moves:
+            return moves[-1][2]
         p = self.wiki / "stage.md"
         if p.exists():
             m = re.search(r"current-stage:\s*(\w+)", p.read_text(encoding="utf-8"))

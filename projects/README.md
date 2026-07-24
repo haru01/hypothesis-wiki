@@ -10,12 +10,13 @@ projects/
 ├── <slug>/
 │   ├── sources/          # このプロジェクトの生データ（不変層・AIは読むだけ）
 │   └── wiki/
-│       ├── hypotheses/<PREFIX>-H-NNN.md
-│       ├── activities/<PREFIX>-ACT-NNN.md（＋ <PREFIX>-ACT-NNN-script.md）
-│       ├── decisions/<PREFIX>-DEC-NNN.md
+│       ├── hypotheses/<PREFIX>-H-NNN.md          # 仮説を立てた
+│       ├── activities/<PREFIX>-ACT-NNN.md（＋ <PREFIX>-ACT-NNN-script.md）  # 行動計画を立てた（テストカード）
+│       ├── learnings/<PREFIX>-LEARN-NNN.md       # 実施して学びを得た（学習カード）
+│       ├── decisions/<PREFIX>-DEC-NNN.md         # 意思決定した
 │       ├── prototypes/<PREFIX>-ACT-NNN/index.html  # /prototype の生成物
-│       ├── views/        # 生成物
-│       ├── index.md ├── log.md └── stage.md
+│       ├── views/        # 生成物（board/list/relations）
+│       ├── index.md（生成物） ├── log.md └── stage.md
 └── ...
 ```
 
@@ -32,7 +33,7 @@ projects/
 
 手動で作る場合:
 
-1. `templates/project/` を `projects/<slug>/` にコピーする（`cp -r templates/project/. projects/<slug>/`）。`sources/`（README付き）と `wiki/{hypotheses,activities,decisions,views}`＋`index.md`・`log.md`・`stage.md` が揃う。
+1. `templates/project/` を `projects/<slug>/` にコピーする（`cp -r templates/project/. projects/<slug>/`）。`sources/`（README付き）と `wiki/{hypotheses,activities,learnings,decisions,views}`＋`index.md`（生成物の雛形）・`log.md`・`stage.md` が揃う。
 2. `wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。
 3. 接頭辞（大文字・他プロジェクトと重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
 

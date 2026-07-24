@@ -40,18 +40,21 @@ def read_stage(project) -> str:
     return project.stage or "?"
 
 
-def fictional_acts(project) -> list:
-    """本文に架空/シミュレーションマーカーを含む ACT の stem を並べる。"""
-    return sorted(s for s in project.records if "-ACT-" in s
+def fictional_records(project) -> list:
+    """本文に架空/シミュレーションマーカーを含む ACT/LEARN の stem を並べる。
+    架空マーカーは主に学びカード（LEARN）に現れるが、計画（ACT）本文の注記も拾う。"""
+    return sorted(s for s in project.records
+                  if ("-ACT-" in s or "-LEARN-" in s)
                   and any(m in project.records[s][2] for m in FICTIONAL_MARKERS))
 
 
 def next_to_verify(project, hyps, stage) -> list:
     """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。
 
-    検証活動(ACT)が1本も紐づかない（未着手）ものを最優先に並べる
+    検証活動(ACT)・学び(LEARN)が1本も紐づかない（未着手）ものを最優先に並べる
     （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, has_act)。"""
-    tested = referenced_ids(project, "hypotheses", infix="-ACT-")
+    tested = (referenced_ids(project, "hypotheses", infix="-ACT-")
+              | referenced_ids(project, "hypotheses", infix="-LEARN-"))
     nxt = [(s, fm, s in tested) for s, fm, *_ in hyps
            if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
     return sorted(nxt, key=lambda x: (x[2], int(x[1].get("confidence", "0") or 0), x[0]))
@@ -157,53 +160,88 @@ def gen_board(project) -> str:
     stage = read_stage(project)
     today = datetime.date.today().isoformat()
     hyps = list(project.hyp_records())
-    acts = sorted((s for s in project.records if "-ACT-" in s),
-                  key=lambda s: (project.records[s][1].get("date", ""), s))
 
-    # ACT→DEC 逆引きを1回だけ構築（判断列。全レコード再走査を避ける）
-    dec_by_act = {}
+    # learns-from 逆引き（ACT → 紐づく LEARN 群）と、計画を持たない回顧型 LEARN を1回で仕分ける
+    learns_by_act, retro_learns = {}, []
+    for stem, (_, fm, _) in project.records.items():
+        if "-LEARN-" not in stem:
+            continue
+        lf = fm.get("learns-from", "").strip()
+        if lf:
+            learns_by_act.setdefault(lf, []).append(stem)
+        else:
+            retro_learns.append(stem)
+
+    # (ACT/LEARN)→DEC 逆引きを1回だけ構築（判断列。based-on は ACT・LEARN どちらも指せる）
+    dec_by_target = {}
     for stem, (_, fm, _) in project.records.items():
         if "-DEC-" in stem:
             label = f"{fm.get('type', '')}: {fm.get('title', '')} [[{stem}]]"
-            for a in parse_id_array(fm.get("based-on", "")):
-                dec_by_act.setdefault(a, []).append(label)
+            for t in parse_id_array(fm.get("based-on", "")):
+                dec_by_target.setdefault(t, []).append(label)
 
-    def entry(stem) -> dict:
-        _, fm, text = project.records[stem]
-        lc = learning(text)
-        executed = is_executed(lc)
+    def latest_learn(act_stem):
+        ls = sorted(learns_by_act.get(act_stem, []),
+                    key=lambda s: (project.records[s][1].get("date", ""), s))
+        return ls[-1] if ls else None
+
+    def judgment_for(stems) -> str:
+        labels = []
+        for s in stems:
+            labels.extend(dec_by_target.get(s, []))
+        return " / ".join(dict.fromkeys(labels)) or "—"   # 重複除去（同一DECが複数根拠を持つ場合）
+
+    def act_unit(act_stem) -> dict:
+        _, fm, text = project.records[act_stem]
         tc = testcard(text)
-        return {
-            "fm": fm, "ids": parse_id_array(fm.get("hypotheses", "")),
-            "risk": fm.get("riskiest-assumption", "—") or "—",
-            "method": field_value(tc, "方法"), "criteria": field_value(tc, "成功基準"),
-            "result": (learning_point(lc) or "—") if executed else "（未実施・計画のみ）",
-            "outcome": fm.get("outcome", "").strip() or ("—" if executed else "未実施"),
-            "judgment": " / ".join(dec_by_act.get(stem, [])) or "—",
-        }
+        learn_stem = latest_learn(act_stem)
+        related = [act_stem] + learns_by_act.get(act_stem, [])
+        if learn_stem:
+            lfm, ltext = project.records[learn_stem][1], project.records[learn_stem][2]
+            result = learning_point(learning(ltext)) or "—"
+            outcome = lfm.get("outcome", "").strip() or "—"
+            ids = parse_id_array(lfm.get("hypotheses", "")) or parse_id_array(fm.get("hypotheses", ""))
+        else:
+            result, outcome, ids = "（未実施・計画のみ）", "未実施", parse_id_array(fm.get("hypotheses", ""))
+        return {"stem": act_stem, "learn": learn_stem, "fm": fm, "ids": ids,
+                "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
+                "risk": fm.get("riskiest-assumption", "—") or "—",
+                "method": field_value(tc, "方法"), "criteria": field_value(tc, "成功基準"),
+                "result": result, "outcome": outcome, "judgment": judgment_for(related)}
 
-    entries = {s: entry(s) for s in acts}
+    def learn_unit(learn_stem) -> dict:
+        _, fm, text = project.records[learn_stem]
+        return {"stem": learn_stem, "learn": learn_stem, "fm": fm,
+                "ids": parse_id_array(fm.get("hypotheses", "")),
+                "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
+                "risk": "—（回顧型・事前の実験計画なし）",   # desk-research/self-reflection 等は事前計画を持たない
+                "method": "—", "criteria": "—",
+                "result": learning_point(learning(text)) or "—",
+                "outcome": fm.get("outcome", "").strip() or "—", "judgment": judgment_for([learn_stem])}
 
-    L = header_lines("board", stage, today, fictional_acts(project))
+    units = ([act_unit(s) for s in project.records if "-ACT-" in s]
+             + [learn_unit(s) for s in retro_learns])
+    units.sort(key=lambda e: (e["date"], e["stem"]))
+
+    L = header_lines("board", stage, today, fictional_records(project))
     L += ["", f"# ジャベリン実験ボード（{project.slug}）", ""]
-    L.append("各 ACT を1実験として date 昇順に並べる。「最もリスクの高い前提」「結果（学びの要点）」「判定」は"
-             "レコード（ACT frontmatter `riskiest-assumption`/`outcome`・学習カード `学びの要点`）、"
-             "「判断」は当該 ACT を `based-on` に持つ DEC 由来。すべて射影・逐語転記。")
+    L.append("各実験（実験計画 ACT ＋ 学び LEARN）を date 昇順に並べる。「最もリスクの高い前提」は"
+             "ACT frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN"
+             "（`learns-from`）の学習カード `学びの要点`・frontmatter `outcome`、"
+             "「判断」は当該 ACT/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。"
+             "回顧型（desk-research 等）は計画を持たない LEARN 単独の実験として出る。")
     L.append("")
 
     # サマリ
     L += ["## サマリ", "", "| # | 実験 | 最もリスクの高い前提 | 判定 | 判断（DEC） |", "|---|---|---|---|---|"]
-    for i, s in enumerate(acts, 1):
-        e = entries[s]
-        L.append(f"| {i} | [[{s}]] {e['fm'].get('title', '')} | {e['risk']} | {e['outcome']} | {e['judgment']} |")
+    for i, e in enumerate(units, 1):
+        L.append(f"| {i} | [[{e['stem']}]] {e['title']} | {e['risk']} | {e['outcome']} | {e['judgment']} |")
     L += ["", "---", ""]
 
-    # 各実験（1 ACT = 1 エントリ・鋭い一行に集約）
-    for i, s in enumerate(acts, 1):
-        e = entries[s]
-        fm = e["fm"]
-        L.append(f"## 実験{i} — {fm.get('title', '')}"
-                 f"（{fm.get('date', '')}・{fm.get('type', '')}） [[{s}]]")
+    # 各実験（実験計画＋学び＝1エントリ・鋭い一行に集約）
+    for i, e in enumerate(units, 1):
+        learn_link = f" → 学び [[{e['learn']}]]" if e.get("learn") and e["learn"] != e["stem"] else ""
+        L.append(f"## 実験{i} — {e['title']}（{e['date']}・{e['type']}） [[{e['stem']}]]{learn_link}")
         target = (f"- **対象仮説**: 顧客/行動 {hyp_links(project, e['ids'], CUSTOMER_TYPES)}"
                   f" ｜ 課題 {hyp_links(project, e['ids'], PROBLEM_TYPES)}"
                   f" ｜ 解決策 {hyp_links(project, e['ids'], SOLUTION_TYPES)}")
@@ -256,7 +294,7 @@ def mermaid_id(stem: str) -> str:
 
 
 def short_id(stem: str) -> str:
-    m = re.search(r"((?:H|ACT|DEC)-\d+)$", stem)
+    m = re.search(r"((?:H|ACT|LEARN|DEC)-\d+)$", stem)
     return m.group(1) if m else stem
 
 
@@ -273,15 +311,15 @@ def is_core(fm) -> bool:
     return fm.get("core", "").strip() == "true"
 
 
-def related_links(stem, fm, act_by_hyp) -> str:
-    """派生元(←)・因果先(→ leads-to)・検証活動(ACT逆引き) を1セルに畳む。"""
+def related_links(stem, fm, verif_by_hyp) -> str:
+    """派生元(←)・因果先(→ leads-to)・検証活動/学び(ACT・LEARN 逆引き) を1セルに畳む。"""
     parts = []
     if (df := fm.get("derived-from", "").strip()):
         parts.append(f"← [[{df}]]")
     if (lt := parse_id_array(fm.get("leads-to", ""))):
         parts.append("→ " + " ".join(f"[[{t}]]" for t in lt))
-    if (acts := sorted(act_by_hyp.get(stem, []))):
-        parts.append(" ".join(f"[[{a}]]" for a in acts))
+    if (recs := sorted(verif_by_hyp.get(stem, []))):
+        parts.append(" ".join(f"[[{a}]]" for a in recs))
     return " ・ ".join(parts) if parts else "—"
 
 
@@ -290,12 +328,16 @@ def gen_list(project) -> str:
     today = datetime.date.today().isoformat()
     hyps = list(project.hyp_records())  # (stem, fm, body, history)
     stems = {s for s, _, _, _ in hyps}
-    act_by_hyp = index_by(project, "-ACT-", "hypotheses")  # H→ACT 逆引きを1回だけ構築
+    # H→検証活動/学び 逆引き（ACT と LEARN 両方）を1回だけ構築
+    verif_by_hyp = {}
+    for idx in (index_by(project, "-ACT-", "hypotheses"), index_by(project, "-LEARN-", "hypotheses")):
+        for k, v in idx.items():
+            verif_by_hyp.setdefault(k, []).extend(v)
 
-    L = header_lines("list", stage, today, fictional_acts(project))
+    L = header_lines("list", stage, today, fictional_records(project))
     L += ["", f"# 全仮説リスト（{project.slug}）", ""]
     L.append(f"現在ステージ: **{stage}**。重要度は {stage} 重点タイプ=8・その他=4 で算出（frontmatter 射影）。"
-             "★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動（ACT）。")
+             "★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動 ACT・学び LEARN。")
 
     # mermaid バリューチェーン（ノード=frontmatter、矢印=leads-to）
     L += ["", "## バリューチェーン（行動 → 切実な課題 → 解決策 → 市場）", "", "```mermaid", "flowchart TB"]
@@ -330,7 +372,7 @@ def gen_list(project) -> str:
             core = "★" if is_core(fm) else ""
             emo = STATUS_EMOJI.get(fm.get("status", ""), "")
             L.append(f"| [[{s}]]{core} | {fm.get('title', '')} | {fm.get('confidence', '')} | "
-                     f"{emo}{fm.get('status', '')} | {importance(fm, stage)} | {related_links(s, fm, act_by_hyp)} | "
+                     f"{emo}{fm.get('status', '')} | {importance(fm, stage)} | {related_links(s, fm, verif_by_hyp)} | "
                      f"{trunc(latest_reason(hist), 44)} |")
         L.append("")
 
@@ -382,7 +424,7 @@ def gen_vp(project):
             addressed.add(t)
             values_by_pain.setdefault(t, []).append(s)
 
-    L = header_lines("vp", stage, today, fictional_acts(project))
+    L = header_lines("vp", stage, today, fictional_records(project))
     L += ["", f"# バリュープロポジション・ビュー（{project.slug}）", ""]
     L.append("顧客プロファイル（ジョブ・ペイン）と価値マップ（ソリューション）を frontmatter から射影し、"
              "`addresses`（ソリューション→対応課題）で突き合わせる。フィットの空白は機械集計。")
@@ -450,10 +492,10 @@ def relation_edges(project) -> list:
     for stem, (_, fm, _) in project.records.items():
         ent = entity_of(stem)
         for rel in RELATIONS:
-            if rel.domain != ent:
+            if not rel.in_domain(ent):
                 continue
             for tgt in parse_id_array(fm.get(rel.field, "")):
-                if tgt in project.records and entity_of(tgt) == rel.range:
+                if tgt in project.records and rel.in_range(entity_of(tgt)):
                     edges.append((rel, stem, tgt))
     return edges
 
@@ -465,7 +507,7 @@ def gen_relations(project):
     today = datetime.date.today().isoformat()
     edges = relation_edges(project)
 
-    L = header_lines("relations", stage, today, fictional_acts(project))
+    L = header_lines("relations", stage, today, fictional_records(project))
     L += ["", f"# 関係グラフ（{project.slug}）", ""]
     L.append("レコード間の型付きリンク（オントロジーの関係）を frontmatter から射影する。"
              "ノード=レコード、矢印=関係（ラベル=関係名）。関係の定義は "
@@ -473,7 +515,8 @@ def gen_relations(project):
 
     # 型付き関係グラフ（全関係型を1枚に）
     L += ["", "## 型付き関係グラフ", "", "```mermaid", "flowchart LR"]
-    for ent, sub_label in (("H", "仮説 H"), ("ACT", "活動 ACT"), ("DEC", "意思決定 DEC")):
+    for ent, sub_label in (("H", "仮説 H"), ("ACT", "活動 ACT"),
+                           ("LEARN", "学び LEARN"), ("DEC", "意思決定 DEC")):
         members = sorted(s for s in project.records if entity_of(s) == ent)
         if not members:
             continue
@@ -554,10 +597,43 @@ def gen_relations(project):
     return "\n".join(L)
 
 
+# ---- index ビュー（wiki/index.md。手編集をやめ再生成に一本化） ----
+
+def gen_index(project) -> str:
+    """wiki/index.md ＝ 全仮説の現在の確信度・ステータス一覧（レコードからの射影）。
+
+    従来 /ingest が手編集していた index を生成物にする（update より create／再生成の思想）。
+    確信度・ステータスはレコード frontmatter（＝確信度履歴の最新行と一致）から射影する。"""
+    stage = read_stage(project)
+    today = datetime.date.today().isoformat()
+    hyps = list(project.hyp_records())
+    n = lambda infix: sum(1 for s in project.records if infix in s)
+
+    L = header_lines("index", stage, today, fictional_records(project))
+    L += ["", f"# {project.slug} — 仮説インデックス", ""]
+    L.append("全仮説の現在の確信度・ステータス（レコードからの射影）。詳細は "
+             "[board](views/board.md)・[list](views/hypotheses-list.md)・"
+             "[relations](views/relations.md) 各ビューを参照。")
+    L += ["",
+          f"- ステージ: **{stage}** {STAGE_NAMES.get(stage, '')}",
+          f"- 仮説(H) {len(hyps)} ｜ 活動(ACT) {n('-ACT-')} ｜ 学び(LEARN) {n('-LEARN-')} "
+          f"｜ 意思決定(DEC) {n('-DEC-')}",
+          ""]
+    L += ["| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]
+    for stem, fm, _, _ in sorted(hyps, key=lambda r: (-importance(r[1], stage),
+                                                       int(r[1].get("confidence", "0") or 0))):
+        L.append(f"| [[{stem}]] | {fm.get('title', '')} | {fm.get('confidence', '')} | "
+                 f"{fm.get('status', '')} | {importance(fm, stage)} |")
+    L.append("")
+    return "\n".join(L)
+
+
+# 各ビューの出力先は wiki/ からの相対パス。index だけ wiki/ 直下、他は wiki/views/ 配下。
 VIEWS = {
-    "board": ("board.md", gen_board),
-    "list": ("hypotheses-list.md", gen_list),
-    "relations": ("relations.md", gen_relations),
+    "board": ("views/board.md", gen_board),
+    "list": ("views/hypotheses-list.md", gen_list),
+    "relations": ("views/relations.md", gen_relations),
+    "index": ("index.md", gen_index),
 }
 
 
@@ -567,23 +643,23 @@ def resolve_slug(repo: Path, project):
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="仮説検証Wiki のビュー機械生成（board / list）")
+    ap = argparse.ArgumentParser(description="仮説検証Wiki のビュー機械生成（board / list / relations / index）")
     ap.add_argument("view", choices=list(VIEWS))
     ap.add_argument("--project", help="対象プロジェクト slug（省略時は projects/current.md）")
     ap.add_argument("--repo", default=".", help="リポジトリルート")
-    ap.add_argument("--out", help="出力先パス（省略時は wiki/views/<既定名> に書き込む）")
+    ap.add_argument("--out", help="出力先パス（省略時は wiki/<既定パス> に書き込む）")
     args = ap.parse_args()
     repo = Path(args.repo).resolve()
     slug = resolve_slug(repo, args.project)
     root = repo / "projects" / (slug or "")
     if not slug or not (root / "wiki").is_dir():
         sys.exit(f"プロジェクトが見つからない: {slug!r}")
-    filename, fn = VIEWS[args.view]
+    relpath, fn = VIEWS[args.view]
     out = fn(Project(root))
     if out is None:
         print(f"{slug}/{args.view}: 生成条件を満たさずスキップ（例: ソリューション仮説が未起票）")
         return 0
-    dest = Path(args.out) if args.out else (root / "wiki" / "views" / filename)
+    dest = Path(args.out) if args.out else (root / "wiki" / relpath)
     dest.write_text(out, encoding="utf-8")
     print(f"生成: {dest}")
     return 0

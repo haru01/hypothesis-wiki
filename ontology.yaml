@@ -45,6 +45,21 @@ entities:
   ACT:
     label: 活動
     dir: activities
+    # ACT ＝ テストカード（実験計画。検証前に記入し以後不変）。検証後の学びは LEARN（別レコード）に積む。
+    subtypes:
+      - {name: interview}
+      - {name: demo}
+      - {name: survey}
+      - {name: mvp-test}
+      - {name: desk-research}
+      - {name: self-reflection}
+
+  LEARN:
+    label: 学び
+    dir: learnings
+    # LEARN ＝ 学習カード（検証後に新規作成する「実施して学びを得た」出来事）。
+    # 計画型は learns-from で ACT を参照し、回顧型（desk-research/self-reflection 等）は ACT を持たず自身が活動種別を名乗る。
+    # サブタイプは活動種別（ACT と同じ語彙）。
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -65,7 +80,7 @@ entities:
 
 # ── 関係（型付きリンク） ─────────────────────────────────────────────
 # field         = frontmatter キー
-# domain / range= 始点 / 終点のエンティティ種別
+# domain / range= 始点 / 終点のエンティティ種別。単一種別は文字列、複数種別を許すときは配列で書く（例 [ACT, LEARN]）
 # *-subtypes    = 省略可。サブタイプまで制約する場合のみ
 # cardinality   = one（単一）| many（配列）
 # inverse       = 逆方向の呼称（バックリンク表示・ナビゲーションに使う）
@@ -108,25 +123,36 @@ relations:
 
   - name: hypotheses
     field: hypotheses
-    domain: ACT
+    domain: [ACT, LEARN]        # 計画(ACT)は検証対象、学び(LEARN)は確信度を動かした仮説を指す
     range: H
     cardinality: many
     inverse: validated-by
     must-wikilink: true
     label: 検証対象
     inverse-label: 検証活動
-    description: この活動が検証する仮説
+    description: この活動／学びが関わる仮説
+
+  - name: learns-from
+    field: learns-from
+    domain: LEARN
+    range: ACT
+    cardinality: one
+    inverse: learnings
+    must-wikilink: true
+    label: 実験計画
+    inverse-label: 学び
+    description: この学びが実施した実験計画（テストカード）。回顧型の学びは持たない
 
   - name: based-on
     field: based-on
     domain: DEC
-    range: ACT
+    range: [ACT, LEARN]         # 意思決定は実験計画(ACT)にも判定を持つ学び(LEARN)にも根拠を置ける
     cardinality: many
     inverse: informs
     must-wikilink: true
     label: 根拠活動
     inverse-label: 導いた判断
-    description: この意思決定の根拠となった活動
+    description: この意思決定の根拠となった活動・学び
 
 # ── 状態機械 ────────────────────────────────────────────────────────
 state-machines:

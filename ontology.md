@@ -11,6 +11,7 @@
 |---|---|---|---|
 | `H` | 仮説 | `wiki/hypotheses/` | 状況・行動仮説・課題仮説・ソリューション仮説・市場スケール仮説・自分たち仮説 |
 | `ACT` | 活動 | `wiki/activities/` | interview・demo・survey・mvp-test・desk-research・self-reflection |
+| `LEARN` | 学び | `wiki/learnings/` | interview・demo・survey・mvp-test・desk-research・self-reflection |
 | `DEC` | 意思決定 | `wiki/decisions/` | stage-transition・pivot・persevere・rollback・kill |
 
 ### 仮説（H）サブタイプの価値連鎖上の役割
@@ -32,8 +33,9 @@
 | **派生元** | `derived-from` | H → H | 単一(one) | derives（派生先） | 必須 | 派生・ピボット・巻き戻し再出発の系譜（この仮説の派生元） |
 | **因果先** | `leads-to` | H → H | 配列(many) | led-from（因果元） | 必須 | 因果的に導く先の仮説。list の mermaid バリューチェーン矢印になる |
 | **対応課題** | `addresses` | H（ソリューション仮説） → H（課題仮説） | 配列(many) | addressed-by（対応する価値） | 任意 | ソリューション仮説→対応する課題仮説（バリュープロポジションのフィット） |
-| **検証対象** | `hypotheses` | ACT → H | 配列(many) | validated-by（検証活動） | 必須 | この活動が検証する仮説 |
-| **根拠活動** | `based-on` | DEC → ACT | 配列(many) | informs（導いた判断） | 必須 | この意思決定の根拠となった活動 |
+| **検証対象** | `hypotheses` | ACT/LEARN → H | 配列(many) | validated-by（検証活動） | 必須 | この活動／学びが関わる仮説 |
+| **実験計画** | `learns-from` | LEARN → ACT | 単一(one) | learnings（学び） | 必須 | この学びが実施した実験計画（テストカード）。回顧型の学びは持たない |
+| **根拠活動** | `based-on` | DEC → ACT/LEARN | 配列(many) | informs（導いた判断） | 必須 | この意思決定の根拠となった活動・学び |
 
 ## 状態機械
 

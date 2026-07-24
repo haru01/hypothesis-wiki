@@ -22,20 +22,22 @@
   python3 tools/gen_ontology_doc.py         # ontology.yaml → ontology.md
   ```
 
-- 機械生成ビュー（`board`・`list`・`relations`）はレコードから決定論射影する。レコード（ACT/DEC/H）を
+- 機械生成ビュー（`board`・`list`・`relations`・`index`）はレコードから決定論射影する。レコード（H/ACT/LEARN/DEC）を
   変更したら再生成する（Claude Code では Stop フックが自動再生成。他エージェントは手動で）:
 
   ```bash
   python3 tools/gen_views.py board          # 現在プロジェクト（--project <slug> で指定可）
   python3 tools/gen_views.py list           # 全仮説リスト（バリューチェーン）
   python3 tools/gen_views.py relations      # 型付き関係グラフ・バックリンク索引
+  python3 tools/gen_views.py index          # wiki/index.md（全仮説の確信度・ステータス一覧）
   ```
 
 - 初回クローン後に `git config core.hooksPath .githooks` を一度実行し、コミット時フック（不変ルールの強制）を
   有効にする（Claude Code では SessionStart フックが自動で設定する。他エージェントは手動で）。
 - 不変ルール（CLAUDE.md「不変ルール」）は全エージェント共通。特に:
-  `sources/` は読み取り専用／確信度・ステータスの変更は必ず ACT/DEC に紐づける／`log.md` は追記のみ／
-  テストカードの成功基準は検証開始後に書き換えない。
+  `sources/` は読み取り専用／確信度・ステータスの変更は必ず学び(LEARN)か意思決定(DEC)に紐づける／
+  確信度履歴テーブルは追記専用（frontmatter は同期キャッシュ）／`log.md` は追記のみ／
+  検証後の学びは新規 LEARN として積む（既存 ACT のテストカードは検証開始後に書き換えない）。
 
 ## 記述言語
 
