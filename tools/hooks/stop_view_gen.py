@@ -38,7 +38,7 @@ def main() -> int:
         return 0
 
     records = []
-    for sub in ("hypotheses", "activities", "learnings", "decisions"):
+    for sub in ("hypotheses", "tests", "learnings", "decisions"):
         d = wiki / sub
         if d.is_dir():
             records.extend(d.glob("*.md"))

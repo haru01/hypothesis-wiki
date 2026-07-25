@@ -1,5 +1,5 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-24（ステージ CPF） -->
-<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-ACT-004]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]]。これら由来の確信度・判断は実データ未検証。 -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-25（ステージ CPF） -->
+<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # 関係グラフ（self）
 
@@ -21,10 +21,10 @@ flowchart LR
       SELF_H_009["H-009 AI支援+記録+レポート<br/>確信度2 ❌反証"]
       SELF_H_010["H-010 対価/乗り換え<br/>確信度2 ❌反証"]
     end
-    subgraph ACT["活動 ACT"]
-      SELF_ACT_002["ACT-002 問題インタビュー5名（シミュレーション）"]
-      SELF_ACT_003["ACT-003 核心クラスタの反証テスト10名（シミュレ…"]
-      SELF_ACT_004["ACT-004 確信度WikiのLP提示インタビュー（シ…"]
+    subgraph TEST["実験計画 TEST"]
+      SELF_TEST_002["TEST-002 問題インタビュー5名（シミュレーション）"]
+      SELF_TEST_003["TEST-003 核心クラスタの反証テスト10名（シミュレ…"]
+      SELF_TEST_004["TEST-004 確信度WikiのLP提示インタビュー（シ…"]
     end
     subgraph LEARN["学び LEARN"]
       SELF_LEARN_001["LEARN-001 企業の仮説検証の状況・課題のデスクリサー…"]
@@ -55,21 +55,21 @@ flowchart LR
     SELF_H_009 -->|対応課題| SELF_H_006
     SELF_H_009 -->|対応課題| SELF_H_008
     SELF_H_010 -->|派生元| SELF_H_009
-    SELF_ACT_002 -->|検証対象| SELF_H_001
-    SELF_ACT_002 -->|検証対象| SELF_H_002
-    SELF_ACT_002 -->|検証対象| SELF_H_003
-    SELF_ACT_002 -->|検証対象| SELF_H_004
-    SELF_ACT_002 -->|検証対象| SELF_H_005
-    SELF_ACT_002 -->|検証対象| SELF_H_006
-    SELF_ACT_002 -->|検証対象| SELF_H_007
-    SELF_ACT_002 -->|検証対象| SELF_H_008
-    SELF_ACT_003 -->|検証対象| SELF_H_004
-    SELF_ACT_003 -->|検証対象| SELF_H_002
-    SELF_ACT_003 -->|検証対象| SELF_H_006
-    SELF_ACT_003 -->|検証対象| SELF_H_008
-    SELF_ACT_003 -->|検証対象| SELF_H_001
-    SELF_ACT_004 -->|検証対象| SELF_H_009
-    SELF_ACT_004 -->|検証対象| SELF_H_010
+    SELF_TEST_002 -->|検証対象| SELF_H_001
+    SELF_TEST_002 -->|検証対象| SELF_H_002
+    SELF_TEST_002 -->|検証対象| SELF_H_003
+    SELF_TEST_002 -->|検証対象| SELF_H_004
+    SELF_TEST_002 -->|検証対象| SELF_H_005
+    SELF_TEST_002 -->|検証対象| SELF_H_006
+    SELF_TEST_002 -->|検証対象| SELF_H_007
+    SELF_TEST_002 -->|検証対象| SELF_H_008
+    SELF_TEST_003 -->|検証対象| SELF_H_004
+    SELF_TEST_003 -->|検証対象| SELF_H_002
+    SELF_TEST_003 -->|検証対象| SELF_H_006
+    SELF_TEST_003 -->|検証対象| SELF_H_008
+    SELF_TEST_003 -->|検証対象| SELF_H_001
+    SELF_TEST_004 -->|検証対象| SELF_H_009
+    SELF_TEST_004 -->|検証対象| SELF_H_010
     SELF_LEARN_001 -->|検証対象| SELF_H_001
     SELF_LEARN_001 -->|検証対象| SELF_H_002
     SELF_LEARN_001 -->|検証対象| SELF_H_003
@@ -86,16 +86,16 @@ flowchart LR
     SELF_LEARN_002 -->|検証対象| SELF_H_006
     SELF_LEARN_002 -->|検証対象| SELF_H_007
     SELF_LEARN_002 -->|検証対象| SELF_H_008
-    SELF_LEARN_002 -->|実験計画| SELF_ACT_002
+    SELF_LEARN_002 -->|実験計画| SELF_TEST_002
     SELF_LEARN_003 -->|検証対象| SELF_H_004
     SELF_LEARN_003 -->|検証対象| SELF_H_002
     SELF_LEARN_003 -->|検証対象| SELF_H_006
     SELF_LEARN_003 -->|検証対象| SELF_H_008
     SELF_LEARN_003 -->|検証対象| SELF_H_001
-    SELF_LEARN_003 -->|実験計画| SELF_ACT_003
+    SELF_LEARN_003 -->|実験計画| SELF_TEST_003
     SELF_LEARN_004 -->|検証対象| SELF_H_009
     SELF_LEARN_004 -->|検証対象| SELF_H_010
-    SELF_LEARN_004 -->|実験計画| SELF_ACT_004
+    SELF_LEARN_004 -->|実験計画| SELF_TEST_004
     SELF_LEARN_005 -->|検証対象| SELF_H_001
     SELF_LEARN_005 -->|検証対象| SELF_H_002
     SELF_LEARN_005 -->|検証対象| SELF_H_004
@@ -141,25 +141,25 @@ flowchart LR
 | [[SELF-H-009]] | 対応課題 → | [[SELF-H-006]] |
 | [[SELF-H-009]] | 対応課題 → | [[SELF-H-008]] |
 
-### 検証対象（`hypotheses`: ACT/LEARN→H）
+### 検証対象（`hypotheses`: LEARN/TEST→H）
 
 | 始点 | 関係 | 終点 |
 |---|---|---|
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-001]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-002]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-003]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-004]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-005]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-006]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-007]] |
-| [[SELF-ACT-002]] | 検証対象 → | [[SELF-H-008]] |
-| [[SELF-ACT-003]] | 検証対象 → | [[SELF-H-004]] |
-| [[SELF-ACT-003]] | 検証対象 → | [[SELF-H-002]] |
-| [[SELF-ACT-003]] | 検証対象 → | [[SELF-H-006]] |
-| [[SELF-ACT-003]] | 検証対象 → | [[SELF-H-008]] |
-| [[SELF-ACT-003]] | 検証対象 → | [[SELF-H-001]] |
-| [[SELF-ACT-004]] | 検証対象 → | [[SELF-H-009]] |
-| [[SELF-ACT-004]] | 検証対象 → | [[SELF-H-010]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-001]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-002]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-003]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-004]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-005]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-006]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-007]] |
+| [[SELF-TEST-002]] | 検証対象 → | [[SELF-H-008]] |
+| [[SELF-TEST-003]] | 検証対象 → | [[SELF-H-004]] |
+| [[SELF-TEST-003]] | 検証対象 → | [[SELF-H-002]] |
+| [[SELF-TEST-003]] | 検証対象 → | [[SELF-H-006]] |
+| [[SELF-TEST-003]] | 検証対象 → | [[SELF-H-008]] |
+| [[SELF-TEST-003]] | 検証対象 → | [[SELF-H-001]] |
+| [[SELF-TEST-004]] | 検証対象 → | [[SELF-H-009]] |
+| [[SELF-TEST-004]] | 検証対象 → | [[SELF-H-010]] |
 | [[SELF-LEARN-001]] | 検証対象 → | [[SELF-H-001]] |
 | [[SELF-LEARN-001]] | 検証対象 → | [[SELF-H-002]] |
 | [[SELF-LEARN-001]] | 検証対象 → | [[SELF-H-003]] |
@@ -189,15 +189,15 @@ flowchart LR
 | [[SELF-LEARN-005]] | 検証対象 → | [[SELF-H-006]] |
 | [[SELF-LEARN-005]] | 検証対象 → | [[SELF-H-008]] |
 
-### 実験計画（`learns-from`: LEARN→ACT）
+### 実験計画（`learns-from`: LEARN→TEST）
 
 | 始点 | 関係 | 終点 |
 |---|---|---|
-| [[SELF-LEARN-002]] | 実験計画 → | [[SELF-ACT-002]] |
-| [[SELF-LEARN-003]] | 実験計画 → | [[SELF-ACT-003]] |
-| [[SELF-LEARN-004]] | 実験計画 → | [[SELF-ACT-004]] |
+| [[SELF-LEARN-002]] | 実験計画 → | [[SELF-TEST-002]] |
+| [[SELF-LEARN-003]] | 実験計画 → | [[SELF-TEST-003]] |
+| [[SELF-LEARN-004]] | 実験計画 → | [[SELF-TEST-004]] |
 
-### 根拠活動（`based-on`: DEC→ACT/LEARN）
+### 根拠活動（`based-on`: DEC→LEARN/TEST）
 
 | 始点 | 関係 | 終点 |
 |---|---|---|
@@ -207,22 +207,22 @@ flowchart LR
 
 ## バックリンク索引（誰から・どの関係で参照されているか）
 
-- [[SELF-ACT-002]] ← 学び: [[SELF-LEARN-002]]
-- [[SELF-ACT-003]] ← 学び: [[SELF-LEARN-003]]
-- [[SELF-ACT-004]] ← 学び: [[SELF-LEARN-004]]
-- [[SELF-H-001]] ← 派生先: [[SELF-H-002]] [[SELF-H-003]] ／ 検証活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-002]] ← 検証活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-003]] ← 検証活動: [[SELF-ACT-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
-- [[SELF-H-004]] ← 因果元: [[SELF-H-001]] [[SELF-H-002]] ／ 派生先: [[SELF-H-008]] [[SELF-H-009]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-005]] ← 検証活動: [[SELF-ACT-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
-- [[SELF-H-006]] ← 因果元: [[SELF-H-001]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-007]] ← 検証活動: [[SELF-ACT-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
-- [[SELF-H-008]] ← 因果元: [[SELF-H-003]] [[SELF-H-004]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-009]] ← 因果元: [[SELF-H-002]] [[SELF-H-004]] [[SELF-H-006]] [[SELF-H-008]] ／ 派生先: [[SELF-H-010]] ／ 検証活動: [[SELF-ACT-004]] [[SELF-LEARN-004]]
-- [[SELF-H-010]] ← 因果元: [[SELF-H-009]] ／ 検証活動: [[SELF-ACT-004]] [[SELF-LEARN-004]]
+- [[SELF-H-001]] ← 派生先: [[SELF-H-002]] [[SELF-H-003]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
+- [[SELF-H-002]] ← 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
+- [[SELF-H-003]] ← 検証活動: [[SELF-TEST-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
+- [[SELF-H-004]] ← 因果元: [[SELF-H-001]] [[SELF-H-002]] ／ 派生先: [[SELF-H-008]] [[SELF-H-009]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
+- [[SELF-H-005]] ← 検証活動: [[SELF-TEST-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
+- [[SELF-H-006]] ← 因果元: [[SELF-H-001]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
+- [[SELF-H-007]] ← 検証活動: [[SELF-TEST-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
+- [[SELF-H-008]] ← 因果元: [[SELF-H-003]] [[SELF-H-004]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
+- [[SELF-H-009]] ← 因果元: [[SELF-H-002]] [[SELF-H-004]] [[SELF-H-006]] [[SELF-H-008]] ／ 派生先: [[SELF-H-010]] ／ 検証活動: [[SELF-TEST-004]] [[SELF-LEARN-004]]
+- [[SELF-H-010]] ← 因果元: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-004]] [[SELF-LEARN-004]]
 - [[SELF-LEARN-002]] ← 導いた判断: [[SELF-DEC-001]]
 - [[SELF-LEARN-003]] ← 導いた判断: [[SELF-DEC-001]]
 - [[SELF-LEARN-005]] ← 導いた判断: [[SELF-DEC-002]]
+- [[SELF-TEST-002]] ← 学び: [[SELF-LEARN-002]]
+- [[SELF-TEST-003]] ← 学び: [[SELF-LEARN-003]]
+- [[SELF-TEST-004]] ← 学び: [[SELF-LEARN-004]]
 
 ## 課題↔ソリューション フィット（addresses）
 

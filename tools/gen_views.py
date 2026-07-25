@@ -4,10 +4,10 @@
 レコード（SSoT）からビューを決定論的に生成する。/view（LLM）と違い推論・要約・因果の
 キュレーションは行わず、frontmatter・固定見出し・リンクの射影/逐語転記だけで組む。
 「読ませる鋭さ」はレコード側に構造化フィールドとして書いてある前提で読む:
-  - 最もリスクの高い前提 = ACT frontmatter `riskiest-assumption`
+  - 最もリスクの高い前提 = TEST frontmatter `riskiest-assumption`
   - 結果の一行要約       = LEARN 学習カード `### 学びの要点`
   - 結果の判定           = LEARN frontmatter `outcome`（起票/支持/反証/判断保留/是正）
-  - 判断                 = その ACT/LEARN を `based-on` に含む DEC の type/title
+  - 判断                 = その TEST/LEARN を `based-on` に含む DEC の type/title
   - 戦略的現在地         = 最新 DEC 本文の `## 次の一手`
   - 因果・核心・対応課題 = H frontmatter `leads-to` / `core` / `addresses`
 確信度・ステータス・log は一切変更しない（読み取り専用）。
@@ -41,19 +41,19 @@ def read_stage(project) -> str:
 
 
 def fictional_records(project) -> list:
-    """本文に架空/シミュレーションマーカーを含む ACT/LEARN の stem を並べる。
-    架空マーカーは主に学びカード（LEARN）に現れるが、計画（ACT）本文の注記も拾う。"""
+    """本文に架空/シミュレーションマーカーを含む TEST/LEARN の stem を並べる。
+    架空マーカーは主に学びカード（LEARN）に現れるが、実験計画（TEST）本文の注記も拾う。"""
     return sorted(s for s in project.records
-                  if ("-ACT-" in s or "-LEARN-" in s)
+                  if ("-TEST-" in s or "-LEARN-" in s)
                   and any(m in project.records[s][2] for m in FICTIONAL_MARKERS))
 
 
 def next_to_verify(project, hyps, stage) -> list:
     """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。
 
-    検証活動(ACT)・学び(LEARN)が1本も紐づかない（未着手）ものを最優先に並べる
-    （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, has_act)。"""
-    tested = (referenced_ids(project, "hypotheses", infix="-ACT-")
+    検証活動(TEST)・学び(LEARN)が1本も紐づかない（未着手）ものを最優先に並べる
+    （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, has_test)。"""
+    tested = (referenced_ids(project, "hypotheses", infix="-TEST-")
               | referenced_ids(project, "hypotheses", infix="-LEARN-"))
     nxt = [(s, fm, s in tested) for s, fm, *_ in hyps
            if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
@@ -63,8 +63,8 @@ def next_to_verify(project, hyps, stage) -> list:
 def next_to_verify_bullets(nxt) -> list:
     """next_to_verify の各項目を箇条書き行に整形する（board/list 共通の逐語部分）。"""
     lines = []
-    for stem, fm, has_act in nxt:
-        mark = "" if has_act else " ⚠️未着手（検証活動なし）"
+    for stem, fm, has_test in nxt:
+        mark = "" if has_test else " ⚠️未着手（検証活動なし）"
         lines.append(f"- [[{stem}]] {fm.get('title', '')}"
                      f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
     return lines
@@ -114,7 +114,7 @@ def hyp_links(project, ids, types) -> str:
 
 
 def index_by(project, kind, key_field) -> dict:
-    """`kind`（例 "-ACT-" / "-DEC-"）のレコードの key_field 配列を逆引き辞書にする。
+    """`kind`（例 "-TEST-" / "-DEC-"）のレコードの key_field 配列を逆引き辞書にする。
     値は参照している当該レコード stem のリスト（挿入順）。"""
     idx = {}
     for stem, (_, fm, _) in project.records.items():
@@ -136,7 +136,7 @@ def latest_dec_next_move(project):
 
 
 def header_lines(view: str, stage: str, today: str, fictional: list) -> list:
-    """生成物マーカー＋架空データ警告。fictional は架空 ACT/LEARN の stem リスト。"""
+    """生成物マーカー＋架空データ警告。fictional は架空 TEST/LEARN の stem リスト。"""
     lines = [f"<!-- 生成物: gen_views.py {view} による機械生成。手編集禁止。"
              f"`python3 tools/gen_views.py {view}` で再生成する。生成基準日: {today}（ステージ {stage}） -->"]
     if fictional:
@@ -153,23 +153,23 @@ def gen_board(project) -> str:
     today = datetime.date.today().isoformat()
     hyps = list(project.hyp_records())
 
-    existing_acts = {s for s in project.records if "-ACT-" in s}
+    existing_tests = {s for s in project.records if "-TEST-" in s}
 
-    # learns-from 逆引き（ACT → 紐づく LEARN 群）と、計画を持たない/計画が実在しない LEARN を1回で仕分ける。
+    # learns-from 逆引き（TEST → 紐づく LEARN 群）と、計画を持たない/計画が実在しない LEARN を1回で仕分ける。
     # learns-from は他の関係フィールドと同じく parse_id_array で正規化する（配列表記 [X] も許容）。
-    # 実在 ACT を指さない LEARN（回顧型・または壊れた learns-from）は単独ユニットとして board に必ず出す。
-    learns_by_act, standalone_learns = {}, []
+    # 実在 TEST を指さない LEARN（回顧型・または壊れた learns-from）は単独ユニットとして board に必ず出す。
+    learns_by_test, standalone_learns = {}, []
     for stem, (_, fm, _) in project.records.items():
         if "-LEARN-" not in stem:
             continue
         lf_ids = parse_id_array(fm.get("learns-from", ""))
         lf = lf_ids[0] if lf_ids else None
-        if lf and lf in existing_acts:
-            learns_by_act.setdefault(lf, []).append(stem)
+        if lf and lf in existing_tests:
+            learns_by_test.setdefault(lf, []).append(stem)
         else:
             standalone_learns.append(stem)
 
-    # (ACT/LEARN)→DEC 逆引きを1回だけ構築（判断列。based-on は ACT・LEARN どちらも指せる）
+    # (TEST/LEARN)→DEC 逆引きを1回だけ構築（判断列。based-on は TEST・LEARN どちらも指せる）
     dec_by_target = {}
     for stem, (_, fm, _) in project.records.items():
         if "-DEC-" in stem:
@@ -177,8 +177,8 @@ def gen_board(project) -> str:
             for t in parse_id_array(fm.get("based-on", "")):
                 dec_by_target.setdefault(t, []).append(label)
 
-    def sorted_learns(act_stem):
-        return sorted(learns_by_act.get(act_stem, []),
+    def sorted_learns(test_stem):
+        return sorted(learns_by_test.get(test_stem, []),
                       key=lambda s: (project.records[s][1].get("date", ""), s))
 
     def judgment_for(stems) -> str:
@@ -193,18 +193,18 @@ def gen_board(project) -> str:
                 "outcome": lfm.get("outcome", "").strip() or "—",
                 "ids": parse_id_array(lfm.get("hypotheses", ""))}
 
-    def act_unit(act_stem) -> dict:
-        _, fm, text = project.records[act_stem]
+    def test_unit(test_stem) -> dict:
+        _, fm, text = project.records[test_stem]
         tc = testcard(text)
-        learns = sorted_learns(act_stem)                 # 1 ACT に複数 LEARN（追試・2次募集）を全て束ねる
+        learns = sorted_learns(test_stem)                 # 1 TEST に複数 LEARN（追試・2次募集）を全て束ねる
         rows = [learn_row(s) for s in learns]
         ids = list(dict.fromkeys(i for r in rows for i in r["ids"])) or parse_id_array(fm.get("hypotheses", ""))
-        return {"stem": act_stem, "kind": "act", "learns": learns, "rows": rows, "fm": fm, "ids": ids,
+        return {"stem": test_stem, "kind": "test", "learns": learns, "rows": rows, "fm": fm, "ids": ids,
                 "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
                 "risk": fm.get("riskiest-assumption", "—") or "—",
                 "method": field_value(tc, "方法"), "criteria": field_value(tc, "成功基準"),
                 "outcome_summary": " / ".join(r["outcome"] for r in rows) if rows else "未実施",
-                "judgment": judgment_for([act_stem] + learns)}
+                "judgment": judgment_for([test_stem] + learns)}
 
     def learn_unit(learn_stem) -> dict:
         fm = project.records[learn_stem][1]
@@ -216,16 +216,16 @@ def gen_board(project) -> str:
                 "method": "—", "criteria": "—",
                 "outcome_summary": row["outcome"], "judgment": judgment_for([learn_stem])}
 
-    units = ([act_unit(s) for s in project.records if "-ACT-" in s]
+    units = ([test_unit(s) for s in project.records if "-TEST-" in s]
              + [learn_unit(s) for s in standalone_learns])
     units.sort(key=lambda e: (e["date"], e["stem"]))
 
     L = header_lines("board", stage, today, fictional_records(project))
     L += ["", f"# ジャベリン実験ボード（{project.slug}）", ""]
-    L.append("各実験（実験計画 ACT ＋ 学び LEARN）を date 昇順に並べる。「最もリスクの高い前提」は"
-             "ACT frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN"
+    L.append("各実験（実験計画 TEST ＋ 学び LEARN）を date 昇順に並べる。「最もリスクの高い前提」は"
+             "TEST frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN"
              "（`learns-from`）の学習カード `学びの要点`・frontmatter `outcome`、"
-             "「判断」は当該 ACT/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。"
+             "「判断」は当該 TEST/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。"
              "回顧型（desk-research 等）は計画を持たない LEARN 単独の実験として出る。")
     L.append("")
 
@@ -235,7 +235,7 @@ def gen_board(project) -> str:
         L.append(f"| {i} | [[{e['stem']}]] {e['title']} | {e['risk']} | {e['outcome_summary']} | {e['judgment']} |")
     L += ["", "---", ""]
 
-    # 各実験（実験計画＋学び＝1エントリ。1 ACT に複数 LEARN があれば全て列挙する）
+    # 各実験（実験計画＋学び＝1エントリ。1 TEST に複数 LEARN があれば全て列挙する）
     for i, e in enumerate(units, 1):
         learn_link = (" → 学び " + " ".join(f"[[{s}]]" for s in e["learns"])) if e["learns"] else ""
         L.append(f"## 実験{i} — {e['title']}（{e['date']}・{e['type']}） [[{e['stem']}]]{learn_link}")
@@ -281,7 +281,7 @@ def gen_board(project) -> str:
         L.append(f"| [[{stem}]] {fm.get('title', '')} | {fm.get('type', '')} | "
                  f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm, stage)} |")
     nxt = next_to_verify(project, hyps, stage)
-    legend = "・⚠️＝検証活動なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
+    legend = "・⚠️＝検証活動なし＝最優先" if any(not has_test for *_, has_test in nxt) else ""
     L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中{legend}）:", ""]
     L += next_to_verify_bullets(nxt)
     L.append("")
@@ -298,7 +298,7 @@ def mermaid_id(stem: str) -> str:
 
 
 def short_id(stem: str) -> str:
-    m = re.search(r"((?:H|ACT|LEARN|DEC)-\d+)$", stem)
+    m = re.search(r"((?:H|TEST|LEARN|DEC)-\d+)$", stem)
     return m.group(1) if m else stem
 
 
@@ -316,7 +316,7 @@ def is_core(fm) -> bool:
 
 
 def related_links(stem, fm, verif_by_hyp) -> str:
-    """派生元(←)・因果先(→ leads-to)・検証活動/学び(ACT・LEARN 逆引き) を1セルに畳む。"""
+    """派生元(←)・因果先(→ leads-to)・検証活動/学び(TEST・LEARN 逆引き) を1セルに畳む。"""
     parts = []
     if (df := fm.get("derived-from", "").strip()):
         parts.append(f"← [[{df}]]")
@@ -332,16 +332,16 @@ def gen_list(project) -> str:
     today = datetime.date.today().isoformat()
     hyps = list(project.hyp_records())  # (stem, fm, body, history)
     stems = {s for s, _, _, _ in hyps}
-    # H→検証活動/学び 逆引き（ACT と LEARN 両方）を1回だけ構築
+    # H→検証活動/学び 逆引き（TEST と LEARN 両方）を1回だけ構築
     verif_by_hyp = {}
-    for idx in (index_by(project, "-ACT-", "hypotheses"), index_by(project, "-LEARN-", "hypotheses")):
+    for idx in (index_by(project, "-TEST-", "hypotheses"), index_by(project, "-LEARN-", "hypotheses")):
         for k, v in idx.items():
             verif_by_hyp.setdefault(k, []).extend(v)
 
     L = header_lines("list", stage, today, fictional_records(project))
     L += ["", f"# 全仮説リスト（{project.slug}）", ""]
     L.append(f"現在ステージ: **{stage}**。重要度は {stage} 重点タイプ=8・その他=4 で算出（frontmatter 射影）。"
-             "★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動 ACT・学び LEARN。")
+             "★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動 TEST・学び LEARN。")
 
     # mermaid バリューチェーン（ノード=frontmatter、矢印=leads-to）
     L += ["", "## バリューチェーン（行動 → 切実な課題 → 解決策 → 市場）", "", "```mermaid", "flowchart TB"]
@@ -382,7 +382,7 @@ def gen_list(project) -> str:
 
     # 次に検証すべき
     nxt = next_to_verify(project, hyps, stage)
-    legend = "。⚠️＝検証活動なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
+    legend = "。⚠️＝検証活動なし＝最優先" if any(not has_test for *_, has_test in nxt) else ""
     L += [f"## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中{legend}）", ""]
     L += next_to_verify_bullets(nxt)
     L.append("")
@@ -478,7 +478,7 @@ def gen_vp(project):
 # 1枚のグラフに描き、逆方向(inverse)のバックリンク索引と addresses フィットも出す。
 
 def node_label(project, stem) -> str:
-    """関係グラフのノードラベル（H は核心★・ステータス、ACT/DEC はタイトル）。"""
+    """関係グラフのノードラベル（H は核心★・ステータス、TEST/DEC はタイトル）。"""
     fm = project.records[stem][1]
     if entity_of(stem) == "H":
         core = "★" if is_core(fm) else ""
@@ -519,7 +519,7 @@ def gen_relations(project):
 
     # 型付き関係グラフ（全関係型を1枚に）
     L += ["", "## 型付き関係グラフ", "", "```mermaid", "flowchart LR"]
-    for ent, sub_label in (("H", "仮説 H"), ("ACT", "活動 ACT"),
+    for ent, sub_label in (("H", "仮説 H"), ("TEST", "実験計画 TEST"),
                            ("LEARN", "学び LEARN"), ("DEC", "意思決定 DEC")):
         members = sorted(s for s in project.records if entity_of(s) == ent)
         if not members:
@@ -622,7 +622,7 @@ def gen_index(project) -> str:
              "[relations](views/relations.md) 各ビューを参照。")
     L += ["",
           f"- ステージ: **{stage}** {STAGE_NAMES.get(stage, '')}",
-          f"- 仮説(H) {len(hyps)} ｜ 活動(ACT) {n('-ACT-')} ｜ 学び(LEARN) {n('-LEARN-')} "
+          f"- 仮説(H) {len(hyps)} ｜ 実験計画(TEST) {n('-TEST-')} ｜ 学び(LEARN) {n('-LEARN-')} "
           f"｜ 意思決定(DEC) {n('-DEC-')}",
           ""]
     L += ["| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]

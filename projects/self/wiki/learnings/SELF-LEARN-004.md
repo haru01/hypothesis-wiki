@@ -4,7 +4,7 @@ title: 確信度WikiのLP提示インタビュー（シミュレーション）
 type: interview
 date: 2026-07-18
 stage: SPF
-learns-from: SELF-ACT-004
+learns-from: SELF-TEST-004
 hypotheses: [SELF-H-009, SELF-H-010]
 outcome: 反証
 ---
@@ -13,7 +13,7 @@ outcome: 反証
 # 確信度WikiのLP提示インタビュー（シミュレーション）
 
 対象仮説: [[SELF-H-009]]（ソリューション）／[[SELF-H-010]]（個別購買）
-実験計画: [[SELF-ACT-004]]
+実験計画: [[SELF-TEST-004]]
 
 
 生データ: `sources/2026-07-18-lp-interviews-sim.md`（⚠️架空・実データ未検証）

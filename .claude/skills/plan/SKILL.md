@@ -1,6 +1,6 @@
 ---
 name: plan
-description: 次に検証すべき仮説を抽出し、検証のテストカード（活動レコード ACT＝テストカード）を立案する。ユーザーが「次に何を検証すべきか」「検証計画を立てたい」「plan」「テストカードを作りたい」「どの仮説から手をつけるか」と言ったときに使う。
+description: 次に検証すべき仮説を抽出し、検証のテストカード（実験計画レコード TEST＝テストカード）を立案する。ユーザーが「次に何を検証すべきか」「検証計画を立てたい」「plan」「テストカードを作りたい」「どの仮説から手をつけるか」と言ったときに使う。
 ---
 
 # /plan — 次に検証すべき仮説の抽出とテストカード立案
@@ -19,10 +19,10 @@ description: 次に検証すべき仮説を抽出し、検証のテストカー�
 
 4. **検証手法を提案する** — 優先仮説に対し、playbook の「適した検証手法」から具体的な方法を提案する。ユーザーにどの仮説をどの方法で検証するか選んでもらう（`AskUserQuestion`）。
 
-5. **テストカード付き ACT 草稿を作る** — 選ばれた仮説ごとに `wiki/activities/` の既存最大+1で `ACT-NNN` を採番し、`templates/activity.md`（テストカードのみのレコード）の `### 目的`／`### 方法`／`### 指標`／`### 成功基準` を記入して作成。**frontmatter の `riskiest-assumption` に「最もリスクの高い前提」（この実験で崩れたら全体が崩れる一点）を一文で必ず記入する**（board の背骨。成功基準と同じく検証前に確定し後から書き換えない）。frontmatter の `id` は**ファイル名と同じ接頭辞つき**にする（例 `id: SELF-ACT-001`）。検証後の学びは別レコード **LEARN** として `/ingest` が新規作成する（この ACT には学習カードを持たせない・以後書き換えない）。本文に対象仮説 `[[H-NNN]]` を書く。ディレクトリに `.gitkeep` が残っていれば削除してよい。
-   - **interview/demo 系はスクリプト草稿も併せて作る** — まず `AskUserQuestion` で**目的モード（反証型／発見型／ハイブリッド）を選ぶ**（心得の正典は `playbooks/interviewing.md`）。**ACTの `type` とステージに応じて基にする雛形を選び**、対象仮説を差し込んだ現場用スクリプト草稿を `wiki/activities/<PREFIX>-ACT-NNN-script.md` として作成し、ACT本文から参照する。
+5. **テストカード付き TEST 草稿を作る** — 選ばれた仮説ごとに `wiki/tests/` の既存最大+1で `TEST-NNN` を採番し、`templates/testcard.md`（テストカードのみのレコード）の `### 目的`／`### 方法`／`### 指標`／`### 成功基準` を記入して作成。**frontmatter の `riskiest-assumption` に「最もリスクの高い前提」（この実験で崩れたら全体が崩れる一点）を一文で必ず記入する**（board の背骨。成功基準と同じく検証前に確定し後から書き換えない）。frontmatter の `id` は**ファイル名と同じ接頭辞つき**にする（例 `id: SELF-TEST-001`）。検証後の学びは別レコード **LEARN** として `/ingest` が新規作成する（この TEST には学習カードを持たせない・以後書き換えない）。本文に対象仮説 `[[H-NNN]]` を書く。ディレクトリに `.gitkeep` が残っていれば削除してよい。
+   - **interview/demo 系はスクリプト草稿も併せて作る** — まず `AskUserQuestion` で**目的モード（反証型／発見型／ハイブリッド）を選ぶ**（心得の正典は `playbooks/interviewing.md`）。**TESTの `type` とステージに応じて基にする雛形を選び**、対象仮説を差し込んだ現場用スクリプト草稿を `wiki/tests/<PREFIX>-TEST-NNN-script.md` として作成し、TEST本文から参照する。
 
-     | ACT `type` × ステージ | 基にする雛形 | ねらい |
+     | TEST `type` × ステージ | 基にする雛形 | ねらい |
      |---|---|---|
      | `interview` × CPF/FPF | `templates/problem-interview-script.md` | 課題の実在・自覚・実コスト（**ソリューションを見せない**） |
      | `interview` × PSF/SPF | `templates/solution-interview-script.md` | 提示物への反応・乗り換え・〈支払い〉（ソリューションを**見せる**） |
@@ -30,10 +30,10 @@ description: 次に検証すべき仮説を抽出し、検証のテストカー�
 
      - **反証型**: 対象仮説それぞれに**反証質問（何が観測されれば反証か）を必ず含め**、支持と反証を対で聞く。反証条件はテストカードの成功基準に事前登録する。
      - **発見型**: **すでに確証済みの前提・行動仮説・課題仮説にとらわれず**視野を広げる。既存仮説は相手に語らず伏せ、自発言及だけを listen-for として記録する。
-     - 共通: The Mom Test の鉄則（過去の事実を聞く／ソリューションを見せない／誘導しない）と、対象者ごとの〈自認〉〈実コスト〉○×記録シートを含める（実例: `projects/ai-reskilling/wiki/activities/AIRE-ACT-003-script.md`＝反証型・`AIRE-ACT-002-script.md`＝発見型）。
+     - 共通: The Mom Test の鉄則（過去の事実を聞く／ソリューションを見せない／誘導しない）と、対象者ごとの〈自認〉〈実コスト〉○×記録シートを含める（実例: `projects/ai-reskilling/wiki/tests/AIRE-TEST-003-script.md`＝反証型・`AIRE-TEST-002-script.md`＝発見型）。
 
 6. **log を更新する** — `wiki/log.md` に追記:
-   `## [YYYY-MM-DD] <type> | ACT-NNN テストカード作成（<対象H-NNN>） → 検証計画`
+   `## [YYYY-MM-DD] <type> | TEST-NNN テストカード作成（<対象H-NNN>） → 検証計画`
    （type は活動タイプ interview/demo/... のいずれか）
 
 ## 守ること

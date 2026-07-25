@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
-    STATUSES, STAGES, H_TYPES, ACT_TYPES, LEARN_TYPES, DEC_TYPES,
+    STATUSES, STAGES, H_TYPES, TEST_TYPES, LEARN_TYPES, DEC_TYPES,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
@@ -46,7 +46,7 @@ def check_id_matches_filename(project) -> list:
                                     f"frontmatter id '{fid}' がファイル名 '{stem}' と一致しない"))
     for p in project.stray:
         problems.append(Problem("warning", str(p), "id-filename",
-                                "レコード名が ID 規約（<PREFIX>-H/ACT/DEC-NNN）に合わない"))
+                                "レコード名が ID 規約（<PREFIX>-H/TEST/DEC-NNN）に合わない"))
     return problems
 
 
@@ -67,7 +67,7 @@ def check_vocabulary(project) -> list:
             if imp != "auto" and not (imp.isdigit() and CONFIDENCE_MIN <= int(imp) <= CONFIDENCE_MAX):
                 problems.append(Problem("error", stem, "vocab",
                     f"importance '{imp}' は auto か {CONFIDENCE_MIN}-{CONFIDENCE_MAX}"))
-        if "-ACT-" in stem and fm.get("type") not in ACT_TYPES:
+        if "-TEST-" in stem and fm.get("type") not in TEST_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
         if "-LEARN-" in stem and fm.get("type") not in LEARN_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
@@ -76,12 +76,12 @@ def check_vocabulary(project) -> list:
         # DEC の to-stage（記入されていれば）は正規のステージ名。現在ステージ導出の正本なので誤記を弾く
         if "-DEC-" in stem and fm.get("to-stage") and fm.get("to-stage") not in STAGES:
             problems.append(Problem("error", stem, "vocab", f"to-stage '{fm.get('to-stage')}' は規約外"))
-        if ("-H-" in stem or "-ACT-" in stem or "-LEARN-" in stem) and fm.get("stage") not in STAGES:
+        if ("-H-" in stem or "-TEST-" in stem or "-LEARN-" in stem) and fm.get("stage") not in STAGES:
             problems.append(Problem("error", stem, "vocab", f"stage '{fm.get('stage')}' は規約外"))
     return problems
 
 
-EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:ACT|LEARN|DEC)-\d+)\]\]")
+EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:TEST|LEARN|DEC)-\d+)\]\]")
 
 
 def check_history_consistency(project) -> list:
@@ -102,7 +102,7 @@ def check_history_consistency(project) -> list:
 
 
 def check_evidence_links(project) -> list:
-    """不変ルール1: 初期行以降の確信度・ステータス変更は必ず実在する ACT/DEC に紐づく。"""
+    """不変ルール1: 初期行以降の確信度・ステータス変更は必ず実在する TEST/DEC に紐づく。"""
     problems = []
     for stem, _, _, rows in project.hyp_records():
         for i, row in enumerate(rows):
@@ -111,7 +111,7 @@ def check_evidence_links(project) -> list:
             ids = EVIDENCE_RE.findall(row["activity"])
             if not ids:
                 problems.append(Problem("error", stem, "evidence",
-                    f"履歴 {row['date']} 行（確信度{row['confidence']}）に [[ACT/DEC]] の証拠リンクが無い"))
+                    f"履歴 {row['date']} 行（確信度{row['confidence']}）に [[TEST/DEC]] の証拠リンクが無い"))
             for rid in ids:
                 if rid not in project.records:
                     problems.append(Problem("error", stem, "evidence",
@@ -157,7 +157,7 @@ def check_frontmatter_refs(project) -> list:
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' のレコードが存在しない"))
                     continue
-                # range 種別（例: hypotheses は H を、learns-from は ACT を指す）
+                # range 種別（例: hypotheses は H を、learns-from は TEST を指す）
                 target_fm = project.records[rid][1]
                 if not rel.in_range(entity_of(rid)):
                     problems.append(Problem("error", stem, "refs",
@@ -224,7 +224,7 @@ def check_id_sequence(project) -> list:
             problems.append(Problem("error", stem, "id-seq", f"id '{fid}' が {seen[fid]} と重複"))
         seen[fid] = stem
     log_lines = project.log.splitlines()
-    for kind in ("H", "ACT", "LEARN", "DEC"):
+    for kind in ("H", "TEST", "LEARN", "DEC"):
         pat = re.compile(rf"^{re.escape(prefix)}-{kind}-(\d+)$")
         nums = sorted(int(m.group(1)) for rid in project.records if (m := pat.match(rid)))
         if not nums:
@@ -289,13 +289,13 @@ def check_fictional_cap(project) -> list:
     """架空/シミュレーションデータ由来の確信度は上限 FICTIONAL_CAP（それ超は実観測に限る）。
 
     履歴の**全行**を走査する（最終行だけでなく、確信度を上限超へ押し上げた中間行の
-    架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく ACT が
+    架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく TEST が
     架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、のいずれか。根拠セルの地の文に
     架空マーカー語が出るだけ（例: 架空データに言及した注記）では判定しない
     （構造化シグナルに一本化して誤検出を避ける）。"""
     problems = []
     fictional_acts = {stem for stem, (_, _, body) in project.records.items()
-                      if ("-ACT-" in stem or "-LEARN-" in stem)
+                      if ("-TEST-" in stem or "-LEARN-" in stem)
                       and any(m in body for m in FICTIONAL_MARKERS)}
     for stem, _, _, rows in project.hyp_records():
         for row in rows:
@@ -380,19 +380,19 @@ def check_dec_based_on(project) -> list:
             continue
         if not parse_id_array(fm.get("based-on", "")):
             problems.append(Problem("warning", stem, "dec-based-on",
-                "DEC に based-on（根拠活動）が無い（意思決定は活動/学び [[ACT-NNN]]・[[LEARN-NNN]] に紐づける）"))
+                "DEC に based-on（根拠活動）が無い（意思決定は実験計画/学び [[TEST-NNN]]・[[LEARN-NNN]] に紐づける）"))
     return problems
 
 
 def check_untested_focus(project) -> list:
-    """OI-F1: 重点仮説なのに検証活動(ACT)の hypotheses 入次数が0のものを検出する（warning）。
+    """OI-F1: 重点仮説なのに検証活動(TEST)の hypotheses 入次数が0のものを検出する（warning）。
 
     重点＝現ステージの重点タイプ（stage-focus）か、手動 importance>=IMPORTANCE_FOCUS のH。
     「重要なのに検証実験が1本も紐づいていない」を構造事実（入次数0）で拾う。トポロジー由来の
     探索域ギャップ検出（docs/ontology-improvements.md OI-F1）。status が検証中/検証済みなら、
-    検証したと主張しているのに ACT からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
+    検証したと主張しているのに TEST からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
     problems = []
-    tested = (referenced_ids(project, "hypotheses", infix="-ACT-")
+    tested = (referenced_ids(project, "hypotheses", infix="-TEST-")
               | referenced_ids(project, "hypotheses", infix="-LEARN-"))
     for stem, fm, _, _ in project.hyp_records():
         if importance(fm, project.stage) < IMPORTANCE_FOCUS or stem in tested:
@@ -400,11 +400,11 @@ def check_untested_focus(project) -> list:
         status = fm.get("status", "")
         if status in ("検証中", "検証済み"):
             problems.append(Problem("warning", stem, "untested-focus",
-                f"重点仮説で status={status} なのに検証活動(ACT)・学び(LEARN)の hypotheses から1本も"
+                f"重点仮説で status={status} なのに検証活動(TEST)・学び(LEARN)の hypotheses から1本も"
                 f"参照されていない（二重表現の破れ／検証実態の欠落の疑い）"))
         else:
             problems.append(Problem("warning", stem, "untested-focus",
-                "重点仮説だが検証活動(ACT)・学び(LEARN)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
+                "重点仮説だが検証活動(TEST)・学び(LEARN)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
     return problems
 
 

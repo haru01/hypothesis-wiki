@@ -17,9 +17,9 @@ description: ステージ移行・ピボット・撤退・巻き戻しなどの�
 
 3. **確信度スナップショットを作る** — 判断時点の全重要仮説の確信度・ステータス・重要度を記録する（後から歴史を辿れるように）。
 
-4. **選択肢を比較する** — 取りうる選択肢を並べ、根拠となる学び `[[LEARN-NNN]]`（判定を持つ学びを優先。実験計画 `[[ACT-NNN]]` も可）を挙げて選択理由を書く。
+4. **選択肢を比較する** — 取りうる選択肢を並べ、根拠となる学び `[[LEARN-NNN]]`（判定を持つ学びを優先。実験計画 `[[TEST-NNN]]` も可）を挙げて選択理由を書く。
 
-5. **DEC レコードを作る** — `wiki/decisions/` の既存最大+1で `DEC-NNN` を採番、`templates/decision.md` で作成。frontmatter の `id` は**ファイル名と同じ接頭辞つき**にする（例 `id: SELF-DEC-001`）。**frontmatter `based-on` に根拠となった学び/活動を接頭辞つきで列挙し**（must-wikilink・LEARN を優先、ACT も可）、本文にも根拠 `[[LEARN-NNN]]` と影響を受ける `[[H-NNN]]` を必ず wikilink で書く（`based-on` 空の DEC は hwlint が `dec-based-on` で警告する）。**巻き戻しポイント**（誤りのシグナルと戻り先の仮説状態・問い）と **`## 次の一手`**（前を向いて次に何を検証・実行するか＝戦略的現在地。board の「現在地」に最新DECのここが射影される）を必ず明記する。ディレクトリに `.gitkeep` が残っていれば削除してよい。
+5. **DEC レコードを作る** — `wiki/decisions/` の既存最大+1で `DEC-NNN` を採番、`templates/decision.md` で作成。frontmatter の `id` は**ファイル名と同じ接頭辞つき**にする（例 `id: SELF-DEC-001`）。**frontmatter `based-on` に根拠となった学び/活動を接頭辞つきで列挙し**（must-wikilink・LEARN を優先、TEST も可）、本文にも根拠 `[[LEARN-NNN]]` と影響を受ける `[[H-NNN]]` を必ず wikilink で書く（`based-on` 空の DEC は hwlint が `dec-based-on` で警告する）。**巻き戻しポイント**（誤りのシグナルと戻り先の仮説状態・問い）と **`## 次の一手`**（前を向いて次に何を検証・実行するか＝戦略的現在地。board の「現在地」に最新DECのここが射影される）を必ず明記する。ディレクトリに `.gitkeep` が残っていれば削除してよい。
 
    - **ステージを動かす判断（stage-transition・rollback など）は frontmatter `to-stage` に結果ステージを必ず書く**（例 移行 `to-stage: FPF`／巻き戻し `to-stage: CPF`）。現在ステージの正本は「`to-stage` を持つ最新DEC（date 昇順の末尾）」であり、ここが空だとビュー・ツールが現ステージを正しく導出できない。persevere/kill などステージを変えない判断は書かない。
    - **pivot / rollback で新しい仮説を派生させる場合** — その新仮説の frontmatter `derived-from` に巻き戻し元・派生元の `H-NNN` を接頭辞つきで書き（cardinality one）、本文「系譜」にも `[[H-NNN]]` を併記する（`/formulate` の手順5と同じ。派生の系譜が切れると list/relations の派生グラフに辺が出ない）。
@@ -33,6 +33,6 @@ description: ステージ移行・ピボット・撤退・巻き戻しなどの�
 
 ## 守ること
 
-- 意思決定は必ず根拠となる学び(LEARN)／活動(ACT)に紐づける。感覚だけで stage を進めない。
+- 意思決定は必ず根拠となる学び(LEARN)／活動(TEST)に紐づける。感覚だけで stage を進めない。
 - 巻き戻しポイントは必ず書く。「この判断が誤りならどこに戻るか」を残すことが歴史性の核心。
 - `persevere` も立派な意思決定。記録する価値がある（なぜ続けると決めたか）。

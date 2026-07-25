@@ -87,17 +87,17 @@
 ### AR-04: 架空検出・log/id 照合が部分一致依存で誤検出しうる
 
 - **対象**: `tools/hwlint.py`（`check_fictional_cap`／`check_log_sync`／`check_id_sequence`）
-- **状態**: 対応済み（2026-07-22。(1) `check_fictional_cap` の根拠セル地の文マーカー検出を外し、構造化シグナル（`〈架空〉` タグ＋紐づく架空 ACT）に一本化。(2) `check_log_sync`・`check_id_sequence` の ID 照合を数字境界つき正規表現 `(?<![0-9A-Za-z])…(?![0-9])` に。`FictionalCapProseTest` 2ケース・`IdSequenceBoundaryTest` 1ケース追加）
+- **状態**: 対応済み（2026-07-22。(1) `check_fictional_cap` の根拠セル地の文マーカー検出を外し、構造化シグナル（`〈架空〉` タグ＋紐づく架空 TEST）に一本化。(2) `check_log_sync`・`check_id_sequence` の ID 照合を数字境界つき正規表現 `(?<![0-9A-Za-z])…(?![0-9])` に。`FictionalCapProseTest` 2ケース・`IdSequenceBoundaryTest` 1ケース追加）
 - **課題**: 3つのチェックが素朴な文字列包含に依存する:
-  - `check_fictional_cap` は本文に「架空/シミュレーション」の語があれば架空 ACT 扱い。架空データを
+  - `check_fictional_cap` は本文に「架空/シミュレーション」の語があれば架空 TEST 扱い。架空データを
     **説明・注意喚起しているだけ**のレコードでも誤検出しうる。
   - `check_log_sync`/`check_id_sequence` は log.md の行に対し `stem in line`／取り下げ語の部分一致。
     `H-1` と `H-10` の混同や、無関係な行にトークンが含まれるケースで誤ヒット/取りこぼしの余地がある
     （確信度の正規表現は `(?!\d)` で守るが、ID 照合は語境界を取っていない）。
 - **改善案**:
-  1. 架空判定は本文の任意箇所ではなく、**確信度履歴の該当行の根拠セルの `〈架空〉` タグ**か、紐づく ACT の
+  1. 架空判定は本文の任意箇所ではなく、**確信度履歴の該当行の根拠セルの `〈架空〉` タグ**か、紐づく TEST の
      所定フィールドに限定する（`check_fictional_cap` は既に `〈架空〉` タグを見ているので、本文全体の語検出を
-     外し、タグ＋紐づけ ACT に一本化）。
+     外し、タグ＋紐づけ TEST に一本化）。
   2. log/id の ID 照合を語境界つき正規表現（`\b`＋接頭辞つき ID）に置き換える。
 - **根拠**: `hwlint.py`（`check_fictional_cap`:393-）、（`check_log_sync`:350-）、（`check_id_sequence`:326-）。
   OI-B4（fictional-cap 中間行取りこぼし・対応済み）の隣接領域。

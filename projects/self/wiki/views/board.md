@@ -1,18 +1,18 @@
-<!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-07-24（ステージ CPF） -->
-<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-ACT-002]] [[SELF-ACT-003]] [[SELF-ACT-004]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]]。これら由来の確信度・判断は実データ未検証。 -->
+<!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-07-25（ステージ CPF） -->
+<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # ジャベリン実験ボード（self）
 
-各実験（実験計画 ACT ＋ 学び LEARN）を date 昇順に並べる。「最もリスクの高い前提」はACT frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN（`learns-from`）の学習カード `学びの要点`・frontmatter `outcome`、「判断」は当該 ACT/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。回顧型（desk-research 等）は計画を持たない LEARN 単独の実験として出る。
+各実験（実験計画 TEST ＋ 学び LEARN）を date 昇順に並べる。「最もリスクの高い前提」はTEST frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN（`learns-from`）の学習カード `学びの要点`・frontmatter `outcome`、「判断」は当該 TEST/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。回顧型（desk-research 等）は計画を持たない LEARN 単独の実験として出る。
 
 ## サマリ
 
 | # | 実験 | 最もリスクの高い前提 | 判定 | 判断（DEC） |
 |---|---|---|---|---|
 | 1 | [[SELF-LEARN-001]] 企業の仮説検証の状況・課題のデスクリサーチ | —（回顧型・事前の実験計画なし） | 起票 | — |
-| 2 | [[SELF-ACT-002]] 問題インタビュー5名（シミュレーション） | 実践者は核心課題に実コストを払っており、自認だけでなく行動が伴う | 支持 | stage-transition: CPF→FPF ステージ移行 [[SELF-DEC-001]] |
-| 3 | [[SELF-ACT-003]] 核心クラスタの反証テスト10名（シミュレーション） | 核心クラスタは反証を意図的に探しても崩れず、CPF移行基準（確信度7以上）を満たす | 支持 | stage-transition: CPF→FPF ステージ移行 [[SELF-DEC-001]] |
-| 4 | [[SELF-ACT-004]] 確信度WikiのLP提示インタビュー（シミュレーション） | ①AI支援が「自分で考えるより深い」と感じられ、②実践者がMiro/Notionから単独Wikiに乗り換える | 反証 | — |
+| 2 | [[SELF-TEST-002]] 問題インタビュー5名（シミュレーション） | 実践者は核心課題に実コストを払っており、自認だけでなく行動が伴う | 支持 | stage-transition: CPF→FPF ステージ移行 [[SELF-DEC-001]] |
+| 3 | [[SELF-TEST-003]] 核心クラスタの反証テスト10名（シミュレーション） | 核心クラスタは反証を意図的に探しても崩れず、CPF移行基準（確信度7以上）を満たす | 支持 | stage-transition: CPF→FPF ステージ移行 [[SELF-DEC-001]] |
+| 4 | [[SELF-TEST-004]] 確信度WikiのLP提示インタビュー（シミュレーション） | ①AI支援が「自分で考えるより深い」と感じられ、②実践者がMiro/Notionから単独Wikiに乗り換える | 反証 | — |
 | 5 | [[SELF-LEARN-005]] 核心クラスタと移行判断への揺さぶり監査（ちゃぶ台返し） | —（回顧型・事前の実験計画なし） | 是正 | rollback: FPF→CPF 巻き戻し（架空依存の偽「検証済み」を是正） [[SELF-DEC-002]] |
 
 ---
@@ -28,7 +28,7 @@
 
 ---
 
-## 実験2 — 問題インタビュー5名（シミュレーション）（2026-07-17・interview） [[SELF-ACT-002]] → 学び [[SELF-LEARN-002]]
+## 実験2 — 問題インタビュー5名（シミュレーション）（2026-07-17・interview） [[SELF-TEST-002]] → 学び [[SELF-LEARN-002]]
 
 - **対象仮説**: 顧客/行動 [[SELF-H-001]] [[SELF-H-002]] [[SELF-H-003]] ｜ 課題 [[SELF-H-004]] [[SELF-H-005]] [[SELF-H-006]] [[SELF-H-007]] [[SELF-H-008]] ｜ 解決策 —
 - **最もリスクの高い前提**: 実践者は核心課題に実コストを払っており、自認だけでなく行動が伴う
@@ -39,7 +39,7 @@
 
 ---
 
-## 実験3 — 核心クラスタの反証テスト10名（シミュレーション）（2026-07-18・interview） [[SELF-ACT-003]] → 学び [[SELF-LEARN-003]]
+## 実験3 — 核心クラスタの反証テスト10名（シミュレーション）（2026-07-18・interview） [[SELF-TEST-003]] → 学び [[SELF-LEARN-003]]
 
 - **対象仮説**: 顧客/行動 [[SELF-H-002]] [[SELF-H-001]] ｜ 課題 [[SELF-H-004]] [[SELF-H-006]] [[SELF-H-008]] ｜ 解決策 —
 - **最もリスクの高い前提**: 核心クラスタは反証を意図的に探しても崩れず、CPF移行基準（確信度7以上）を満たす
@@ -50,7 +50,7 @@
 
 ---
 
-## 実験4 — 確信度WikiのLP提示インタビュー（シミュレーション）（2026-07-18・interview） [[SELF-ACT-004]] → 学び [[SELF-LEARN-004]]
+## 実験4 — 確信度WikiのLP提示インタビュー（シミュレーション）（2026-07-18・interview） [[SELF-TEST-004]] → 学び [[SELF-LEARN-004]]
 
 - **対象仮説**: 顧客/行動 — ｜ 課題 — ｜ 解決策 [[SELF-H-009]] [[SELF-H-010]]
 - **最もリスクの高い前提**: ①AI支援が「自分で考えるより深い」と感じられ、②実践者がMiro/Notionから単独Wikiに乗り換える

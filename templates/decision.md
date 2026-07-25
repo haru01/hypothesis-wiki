@@ -3,7 +3,7 @@ id: <PREFIX>-DEC-NNN        # ファイル名と一致させる（接頭辞つ�
 title: 短いタイトル
 date: YYYY-MM-DD
 type: stage-transition | pivot | persevere | rollback | kill
-based-on: [<PREFIX>-LEARN-NNN]  # 接頭辞つき（例 [SELF-LEARN-001]）。判定を持つ学び(LEARN)を優先。実験計画(ACT)も可
+based-on: [<PREFIX>-LEARN-NNN]  # 接頭辞つき（例 [SELF-LEARN-001]）。判定を持つ学び(LEARN)を優先。実験計画(TEST)も可
 to-stage: CPF | FPF | PSF | SPF | PMF   # ステージを動かす判断（stage-transition・rollback 等）のみ記入。結果ステージ（現在ステージの正本＝to-stage を持つ最新DEC）
 ---
 
