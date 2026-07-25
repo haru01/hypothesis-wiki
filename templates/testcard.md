@@ -1,5 +1,5 @@
 ---
-id: <PREFIX>-ACT-NNN        # ファイル名と一致させる（接頭辞つき。例 SELF-ACT-001）
+id: <PREFIX>-TEST-NNN        # ファイル名と一致させる（接頭辞つき。例 SELF-TEST-001）
 title: 短いタイトル
 type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
@@ -12,7 +12,7 @@ riskiest-assumption: 最もリスクの高い前提を一文で（この実験�
 
 対象仮説: [[H-NNN]]
 
-<!-- ACT ＝ テストカード（実験計画）。検証前に記入し、以後書き換えない（後知恵バイアス防止）。
+<!-- TEST ＝ テストカード（実験計画）。検証前に記入し、以後書き換えない（後知恵バイアス防止）。
      検証後の学び（学習カード）は別レコード LEARN として新規作成する（このファイルは編集しない）。 -->
 
 ## テストカード（検証前に記入・後から書き換えない）

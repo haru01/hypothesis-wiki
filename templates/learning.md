@@ -4,7 +4,7 @@ title: 短いタイトル
 type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
-learns-from: <PREFIX>-ACT-NNN  # 省略可。実施した実験計画(ACT)。回顧型（desk-research/self-reflection 等）は持たない
+learns-from: <PREFIX>-TEST-NNN  # 省略可。実施した実験計画(TEST)。回顧型（desk-research/self-reflection 等）は持たない
 hypotheses: [<PREFIX>-H-NNN]   # 接頭辞つき（例 [SELF-H-001]）。この学びが確信度を動かした仮説
 outcome: 起票 | 支持 | 反証 | 判断保留 | 是正   # 検証の判定（board サマリへ射影）
 ---
@@ -12,10 +12,10 @@ outcome: 起票 | 支持 | 反証 | 判断保留 | 是正   # 検証の判定（
 # 短いタイトル
 
 対象仮説: [[H-NNN]]
-実験計画: [[<PREFIX>-ACT-NNN]]   <!-- 計画型のみ。回顧型はこの行を消し、代わりに 揺さぶり材料/生データ の相対mdリンクを置く -->
+実験計画: [[<PREFIX>-TEST-NNN]]   <!-- 計画型のみ。回顧型はこの行を消し、代わりに 揺さぶり材料/生データ の相対mdリンクを置く -->
 
 <!-- LEARN ＝ 学習カード（検証後に新規作成する「実施して学びを得た」出来事）。
-     テストカード（実験計画）は別レコード ACT にあり、こちらでは書き換えない。
+     テストカード（実験計画）は別レコード TEST にあり、こちらでは書き換えない。
      確信度・ステータスの更新は下の表で提案し、承認後に仮説(H)側の確信度履歴に1行追記する。 -->
 
 ## 学習カード（検証後に記入）

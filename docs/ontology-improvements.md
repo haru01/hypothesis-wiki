@@ -163,7 +163,7 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 - **対象**: `tools/hwlint.py`
 - **状態**: 対応済み（2026-07-21・上表のコミット参照）
 - **課題**: `check_fictional_cap`(`hwlint.py:359`) は履歴の **最終行**（`rows[-1]`）の根拠しか見ない。
-  確信度を8超へ押し上げた架空ACTが中間行にあり最終行が別根拠だと素通りする。また `〈架空〉` タグと
+  確信度を8超へ押し上げた架空TESTが中間行にあり最終行が別根拠だと素通りする。また `〈架空〉` タグと
   fictional-cap 判定が連動していない。
 - **改善案**: 履歴全行を走査し、確信度が8を超えた時点の根拠に架空マーカー/〈架空〉タグがあれば error。
 - **根拠**: `hwlint.py:359-368`。
@@ -224,7 +224,7 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 
 - **対象**: `.claude/skills/decide/SKILL.md`
 - **状態**: 対応済み（2026-07-21・上表のコミット参照）
-- **課題**: `decide/SKILL.md:22` は「本文に根拠 `[[ACT-NNN]]`」としか書かず、frontmatter `based-on`
+- **課題**: `decide/SKILL.md:22` は「本文に根拠 `[[TEST-NNN]]`」としか書かず、frontmatter `based-on`
   （must-wikilink:true）の配列記入を指示しない。テンプレート `templates/decision.md` は持つが、スキル手順が
   本文側しか指さないため二重表現の frontmatter 側が抜けやすい。
 - **改善案**: decide の手順に frontmatter `based-on` 配列記入を明記。
@@ -265,8 +265,8 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 - **課題**: `ai-reskilling/wiki/views/relations.md` は5関係のうち leads-to(2辺) と hypotheses しか出ず、
   based-on/derived-from/addresses の節がまるごと欠落。DEC 0件が原因だが、空でも節の見出しと
   「該当なし」を出さないと「そもそもその関係が存在する」ことが読者に伝わらない。board の「判断(DEC)」列も
-  是正ACT（AIRE-ACT-004 は outcome:是正）にDEC未接続で全行「—」。
-- **改善案**: 関係が0件でも節見出し＋「該当なし」を出す。是正/反証ACTに対応DECが無い場合の警告的表示を検討。
+  是正TEST（AIRE-TEST-004 は outcome:是正）にDEC未接続で全行「—」。
+- **改善案**: 関係が0件でも節見出し＋「該当なし」を出す。是正/反証TESTに対応DECが無い場合の警告的表示を検討。
 - **根拠**: `ai-reskilling/wiki/views/relations.md`、`ai-reskilling/wiki/views/board.md`。
 
 ### OI-D4: 「次に検証すべき仮説」の高度化
@@ -291,28 +291,28 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 ### OI-E1: 仮説クラスタ（グルーピング）
 
 - **状態**: 未対応（要設計）
-- **課題**: 「核心クラスタ」（SELF-H-004/002/006/008/001）が index.md・board.md・stage.md・ACT-003/005 で
+- **課題**: 「核心クラスタ」（SELF-H-004/002/006/008/001）が index.md・board.md・stage.md・TEST-003/005 で
   繰り返し第一級概念として扱われるのに、表現手段が単一Hの `core: true` しか無い。aire も「認知的降伏＝
-  単一物語の子」（AIRE-ACT-004）というグルーピングが表現不可。
+  単一物語の子」（AIRE-TEST-004）というグルーピングが表現不可。
 - **改善案（案）**: `cluster` 属性（名前付きグループ）か、H→H の `sibling`/`part-of` 関係を検討。
-- **根拠**: `SELF-DEC-002.md` 本文の核心クラスタ列挙、`AIRE-ACT-004`。
+- **根拠**: `SELF-DEC-002.md` 本文の核心クラスタ列挙、`AIRE-TEST-004`。
 
-### OI-E2: ACT→H の支持/反証の極性
+### OI-E2: TEST→H の支持/反証の極性
 
 - **状態**: 未対応（要設計）
-- **課題**: `hypotheses`(ACT→H) は無極性。支持/反証は ACT の `outcome`（活動単位・1個）にしか無く、
-  **1活動が複数仮説を別結果で検証する**場合を仮説単位で表せない（SELF-ACT-004 は H-009 反証・H-010 反証、
-  SELF-ACT-002 は H-004 支持）。
+- **課題**: `hypotheses`(TEST→H) は無極性。支持/反証は TEST の `outcome`（活動単位・1個）にしか無く、
+  **1活動が複数仮説を別結果で検証する**場合を仮説単位で表せない（SELF-TEST-004 は H-009 反証・H-010 反証、
+  SELF-TEST-002 は H-004 支持）。
 - **改善案（案）**: hypotheses 関係に per-link の極性（支持/反証/判断保留）を持たせる、または
   supports/refutes の2関係に分ける。
-- **根拠**: `SELF-ACT-004.md`、`SELF-ACT-002.md`。
+- **根拠**: `SELF-TEST-004.md`、`SELF-TEST-002.md`。
 
 ### OI-E3: DEC→H 直接参照
 
 - **状態**: 未対応（要設計）
-- **課題**: 決定がどの仮説を動かしたかが型で表せない（based-on は DEC→ACT のみ）。`SELF-DEC-002.md` は本文で
+- **課題**: 決定がどの仮説を動かしたかが型で表せない（based-on は DEC→TEST のみ）。`SELF-DEC-002.md` は本文で
   全8仮説の確信度スナップショットと巻き戻し対象の核心クラスタを列挙するが、frontmatter は
-  based-on:[SELF-ACT-005] のみ。
+  based-on:[SELF-TEST-005] のみ。
 - **改善案（案）**: DEC→H の `affects`/`revisits` 関係を検討。
 - **根拠**: `SELF-DEC-002.md`。
 
@@ -321,11 +321,11 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 - **状態**: 未対応（要設計）
 - **課題**:
   - DEC→DEC: `SELF-DEC-002` が `SELF-DEC-001` を reverse/supersede する関係が frontmatter に無い。
-  - 対抗仮説: `AIRE-ACT-004` の「対抗仮説の種」3件が既存Hの対抗として記録されるが、型が無くプローズ止まり。
+  - 対抗仮説: `AIRE-TEST-004` の「対抗仮説の種」3件が既存Hの対抗として記録されるが、型が無くプローズ止まり。
   - 反証の連鎖: SELF-H-009(反証)→leads-to→SELF-H-010(反証) の反証伝播が leads-to（因果の型）では表せない。
 - **改善案（案）**: DEC→DEC の `supersedes`、H→H の `counters`（対抗）を検討。反証伝播は極性(OI-E2)＋
   leads-to の合成でビュー側に表現する手もある。
-- **根拠**: `SELF-DEC-002.md`、`AIRE-ACT-004`、SELF-H-009/010。
+- **根拠**: `SELF-DEC-002.md`、`AIRE-TEST-004`、SELF-H-009/010。
 
 ---
 
@@ -346,9 +346,9 @@ importance × confidence × status の2軸のみで、関係グラフ上の位�
 
 - **対象**: `tools/hwlint.py`（検出）、`tools/gen_views.py`（探索域への射影）
 - **状態**: 対応済み（2026-07-21）
-- **課題**: 「重要 × 証拠なし」象限は現状 status（未検証/検証中）で近似しているが、`hypotheses`(ACT→H) の
+- **課題**: 「重要 × 証拠なし」象限は現状 status（未検証/検証中）で近似しているが、`hypotheses`(TEST→H) の
   **入次数0**（＝どの活動もこの仮説を検証対象にしていない）という構造事実で厳密化できる。status:検証中でも
-  実は紐づく ACT が1本も無い、という食い違いも拾える。
+  実は紐づく TEST が1本も無い、という食い違いも拾える。
 - **改善案**: importance=focus かつ `hypotheses` 入次数0 のHを「未着手の重点仮説」として warning／
   `next_to_verify` の最優先シグナルに加える。
 - **実装**:
@@ -419,7 +419,7 @@ importance × confidence × status の2軸のみで、関係グラフ上の位�
   1. `ontology.yaml` の confidence 節に `staleness-days`（例: 180）を追加（マジックナンバーをコードに置かない）。
   2. hwlint に基準日（`--today` 引数 or `datetime.date.today()`）を渡し、最終履歴日付が閾値超のHを warning。
   3. **数値は自動で下げない**（不変ルール1「証拠なしに確信度を動かさない」を厳守）。あくまで再検証を促す
-     可視化のみ。減衰させたい場合は必ず ACT/DEC（例: self-reflection や再検証）に紐づけて人が動かす。
+     可視化のみ。減衰させたい場合は必ず TEST/DEC（例: self-reflection や再検証）に紐づけて人が動かす。
 - **根拠**: `hwlint.py:70`（履歴日付は取得済み・未活用）、CLAUDE.md「長期放置は /lint（LLM）が担う」記述、
   不変ルール1。
 

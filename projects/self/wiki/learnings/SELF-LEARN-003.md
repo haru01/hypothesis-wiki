@@ -4,7 +4,7 @@ title: 核心クラスタの反証テスト10名（シミュレーション）
 type: interview
 date: 2026-07-18
 stage: CPF
-learns-from: SELF-ACT-003
+learns-from: SELF-TEST-003
 hypotheses: [SELF-H-004, SELF-H-002, SELF-H-006, SELF-H-008, SELF-H-001]
 outcome: 支持
 ---
@@ -13,7 +13,7 @@ outcome: 支持
 # 核心クラスタの反証テスト10名（シミュレーション）
 
 対象仮説: [[SELF-H-004]] [[SELF-H-002]] [[SELF-H-006]] [[SELF-H-008]]（＋波及 [[SELF-H-001]]）
-実験計画: [[SELF-ACT-003]]
+実験計画: [[SELF-TEST-003]]
 
 生データ: `sources/2026-07-18-followup-interviews-sim.md`（⚠️架空・実データ未検証）
 

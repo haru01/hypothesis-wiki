@@ -58,8 +58,8 @@ def parse_id_array(value: str) -> list:
 
 
 def entity_of(stem: str) -> str:
-    """レコード stem からエンティティ種別（H/ACT/LEARN/DEC）を返す。該当なしは空。"""
-    for infix in ("H", "ACT", "LEARN", "DEC"):
+    """レコード stem からエンティティ種別（H/TEST/LEARN/DEC）を返す。該当なしは空。"""
+    for infix in ("H", "TEST", "LEARN", "DEC"):
         if f"-{infix}-" in stem:
             return infix
     return ""
@@ -76,7 +76,7 @@ def strip_comments(text: str) -> str:
 
 
 def testcard(text: str) -> str:
-    """ACT 本文からテストカード節（## テストカード〜## 学習カードの手前）を逐語抽出する。"""
+    """TEST 本文からテストカード節（## テストカード〜## 学習カードの手前）を逐語抽出する。"""
     m = TESTCARD_RE.search(text)
     return m.group(0) if m else ""
 
@@ -98,7 +98,7 @@ def parse_history(body: str) -> list:
 def referenced_ids(project, field, infix=None, where=None) -> set:
     """`field`（frontmatter の関係キー）で指されている終点IDの集合を返す。
 
-    infix を渡すと始点レコード種別（例 "-ACT-"）で、where(fm)->bool を渡すと始点 frontmatter で
+    infix を渡すと始点レコード種別（例 "-TEST-"）で、where(fm)->bool を渡すと始点 frontmatter で
     さらに絞る。関係グラフの入次数（被参照）を「有無」で見る用途の共有ヘルパ。"""
     out = set()
     for stem, (_, fm, _) in project.records.items():
@@ -136,7 +136,7 @@ class Project:
         self.records = {}
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
-        for sub in ("hypotheses", "activities", "learnings", "decisions"):
+        for sub in ("hypotheses", "tests", "learnings", "decisions"):
             d = self.wiki / sub
             if not d.is_dir():
                 continue

@@ -10,7 +10,7 @@
 | 種別 | 名称 | ディレクトリ | サブタイプ（frontmatter `type`） |
 |---|---|---|---|
 | `H` | 仮説 | `wiki/hypotheses/` | 状況・行動仮説・課題仮説・ソリューション仮説・市場スケール仮説・自分たち仮説 |
-| `ACT` | 活動 | `wiki/activities/` | interview・demo・survey・mvp-test・desk-research・self-reflection |
+| `TEST` | 実験計画 | `wiki/tests/` | interview・demo・survey・mvp-test・desk-research・self-reflection |
 | `LEARN` | 学び | `wiki/learnings/` | interview・demo・survey・mvp-test・desk-research・self-reflection |
 | `DEC` | 意思決定 | `wiki/decisions/` | stage-transition・pivot・persevere・rollback・kill |
 
@@ -33,9 +33,9 @@
 | **派生元** | `derived-from` | H → H | 単一(one) | derives（派生先） | 必須 | 派生・ピボット・巻き戻し再出発の系譜（この仮説の派生元） |
 | **因果先** | `leads-to` | H → H | 配列(many) | led-from（因果元） | 必須 | 因果的に導く先の仮説。list の mermaid バリューチェーン矢印になる |
 | **対応課題** | `addresses` | H（ソリューション仮説） → H（課題仮説） | 配列(many) | addressed-by（対応する価値） | 任意 | ソリューション仮説→対応する課題仮説（バリュープロポジションのフィット） |
-| **検証対象** | `hypotheses` | ACT/LEARN → H | 配列(many) | validated-by（検証活動） | 必須 | この活動／学びが関わる仮説 |
-| **実験計画** | `learns-from` | LEARN → ACT | 単一(one) | learnings（学び） | 必須 | この学びが実施した実験計画（テストカード）。回顧型の学びは持たない |
-| **根拠活動** | `based-on` | DEC → ACT/LEARN | 配列(many) | informs（導いた判断） | 必須 | この意思決定の根拠となった活動・学び |
+| **検証対象** | `hypotheses` | LEARN/TEST → H | 配列(many) | validated-by（検証活動） | 必須 | この実験計画／学びが関わる仮説 |
+| **実験計画** | `learns-from` | LEARN → TEST | 単一(one) | learnings（学び） | 必須 | この学びが実施した実験計画（テストカード）。回顧型の学びは持たない |
+| **根拠活動** | `based-on` | DEC → LEARN/TEST | 配列(many) | informs（導いた判断） | 必須 | この意思決定の根拠となった実験計画・学び |
 
 ## 状態機械
 
@@ -89,7 +89,7 @@
 - **未検証** — 対応roleのHはあるがstatus=検証済みが無い
 - **空白** — 対応roleのHが1件も無い（＝未着手の盲点）
 
-**記入順 vs 検証順**: 記入は上表の順（網羅のため）。検証は `riskiest-first`（左→右で埋めず、最もリスキーな前提から。ACT の riskiest-assumption・`/plan` の重要度×証拠マップで決める）。
+**記入順 vs 検証順**: 記入は上表の順（網羅のため）。検証は `riskiest-first`（左→右で埋めず、最もリスキーな前提から。TEST の riskiest-assumption・`/plan` の重要度×証拠マップで決める）。
 
 **ブロックの意味はステージで変わる（stage-lens）**:
 

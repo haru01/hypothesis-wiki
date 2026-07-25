@@ -22,7 +22,7 @@
   python3 tools/gen_ontology_doc.py         # ontology.yaml → ontology.md
   ```
 
-- 機械生成ビュー（`board`・`list`・`relations`・`index`）はレコードから決定論射影する。レコード（H/ACT/LEARN/DEC）を
+- 機械生成ビュー（`board`・`list`・`relations`・`index`）はレコードから決定論射影する。レコード（H/TEST/LEARN/DEC）を
   変更したら再生成する（Claude Code では Stop フックが自動再生成。他エージェントは手動で）:
 
   ```bash
@@ -37,7 +37,7 @@
 - 不変ルール（CLAUDE.md「不変ルール」）は全エージェント共通。特に:
   `sources/` は読み取り専用／確信度・ステータスの変更は必ず学び(LEARN)か意思決定(DEC)に紐づける／
   確信度履歴テーブルは追記専用（frontmatter は同期キャッシュ）／`log.md` は追記のみ／
-  検証後の学びは新規 LEARN として積む（既存 ACT のテストカードは検証開始後に書き換えない）。
+  検証後の学びは新規 LEARN として積む（既存 TEST のテストカードは検証開始後に書き換えない）。
 
 ## 記述言語
 

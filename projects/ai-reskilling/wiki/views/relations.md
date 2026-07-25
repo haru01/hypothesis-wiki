@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-24（ステージ CPF） -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-25（ステージ CPF） -->
 
 # 関係グラフ（ai-reskilling）
 
@@ -13,9 +13,9 @@ flowchart LR
       AIRE_H_002["H-002★ 累積ドリフト<br/>確信度3 ⚪未検証"]
       AIRE_H_003["H-003 目利き不足<br/>確信度3 ⚪未検証"]
     end
-    subgraph ACT["活動 ACT"]
-      AIRE_ACT_002["ACT-002 エージェント実務者への発見型インタビュー…"]
-      AIRE_ACT_003["ACT-003 認知的降伏シナリオの反証インタビュー（2…"]
+    subgraph TEST["実験計画 TEST"]
+      AIRE_TEST_002["TEST-002 エージェント実務者への発見型インタビュー…"]
+      AIRE_TEST_003["TEST-003 認知的降伏シナリオの反証インタビュー（2…"]
     end
     subgraph LEARN["学び LEARN"]
       AIRE_LEARN_001["LEARN-001 AI時代のリスキリング（2名＋専門エージ…"]
@@ -23,12 +23,12 @@ flowchart LR
     end
     AIRE_H_001 -->|因果先| AIRE_H_002
     AIRE_H_001 -->|因果先| AIRE_H_003
-    AIRE_ACT_002 -->|検証対象| AIRE_H_001
-    AIRE_ACT_002 -->|検証対象| AIRE_H_002
-    AIRE_ACT_002 -->|検証対象| AIRE_H_003
-    AIRE_ACT_003 -->|検証対象| AIRE_H_001
-    AIRE_ACT_003 -->|検証対象| AIRE_H_002
-    AIRE_ACT_003 -->|検証対象| AIRE_H_003
+    AIRE_TEST_002 -->|検証対象| AIRE_H_001
+    AIRE_TEST_002 -->|検証対象| AIRE_H_002
+    AIRE_TEST_002 -->|検証対象| AIRE_H_003
+    AIRE_TEST_003 -->|検証対象| AIRE_H_001
+    AIRE_TEST_003 -->|検証対象| AIRE_H_002
+    AIRE_TEST_003 -->|検証対象| AIRE_H_003
     AIRE_LEARN_001 -->|検証対象| AIRE_H_001
     AIRE_LEARN_001 -->|検証対象| AIRE_H_002
     AIRE_LEARN_001 -->|検証対象| AIRE_H_003
@@ -54,16 +54,16 @@ flowchart LR
 
 （該当なし）
 
-### 検証対象（`hypotheses`: ACT/LEARN→H）
+### 検証対象（`hypotheses`: LEARN/TEST→H）
 
 | 始点 | 関係 | 終点 |
 |---|---|---|
-| [[AIRE-ACT-002]] | 検証対象 → | [[AIRE-H-001]] |
-| [[AIRE-ACT-002]] | 検証対象 → | [[AIRE-H-002]] |
-| [[AIRE-ACT-002]] | 検証対象 → | [[AIRE-H-003]] |
-| [[AIRE-ACT-003]] | 検証対象 → | [[AIRE-H-001]] |
-| [[AIRE-ACT-003]] | 検証対象 → | [[AIRE-H-002]] |
-| [[AIRE-ACT-003]] | 検証対象 → | [[AIRE-H-003]] |
+| [[AIRE-TEST-002]] | 検証対象 → | [[AIRE-H-001]] |
+| [[AIRE-TEST-002]] | 検証対象 → | [[AIRE-H-002]] |
+| [[AIRE-TEST-002]] | 検証対象 → | [[AIRE-H-003]] |
+| [[AIRE-TEST-003]] | 検証対象 → | [[AIRE-H-001]] |
+| [[AIRE-TEST-003]] | 検証対象 → | [[AIRE-H-002]] |
+| [[AIRE-TEST-003]] | 検証対象 → | [[AIRE-H-003]] |
 | [[AIRE-LEARN-001]] | 検証対象 → | [[AIRE-H-001]] |
 | [[AIRE-LEARN-001]] | 検証対象 → | [[AIRE-H-002]] |
 | [[AIRE-LEARN-001]] | 検証対象 → | [[AIRE-H-003]] |
@@ -71,16 +71,16 @@ flowchart LR
 | [[AIRE-LEARN-002]] | 検証対象 → | [[AIRE-H-002]] |
 | [[AIRE-LEARN-002]] | 検証対象 → | [[AIRE-H-003]] |
 
-### 実験計画（`learns-from`: LEARN→ACT）
+### 実験計画（`learns-from`: LEARN→TEST）
 
 （該当なし）
 
-### 根拠活動（`based-on`: DEC→ACT/LEARN）
+### 根拠活動（`based-on`: DEC→LEARN/TEST）
 
 （該当なし）
 
 ## バックリンク索引（誰から・どの関係で参照されているか）
 
-- [[AIRE-H-001]] ← 検証活動: [[AIRE-ACT-002]] [[AIRE-ACT-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
-- [[AIRE-H-002]] ← 因果元: [[AIRE-H-001]] ／ 検証活動: [[AIRE-ACT-002]] [[AIRE-ACT-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
-- [[AIRE-H-003]] ← 因果元: [[AIRE-H-001]] ／ 検証活動: [[AIRE-ACT-002]] [[AIRE-ACT-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
+- [[AIRE-H-001]] ← 検証活動: [[AIRE-TEST-002]] [[AIRE-TEST-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
+- [[AIRE-H-002]] ← 因果元: [[AIRE-H-001]] ／ 検証活動: [[AIRE-TEST-002]] [[AIRE-TEST-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
+- [[AIRE-H-003]] ← 因果元: [[AIRE-H-001]] ／ 検証活動: [[AIRE-TEST-002]] [[AIRE-TEST-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]

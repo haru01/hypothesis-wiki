@@ -51,7 +51,7 @@ AIが「規律あるWikiの保守者」として運用する。
 | The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新 |
 | The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
 
-**オントロジー（型・関係の正本）** — レコードの型（仮説 H／活動 ACT＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
+**オントロジー（型・関係の正本）** — レコードの型（仮説 H／実験計画 TEST＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
 レコード間の型付きリンク（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`learns-from`／`based-on` の6関係）、
 検証の状態機械（ステージ・ステータス・確信度・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
 人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）。
@@ -96,8 +96,8 @@ Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい�
 1. **`/new-project`** — 案件を `projects/<slug>/` に作り、接頭辞（例 `ACME`）と現在案件を設定する。
 2. **`/desk-research`**（任意・初期リサーチ） — 対象ドメインと競合を実Web検索で調べ、想定ユーザの状況・行動仮説と課題仮説を出典付きで起票する（確信度3-4）。相場観を掴んでから `/formulate` に入りたいときに。
 3. **`/formulate`** — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする。タイプ・初期確信度・ステータスを付けて起票。
-4. **`/plan`** — 「重要 × 確信度低」の仮説を選び、検証前のテストカード（目的・方法・指標・成功基準）を持つ活動（`<PREFIX>-ACT-NNN`）を計画する。
-5. **`/prototype`** — 見せて反応を得たい仮説から、自己完結の HTML プロトタイプ（LP／2〜3画面モックアップ）を `wiki/prototypes/` に生成し、demo/interview の ACT に紐づける。
+4. **`/plan`** — 「重要 × 確信度低」の仮説を選び、検証前のテストカード（目的・方法・指標・成功基準）を持つ実験計画（`<PREFIX>-TEST-NNN`）を計画する。
+5. **`/prototype`** — 見せて反応を得たい仮説から、自己完結の HTML プロトタイプ（LP／2〜3画面モックアップ）を `wiki/prototypes/` に生成し、demo/interview の TEST に紐づける。
 6. **検証を実施** — インタビュー録やデモ記録などの生データを `projects/<slug>/sources/` に置く（不変層。AIは読むだけ）。
 7. **`/ingest`** — 生データから学びレコード（LEARN＝学習カード: 事実・解釈・驚き）を新規作成し、確信度・ステータスの更新を承認フロー付きで反映する。
 8. **俯瞰と岐路** — `wiki/views/`（Stop フックが自動再生成）で現状を俯瞰、岐路で `/decide`（ステージ移行・ピボット・巻き戻し）、ときどき `/lint` で健全性チェック。高確信度の仮説が甘くないか疑いたいときは `/chabudai` で揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけて引き下げる。
@@ -117,7 +117,7 @@ Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい�
 | 「この分野の競合と想定ユーザの課題を調べて仮説にして」 | `/desk-research` が実Web検索で調べ、課題仮説を出典付きで起票する |
 | 「『AIが検証記録を自動でまとめてくれると助かるはず』を仮説にしたい」 | `/formulate` が反証可能な仮説に精錬する |
 | 「次に何を検証すべき？計画を立てて」 | `/plan` が重要×確信度低の仮説を選びテストカードを作る |
-| 「この仮説を試すためのLPを作って」 | `/prototype` が HTML の LP を生成し ACT に紐づける |
+| 「この仮説を試すためのLPを作って」 | `/prototype` が HTML の LP を生成し TEST に紐づける |
 | 「インタビュー結果を `sources/` に置いたので取り込んで」 | `/ingest` が学び(LEARN)を作り、確信度更新を提案する |
 | 「今の仮説の状況を一覧（ボード）で見せて」 | `wiki/views/` の最新ビューを見せる（Stop フックが自動再生成） |
 | 「CPF から FPF に進んでいい？判断を記録したい」 | `/decide` が意思決定レコードを作る |
@@ -141,7 +141,7 @@ Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい�
   記録が散逸し過去の学びが忘れられる（`SELF-H-004`）／好反応を購買意向と取り違え偽の確証で進む（`SELF-H-006`）／
   根拠を経営層に説明できず合意が滞る（`SELF-H-008`）。
 - **`/decide`** — 核心クラスタが移行基準を満たしたので、`SELF-DEC-001` で **CPF→FPF** に移行した。
-- **`/prototype`** — FPF から先取りして「確信度Wiki」の LP（`SELF-ACT-004`、`wiki/prototypes/SELF-ACT-004/index.html`）を
+- **`/prototype`** — FPF から先取りして「確信度Wiki」の LP（`SELF-TEST-004`、`wiki/prototypes/SELF-TEST-004/index.html`）を
   生成し、提示インタビューにかけた。
 - **反証も学び** — LP は好反応でも、乗り換え・対価という**行動**の意向は出ず、ソリューション仮説 `SELF-H-009` と
   その〈支払い〉検証 `SELF-H-010`（対価・乗り換え）は**反証**（interest ≠ intent）。「いいね」を確証と取り違えない、という
@@ -181,10 +181,10 @@ hypothesis-wiki/
         ├── sources/        # 生データ（読み取り専用）
         └── wiki/
             ├── hypotheses/<PREFIX>-H-NNN.md            # 仮説を立てた
-            ├── activities/<PREFIX>-ACT-NNN.md          # 行動計画（テストカード）＋ <PREFIX>-ACT-NNN-script.md（台本）
+            ├── tests/<PREFIX>-TEST-NNN.md          # 実験計画（テストカード）＋ <PREFIX>-TEST-NNN-script.md（台本）
             ├── learnings/<PREFIX>-LEARN-NNN.md         # 実施して得た学び（学習カード）
             ├── decisions/<PREFIX>-DEC-NNN.md           # 意思決定した
-            ├── prototypes/<PREFIX>-ACT-NNN/index.html  # /prototype の生成物
+            ├── prototypes/<PREFIX>-TEST-NNN/index.html  # /prototype の生成物
             ├── views/      # 生成物（手編集禁止。board/hypotheses-list/relations）
             ├── index.md    # 仮説インデックス（生成物。gen_views.py index）
             ├── log.md      # 活動タイムライン（追記専用）
@@ -197,7 +197,7 @@ hypothesis-wiki/
 ## Obsidian で開く（探索ネットワークの可視化）
 
 リポジトリのルートを Obsidian vault として開くと、仮説の系譜（派生・ピボット・巻き戻し）と
-仮説↔活動↔意思決定の参照がグラフビューで一望できる。
+仮説↔実験計画↔意思決定の参照がグラフビューで一望できる。
 
 - ファイル名は ID そのもの＋プロジェクト接頭辞（`SELF-H-004.md` 等）なので `[[SELF-H-004]]` のwikilinkが vault 全体で一意に解決する（プロジェクト間の ID 衝突を防ぐ）。
 - 相互参照は本文にwikilinkで書く規約（frontmatter配列だけではグラフに辺が出ない）。

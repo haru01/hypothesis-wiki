@@ -23,7 +23,7 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 ## オントロジー（型・関係の正本）
 
-レコードの**型**（エンティティ H/ACT/LEARN/DEC とサブタイプ）、レコード間の**型付きリンク**（関係）、
+レコードの**型**（エンティティ H/TEST/LEARN/DEC とサブタイプ）、レコード間の**型付きリンク**（関係）、
 検証の**状態機械**（ステージ・ステータス・確信度・証拠の階梯）、および**リーンキャンバスの仮説検証への写像**
 （9ブロック↔仮説role・block-status・stage-lens。`/lean-canvas` が使う。レコードでなくビュー）は、
 [ontology.yaml](ontology.yaml) が唯一の正本（SSoT）である。人間可読な要約は [ontology.md](ontology.md)
@@ -33,8 +33,8 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 **関係（型付きリンク）** は6種。各々 domain（始点の型）→ range（終点の型）・cardinality・inverse（逆方向の呼称）を
 `ontology.yaml` の `relations` で宣言する。`derived-from`（H→H・派生元）／`leads-to`（H→H・因果先）／
-`addresses`（ソリューション仮説→課題仮説・対応課題）／`hypotheses`（ACT・LEARN→H・検証対象）／
-`learns-from`（LEARN→ACT・実施した実験計画）／`based-on`（DEC→ACT・LEARN・根拠活動/学び）。関係は原則 frontmatter 配列と本文 wikilink の**二重表現**を持つ（`addresses` のみ `must-wikilink: false` で frontmatter のみ。下記「スキル共通規約」3）。
+`addresses`（ソリューション仮説→課題仮説・対応課題）／`hypotheses`（TEST・LEARN→H・検証対象）／
+`learns-from`（LEARN→TEST・実施した実験計画）／`based-on`（DEC→TEST・LEARN・根拠活動/学び）。関係は原則 frontmatter 配列と本文 wikilink の**二重表現**を持つ（`addresses` のみ `must-wikilink: false` で frontmatter のみ。下記「スキル共通規約」3）。
 `/lint` は各関係を宣言（domain/range/cardinality）に照らして検証し、ビュー生成（`tools/gen_views.py`）の `relations` ビューが全関係型をグラフ化する。
 
 ## スキル共通規約（全スキルが従う入口）
@@ -48,7 +48,7 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
    | 参照元の位置 | 深さ | 例 |
    |---|---|---|
    | `wiki/` 直下（`stage.md`・`index.md`） | `../../../` | `[playbooks/cpf.md](../../../playbooks/cpf.md)` |
-   | `wiki/<種別>/` 配下（H・ACT・LEARN・DEC） | `../../../../` | `[playbooks/cpf.md](../../../../playbooks/cpf.md)` |
+   | `wiki/<種別>/` 配下（H・TEST・LEARN・DEC） | `../../../../` | `[playbooks/cpf.md](../../../../playbooks/cpf.md)` |
 4. **.gitkeep** — 空ディレクトリ雛形の `.gitkeep` は、そのディレクトリに最初のレコードを作成したら削除してよい（任意）。
 5. **承認規律** — 確信度・ステータスの変更は必ず 学び(LEARN)か意思決定(DEC) に紐づけ、**提案 → ユーザー承認 → 反映**する（不変ルール参照）。非対話/バッチ実行では、①成功基準の判定が機械的に〈支持〉/〈反証〉に定まり、②提案する確信度が証拠の階梯（下記「確信度とステータス」）の範囲に収まる場合に限り、提案内容を明示のうえ自動反映してよい。〈判断保留〉や、解釈を要する／証拠の階梯を超える引き上げは、必ず対話で承認を得る。
 
@@ -63,7 +63,7 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 なお、schema層（`playbooks/`・`CLAUDE.md` など vault 内の接頭辞つきノートでないファイル）への参照は
 **wikilinkではなく相対mdリンク**で書く。`../` の深さは参照元ファイルの位置で変わる（上記「スキル共通規約」3を参照。
-`wiki/` 直下は `../../../`、`wiki/<種別>/` 配下の H・ACT・LEARN・DEC は `../../../../`）。
+`wiki/` 直下は `../../../`、`wiki/<種別>/` 配下の H・TEST・LEARN・DEC は `../../../../`）。
 
 ### 仮説レコード `projects/<slug>/wiki/hypotheses/<PREFIX>-H-NNN.md`
 
@@ -85,14 +85,14 @@ core: true                           # 省略可。核心仮説なら true（lis
 本文: 反証可能な仮説文／前提／系譜リンク／確信度履歴テーブル（日付・確信度・ステータス・根拠・`[[LEARN-NNN]]`）。
 **この確信度履歴テーブルが確信度・ステータスの正本（追記専用）**。frontmatter の `confidence`/`status` は最新行の同期キャッシュ。
 
-> **出来事の記録（イベントログ）としての設計**: 「仮説を立てた(H)→行動計画を立てた(ACT)→実施して学びを得た(LEARN)→意思決定した(DEC)」を
-> 追記専用の出来事レコードとして時系列に積む。各レコードは作成後は原則書き換えず、記入タイミングでレコードを分ける（テストカード=ACT は検証前、学習カード=LEARN は検証後）。
+> **出来事の記録（イベントログ）としての設計**: 「仮説を立てた(H)→実験計画を立てた(TEST)→実施して学びを得た(LEARN)→意思決定した(DEC)」を
+> 追記専用の出来事レコードとして時系列に積む。各レコードは作成後は原則書き換えず、記入タイミングでレコードを分ける（テストカード=TEST は検証前、学習カード=LEARN は検証後）。
 > 現在の状態（確信度・ステータス・ステージ）はこれら出来事の射影（fold）としてビューが導出する。**更新より新規作成**を選ぶ。
 
-### 活動レコード（実験計画＝テストカード） `projects/<slug>/wiki/activities/<PREFIX>-ACT-NNN.md`
+### 実験計画レコード（テストカード） `projects/<slug>/wiki/tests/<PREFIX>-TEST-NNN.md`
 
 ```yaml
-id: <PREFIX>-ACT-001                 # ファイル名と一致（接頭辞つき。例 SELF-ACT-001）
+id: <PREFIX>-TEST-001                 # ファイル名と一致（接頭辞つき。例 SELF-TEST-001）
 title: 短いタイトル
 type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
@@ -102,7 +102,7 @@ riskiest-assumption: 一文                  # 最もリスクの高い前提（
 ```
 
 本文＝**テストカード**（検証前に記入・後から書き換えない。後知恵バイアス防止）: 目的／方法／指標／成功基準。
-検証後の学びは別レコード LEARN に積む（この ACT には学習カードを持たせない）。
+検証後の学びは別レコード LEARN に積む（この TEST には学習カードを持たせない）。
 
 ### 学びレコード（学習カード） `projects/<slug>/wiki/learnings/<PREFIX>-LEARN-NNN.md`
 
@@ -112,13 +112,13 @@ title: 短いタイトル
 type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
-learns-from: <PREFIX>-ACT-NNN        # 省略可。実施した実験計画(ACT)。回顧型（desk-research/self-reflection 等）は持たない
+learns-from: <PREFIX>-TEST-NNN        # 省略可。実施した実験計画(TEST)。回顧型（desk-research/self-reflection 等）は持たない
 hypotheses: [H-NNN, ...]             # この学びが確信度を動かした仮説
 outcome: 起票|支持|反証|判断保留|是正       # 検証の判定。board サマリへ射影
 ```
 
 本文＝**学習カード**（検証後に記入・新規作成で積む）: **学びの要点**（board へ射影する一行の見出し的学び）／事実（observed）／解釈（inference）／驚き・想定外／確信度の更新テーブル／次のアクション。
-計画型は `learns-from` で ACT を参照し（board で1実験に束ねる）、回顧型（desk-research/self-reflection/chabudai）は ACT を持たず学びを直接作成する。
+計画型は `learns-from` で TEST を参照し（board で1実験に束ねる）、回顧型（desk-research/self-reflection/chabudai）は TEST を持たず学びを直接作成する。
 
 ### 意思決定レコード `projects/<slug>/wiki/decisions/<PREFIX>-DEC-NNN.md`
 
@@ -127,18 +127,18 @@ id: <PREFIX>-DEC-001                 # ファイル名と一致（接頭辞つ�
 title: 短いタイトル
 date: YYYY-MM-DD
 type: stage-transition | pivot | persevere | rollback | kill
-based-on: [LEARN-NNN, ...]           # 根拠となった学び(LEARN)を優先。実験計画(ACT)も可
+based-on: [LEARN-NNN, ...]           # 根拠となった学び(LEARN)を優先。実験計画(TEST)も可
 to-stage: CPF|FPF|PSF|SPF|PMF        # ステージを動かす判断（stage-transition・rollback 等）のみ。結果ステージ（現在ステージの正本＝to-stage を持つ最新DEC）
 ```
 
 本文: 確信度スナップショット（全重要仮説の当時の値）／選択肢と判断理由／巻き戻しポイント
 （この判断が誤りと判明したときどの仮説状態・どの問いに戻るか）／次の一手（前向きの戦略的現在地。board の「現在地」へ射影）。
 
-### プロトタイプ生成物 `projects/<slug>/wiki/prototypes/<PREFIX>-ACT-NNN/index.html`
+### プロトタイプ生成物 `projects/<slug>/wiki/prototypes/<PREFIX>-TEST-NNN/index.html`
 
 `/prototype` が仮説から生成する自己完結HTML（LP／2〜3画面モックアップ）。レコードではなく**生成物**で、
-demo/interview の活動（ACT）に紐づく（ACTのテストカードから相対mdリンクで参照し、対象仮説の本文にも
-`[[<PREFIX>-ACT-NNN]]` を張る）。`views/` と同格に扱い、**手編集せず再生成で上書きする**。生成しても
+demo/interview の実験計画（TEST）に紐づく（TESTのテストカードから相対mdリンクで参照し、対象仮説の本文にも
+`[[<PREFIX>-TEST-NNN]]` を張る）。`views/` と同格に扱い、**手編集せず再生成で上書きする**。生成しても
 確信度・ステータスは動かさない（見せて反応を得たあとの学び作成（LEARN）・確信度更新は `/ingest` に委ねる）。
 
 ## 確信度とステータス（2軸・別管理）
@@ -173,7 +173,7 @@ demo/interview の活動（ACT）に紐づく（ACTのテストカードから�
 3. `projects/<slug>/sources/` の既存ファイルは改変・削除しない（`/ingest` による新規生データの追加は可。一度置いた観測データは後から書き換えない）。`projects/<slug>/wiki/log.md` は追記のみ（過去行の編集禁止）
 4. `projects/<slug>/wiki/views/`・`projects/<slug>/wiki/index.md`・`projects/<slug>/wiki/prototypes/` は生成物。記録の修正はレコード側で行い、生成物は再生成する（`index.md` はビュー `gen_views.py index`）
 5. ID採番は**種別×プロジェクトごと**に既存最大値+1で、プロジェクト接頭辞つき（例 `SELF-H-001`）。IDの再利用禁止（取り下げた番号は欠番として残す）
-6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。テストカード（ACT）の成功基準・riskiest-assumption は検証開始後に書き換えない（後知恵バイアス防止。学び LEARN が紐づいた ACT の変更は `check_testcard_immutable.py` が検出する）
+6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。テストカード（TEST）の成功基準・riskiest-assumption は検証開始後に書き換えない（後知恵バイアス防止。学び LEARN が紐づいた TEST の変更は `check_testcard_immutable.py` が検出する）
 
 ## ステージと重要度
 
@@ -201,7 +201,7 @@ SPF = Solution Product Fit ／ PMF = Product Market Fit（各 `playbooks/<stage>
 ```
 
 type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `self-reflection` `decision` `lint` のいずれか
-（ACT 作成・LEARN 作成とも活動種別 `interview`/`demo`/… を type に使う。`<ID>` は該当レコード H-NNN／ACT-NNN／LEARN-NNN／DEC-NNN）。
+（TEST 作成・LEARN 作成とも活動種別 `interview`/`demo`/… を type に使う。`<ID>` は該当レコード H-NNN／TEST-NNN／LEARN-NNN／DEC-NNN）。
 例: `grep "decision" projects/<slug>/wiki/log.md` で意思決定だけを抽出できる。
 
 ## ワークフロー（スキルとの対応）
@@ -212,7 +212,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 | 対象ドメイン・競合を実Web検索で調べ、想定ユーザの行動/課題仮説を起票し競合を比較する | `/desk-research` |
 | 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulate` |
 | 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
-| 検証用のHTMLプロトタイプ（LP／モックアップ）を仮説から生成しdemo/interviewのACTに紐づける | `/prototype` |
+| 検証用のHTMLプロトタイプ（LP／モックアップ）を仮説から生成しdemo/interviewのTESTに紐づける | `/prototype` |
 | インタビュー録・デモ記録の取り込みと学び(LEARN)作成・確信度更新 | `/ingest` |
 | 一覧／ボード／index のビュー生成 | Stop フックが自動生成（手動は `python3 tools/gen_views.py <view>`。view は board/list/relations/index） |
 | ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |

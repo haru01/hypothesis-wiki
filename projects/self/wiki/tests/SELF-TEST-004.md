@@ -1,5 +1,5 @@
 ---
-id: SELF-ACT-004
+id: SELF-TEST-004
 title: 確信度WikiのLP提示インタビュー（シミュレーション）
 type: interview
 date: 2026-07-18
@@ -13,7 +13,7 @@ riskiest-assumption: ①AI支援が「自分で考えるより深い」と感じ
 
 対象仮説: [[SELF-H-009]]（ソリューション）／[[SELF-H-010]]（個別購買）
 
-プロトタイプ: [index.html](../prototypes/SELF-ACT-004/index.html) ／ スクリプト: [SELF-ACT-004-script.md](SELF-ACT-004-script.md)
+プロトタイプ: [index.html](../prototypes/SELF-TEST-004/index.html) ／ スクリプト: [SELF-TEST-004-script.md](SELF-TEST-004-script.md)
 
 生データ: `sources/2026-07-18-lp-interviews-sim.md`（⚠️架空・実データ未検証）
 

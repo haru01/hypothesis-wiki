@@ -58,7 +58,7 @@ importance: auto
 """
 
 
-def act(id="DEMO-ACT-001", type="interview", hypotheses="[DEMO-H-001]", body="対象仮説: [[DEMO-H-001]]"):
+def act(id="DEMO-TEST-001", type="interview", hypotheses="[DEMO-H-001]", body="対象仮説: [[DEMO-H-001]]"):
     return f"""---
 id: {id}
 title: テスト活動
@@ -74,7 +74,7 @@ hypotheses: {hypotheses}
 """
 
 
-def learn(id="DEMO-LEARN-001", learns_from="DEMO-ACT-001", hypotheses="[DEMO-H-001]",
+def learn(id="DEMO-LEARN-001", learns_from="DEMO-TEST-001", hypotheses="[DEMO-H-001]",
           outcome="支持", body=None):
     lf = f"learns-from: {learns_from}\n" if learns_from else ""
     lf_link = f"実験計画: [[{learns_from}]]\n" if learns_from else ""
@@ -123,7 +123,7 @@ class VocabularyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "vocab"], [])
 
@@ -131,11 +131,11 @@ class VocabularyTest(unittest.TestCase):
 class HistoryConsistencyTest(unittest.TestCase):
     def test_frontmatter_history_mismatch_detected(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 〈自認〉手応え | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉手応え | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="未検証", confidence="1", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertTrue(any(p.check == "history" for p in hwlint.lint_project(root)))
 
@@ -151,20 +151,20 @@ class EvidenceLinkTest(unittest.TestCase):
 
     def test_evidence_record_must_exist(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-999]] |"]
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-TEST-999]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows)})
-            self.assertTrue(any(p.check == "evidence" and "DEMO-ACT-999" in p.message
+            self.assertTrue(any(p.check == "evidence" and "DEMO-TEST-999" in p.message
                                 for p in hwlint.lint_project(root)))
 
     def test_change_with_existing_evidence_ok(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "evidence"], [])
 
@@ -174,7 +174,7 @@ class RefsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/activities/DEMO-ACT-001.md": act(hypotheses="[H-001]"),
+                "wiki/tests/DEMO-TEST-001.md": act(hypotheses="[H-001]"),
             })
             self.assertTrue(any(p.check == "refs" for p in hwlint.lint_project(root)))
 
@@ -182,7 +182,7 @@ class RefsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/activities/DEMO-ACT-001.md": act(body="対象仮説: [[DEMO-H-404]]"),
+                "wiki/tests/DEMO-TEST-001.md": act(body="対象仮説: [[DEMO-H-404]]"),
             })
             self.assertTrue(any(p.check == "wikilink" and "DEMO-H-404" in p.message
                                 for p in hwlint.lint_project(root)))
@@ -191,7 +191,7 @@ class RefsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/activities/DEMO-ACT-001.md": act(
+                "wiki/tests/DEMO-TEST-001.md": act(
                     body="対象仮説: [[DEMO-H-001]]\n\n根拠: [[playbooks/cpf.md]]"),
             })
             self.assertTrue(any(p.check == "wikilink" and "playbooks" in p.message
@@ -201,7 +201,7 @@ class RefsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             problems = [p for p in hwlint.lint_project(root) if p.check in ("refs", "wikilink")]
             self.assertEqual(problems, [])
@@ -241,8 +241,8 @@ class RefsTest(unittest.TestCase):
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "refs"], [])
 
     def test_wikilink_in_html_comment_ignored(self):
-        # テンプレの履歴コメントに例示 [[ACT-NNN]] が入っていてもリンク切れにしない
-        body = hyp() + "\n<!--\n- 活動列に [[ACT-NNN]] を書く。派生元 [[H-NNN]] も例示。\n-->\n"
+        # テンプレの履歴コメントに例示 [[TEST-NNN]] が入っていてもリンク切れにしない
+        body = hyp() + "\n<!--\n- 活動列に [[TEST-NNN]] を書く。派生元 [[H-NNN]] も例示。\n-->\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": body})
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "wikilink"], [])
@@ -272,22 +272,22 @@ class IdSequenceTest(unittest.TestCase):
 class LogSyncTest(unittest.TestCase):
     def test_history_change_missing_in_log_warned(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertTrue(any(p.check == "log-sync" for p in hwlint.lint_project(root)))
 
     def test_history_change_recorded_in_log_ok(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-ACT-001]] |"]
-        log = "## [2026-07-05] interview | DEMO-ACT-001 実施 → DEMO-H-001 確信度1→5/検証中\n"
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉 | [[DEMO-TEST-001]] |"]
+        log = "## [2026-07-05] interview | DEMO-TEST-001 実施 → DEMO-H-001 確信度1→5/検証中\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
                 "wiki/log.md": log,
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "log-sync"], [])
@@ -309,10 +309,10 @@ class IndexSyncTest(unittest.TestCase):
 class FictionalCapTest(unittest.TestCase):
     def _project(self, tmp, confidence):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                f"| 2026-07-05 | {confidence} | 検証済み | 〈行動〉 | [[DEMO-ACT-001]] |"]
+                f"| 2026-07-05 | {confidence} | 検証済み | 〈行動〉 | [[DEMO-TEST-001]] |"]
         return make_project(tmp, {
             "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence=str(confidence), rows=rows),
-            "wiki/activities/DEMO-ACT-001.md": act(
+            "wiki/tests/DEMO-TEST-001.md": act(
                 body="対象仮説: [[DEMO-H-001]]\n\n> ⚠️ 架空のシミュレーションデータ。実証拠として扱わない。"),
         })
 
@@ -327,8 +327,8 @@ class FictionalCapTest(unittest.TestCase):
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
 
 
-BASE_ACT_FOR_GIT = """---
-id: DEMO-ACT-001
+BASE_TEST_FOR_GIT = """---
+id: DEMO-TEST-001
 title: テスト活動
 type: interview
 date: 2026-07-01
@@ -346,14 +346,14 @@ riskiest-assumption: 実践者は実コストを払っている
 - **成功基準**: 5名中3名以上が実コストを払っている。
 """
 
-# この ACT を learns-from で指す学び（LEARN）。これが在ると ACT テストカードは不変になる。
+# この TEST を learns-from で指す学び（LEARN）。これが在ると TEST テストカードは不変になる。
 LEARN_FOR_GIT = """---
 id: DEMO-LEARN-001
 title: テスト活動の学び
 type: interview
 date: 2026-07-02
 stage: CPF
-learns-from: DEMO-ACT-001
+learns-from: DEMO-TEST-001
 hypotheses: [DEMO-H-001]
 outcome: 反証
 ---
@@ -361,7 +361,7 @@ outcome: 反証
 # テスト活動の学び
 
 対象仮説: [[DEMO-H-001]]
-実験計画: [[DEMO-ACT-001]]
+実験計画: [[DEMO-TEST-001]]
 
 ## 学習カード（検証後に記入）
 
@@ -385,28 +385,28 @@ class TestcardImmutableTest(unittest.TestCase):
             cwd=repo, capture_output=True, text=True)
 
     def test_rewrite_after_learning_detected(self):
-        # ACT を learns-from で指す LEARN が在れば、ACT テストカードの変更は検出される。
+        # TEST を learns-from で指す LEARN が在れば、TEST テストカードの変更は検出される。
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             run = self._init_repo(repo)
-            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            write(repo, "projects/demo/wiki/tests/DEMO-TEST-001.md", BASE_TEST_FOR_GIT)
             write(repo, "projects/demo/wiki/learnings/DEMO-LEARN-001.md", LEARN_FOR_GIT)
             run("git", "add", "-A"); run("git", "commit", "-m", "base")
-            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
-                  BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
+            write(repo, "projects/demo/wiki/tests/DEMO-TEST-001.md",
+                  BASE_TEST_FOR_GIT.replace("3名以上", "1名以上"))
             run("git", "add", "-A"); run("git", "commit", "-m", "rewrite")
             result = self._run_checker(repo, "--base", "HEAD~1")
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
     def test_testcard_edit_before_learning_allowed(self):
-        # LEARN がまだ紐づかない（検証開始前）ACT はテストカードを直してよい。
+        # LEARN がまだ紐づかない（検証開始前）TEST はテストカードを直してよい。
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             run = self._init_repo(repo)
-            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            write(repo, "projects/demo/wiki/tests/DEMO-TEST-001.md", BASE_TEST_FOR_GIT)
             run("git", "add", "-A"); run("git", "commit", "-m", "base")
-            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
-                  BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
+            write(repo, "projects/demo/wiki/tests/DEMO-TEST-001.md",
+                  BASE_TEST_FOR_GIT.replace("3名以上", "1名以上"))
             run("git", "add", "-A"); run("git", "commit", "-m", "edit before learning")
             result = self._run_checker(repo, "--base", "HEAD~1")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -415,11 +415,11 @@ class TestcardImmutableTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             run = self._init_repo(repo)
-            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md", BASE_ACT_FOR_GIT)
+            write(repo, "projects/demo/wiki/tests/DEMO-TEST-001.md", BASE_TEST_FOR_GIT)
             write(repo, "projects/demo/wiki/learnings/DEMO-LEARN-001.md", LEARN_FOR_GIT)
             run("git", "add", "-A"); run("git", "commit", "-m", "base")
-            write(repo, "projects/demo/wiki/activities/DEMO-ACT-001.md",
-                  BASE_ACT_FOR_GIT.replace("3名以上", "1名以上"))
+            write(repo, "projects/demo/wiki/tests/DEMO-TEST-001.md",
+                  BASE_TEST_FOR_GIT.replace("3名以上", "1名以上"))
             run("git", "add", "-A")  # コミットせずステージのみ（pre-commit 相当）
             result = self._run_checker(repo, "--staged")
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
@@ -487,11 +487,11 @@ class StopLintTest(unittest.TestCase):
 class EvidenceTagTest(unittest.TestCase):
     def test_untagged_reason_warned(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 手応えがあった | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 5 | 検証中 | 手応えがあった | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             hits = [p for p in hwlint.lint_project(root) if p.check == "evidence-tag"]
             self.assertEqual(len(hits), 1)
@@ -499,11 +499,11 @@ class EvidenceTagTest(unittest.TestCase):
 
     def test_tagged_reason_ok(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 5 | 検証中 | 〈自認〉〈実コスト〉3名が該当 | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 5 | 検証中 | 〈自認〉〈実コスト〉3名が該当 | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence="5", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "evidence-tag"], [])
 
@@ -518,9 +518,9 @@ class OntologyLoaderTest(unittest.TestCase):
         self.assertEqual(ontology.SOLUTION_TYPES, ontology.VALUE_TYPES | ontology.WILLING_TYPES)
         self.assertEqual({r.field for r in ontology.RELATIONS},
                          {"derived-from", "leads-to", "addresses", "hypotheses", "learns-from", "based-on"})
-        # hypotheses は ACT/LEARN 両方を domain に、based-on は ACT/LEARN 両方を range に取る（多種別）
-        self.assertEqual(ontology.RELATIONS_BY_FIELD["hypotheses"].domains, {"ACT", "LEARN"})
-        self.assertEqual(ontology.RELATIONS_BY_FIELD["based-on"].ranges, {"ACT", "LEARN"})
+        # hypotheses は TEST/LEARN 両方を domain に、based-on は TEST/LEARN 両方を range に取る（多種別）
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["hypotheses"].domains, {"TEST", "LEARN"})
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["based-on"].ranges, {"TEST", "LEARN"})
         self.assertEqual(ontology.RELATIONS_BY_FIELD["learns-from"].domains, {"LEARN"})
         self.assertTrue(ontology.ID_RE.match("SELF-LEARN-001"))
         self.assertTrue(ontology.ID_RE.match("SELF-H-001"))
@@ -544,7 +544,7 @@ class RelationOntologyTest(unittest.TestCase):
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
                 "wiki/decisions/DEMO-DEC-001.md": dec,
             })
-            self.assertTrue(any(p.check == "refs" and "ACT/LEARN を指すべき" in p.message
+            self.assertTrue(any(p.check == "refs" and "LEARN/TEST を指すべき" in p.message
                                 for p in hwlint.lint_project(root)))
 
 
@@ -583,20 +583,20 @@ class StageDerivationTest(unittest.TestCase):
 
 
 class LearnRecordTest(unittest.TestCase):
-    """LEARN（学び）レコードと learns-from / hypotheses(ACT・LEARN) の関係検証。"""
+    """LEARN（学び）レコードと learns-from / hypotheses(TEST・LEARN) の関係検証。"""
 
     def test_valid_learn_passes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
                 "wiki/learnings/DEMO-LEARN-001.md": learn(),
             })
             errs = [p for p in hwlint.lint_project(root) if p.level == "error"]
             self.assertEqual(errs, [], errs)
 
-    def test_learns_from_must_point_to_act(self):
-        # learns-from が ACT でなく H を指すと range 違反
+    def test_learns_from_must_point_to_test(self):
+        # learns-from が TEST でなく H を指すと range 違反
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
@@ -604,7 +604,7 @@ class LearnRecordTest(unittest.TestCase):
                     learns_from="DEMO-H-001",
                     body="対象仮説: [[DEMO-H-001]]\n実験計画: [[DEMO-H-001]]\n"),
             })
-            self.assertTrue(any(p.check == "refs" and "ACT を指すべき" in p.message
+            self.assertTrue(any(p.check == "refs" and "TEST を指すべき" in p.message
                                 for p in hwlint.lint_project(root)))
 
     def test_retrospective_learn_without_learns_from_passes(self):
@@ -725,10 +725,10 @@ class StatusConfidenceTest(unittest.TestCase):
 class EvidenceFloorTest(unittest.TestCase):
     def _proj(self, tmp, confidence, tag):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                f"| 2026-07-05 | {confidence} | 検証中 | {tag}手応え | [[DEMO-ACT-001]] |"]
+                f"| 2026-07-05 | {confidence} | 検証中 | {tag}手応え | [[DEMO-TEST-001]] |"]
         return make_project(tmp, {
             "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証中", confidence=str(confidence), rows=rows),
-            "wiki/activities/DEMO-ACT-001.md": act(),
+            "wiki/tests/DEMO-TEST-001.md": act(),
         })
 
     def _hits(self, root):
@@ -751,7 +751,7 @@ class DecBasedOnTest(unittest.TestCase):
     def _dec(self, based):
         return (f"---\nid: DEMO-DEC-001\ntitle: テスト決定\ndate: 2026-07-02\n"
                 f"type: pivot\nbased-on: {based}\n---\n\n# テスト決定\n\n"
-                f"根拠: [[DEMO-ACT-001]]\n")
+                f"根拠: [[DEMO-TEST-001]]\n")
 
     def test_missing_based_on_warned(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -761,8 +761,8 @@ class DecBasedOnTest(unittest.TestCase):
     def test_present_based_on_ok(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
-                "wiki/decisions/DEMO-DEC-001.md": self._dec("[DEMO-ACT-001]"),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/decisions/DEMO-DEC-001.md": self._dec("[DEMO-TEST-001]"),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "dec-based-on"], [])
 
@@ -835,7 +835,7 @@ class OntologyDerivationTest(unittest.TestCase):
 
 
 class UntestedFocusTest(unittest.TestCase):
-    """OI-F1: 重点仮説なのに検証活動(ACT)の hypotheses 入次数が0（未着手）の検出。"""
+    """OI-F1: 重点仮説なのに検証活動(TEST)の hypotheses 入次数が0（未着手）の検出。"""
     STAGE = "current-stage: CPF\n"
 
     def _hits(self, root):
@@ -855,12 +855,12 @@ class UntestedFocusTest(unittest.TestCase):
             root = make_project(tmp, {
                 "wiki/stage.md": self.STAGE,
                 "wiki/hypotheses/DEMO-H-001.md": hyp(type="課題仮説"),
-                "wiki/activities/DEMO-ACT-001.md": act(),   # hypotheses:[DEMO-H-001]
+                "wiki/tests/DEMO-TEST-001.md": act(),   # hypotheses:[DEMO-H-001]
             })
             self.assertEqual(self._hits(root), [])
 
     def test_in_progress_focus_without_activity_flags_mismatch(self):
-        # status:検証中 なのに紐づく ACT が無い → 二重表現の破れとして警告
+        # status:検証中 なのに紐づく TEST が無い → 二重表現の破れとして警告
         rows = ["| 2026-07-01 | 1 | 検証中 | 初期作成 | — |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
@@ -1009,27 +1009,27 @@ class WikilinkScopeTest(unittest.TestCase):
 
 
 class FictionalCapProseTest(unittest.TestCase):
-    """AR-04: 架空判定は構造化シグナル（〈架空〉タグ／紐づく架空ACT）に限定。地の文の語だけでは判定しない。"""
+    """AR-04: 架空判定は構造化シグナル（〈架空〉タグ／紐づく架空TEST）に限定。地の文の語だけでは判定しない。"""
 
     def test_prose_marker_in_reason_without_tag_not_flagged(self):
-        # 根拠セルに「架空」の語が地の文で出るが、〈架空〉タグも架空ACTも無い → 誤検出しない。
+        # 根拠セルに「架空」の語が地の文で出るが、〈架空〉タグも架空TESTも無い → 誤検出しない。
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 9 | 検証済み | 〈行動〉架空データではなく実観測 | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 9 | 検証済み | 〈行動〉架空データではなく実観測 | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),   # 架空マーカーを含まない実 ACT
+                "wiki/tests/DEMO-TEST-001.md": act(),   # 架空マーカーを含まない実 TEST
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
 
     def test_fictional_tag_still_flagged(self):
         # 〈架空〉タグがあれば従来どおり上限超を検出する。
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
-                "| 2026-07-05 | 9 | 検証済み | 〈架空〉シミュレーション由来 | [[DEMO-ACT-001]] |"]
+                "| 2026-07-05 | 9 | 検証済み | 〈架空〉シミュレーション由来 | [[DEMO-TEST-001]] |"]
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=rows),
-                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
             })
             self.assertTrue(any(p.check == "fictional-cap" for p in hwlint.lint_project(root)))
 
@@ -1064,7 +1064,7 @@ class GenViewsTest(unittest.TestCase):
             "wiki/stage.md": "current-stage: CPF\n",
             "wiki/hypotheses/DEMO-H-001.md": hyp(),                 # 課題仮説（CPF 重点）
             "wiki/hypotheses/DEMO-H-002.md": sol,                   # ソリューション仮説（H-001 に addresses）
-            "wiki/activities/DEMO-ACT-001.md": act(),
+            "wiki/tests/DEMO-TEST-001.md": act(),
         }
         files.update(extra or {})
         root = make_project(tmp, files)
@@ -1081,7 +1081,7 @@ class GenViewsTest(unittest.TestCase):
 
     def test_next_to_verify_marks_untested_focus_first(self):
         with tempfile.TemporaryDirectory() as tmp:
-            # ACT を置かず、重点仮説(課題仮説)を未検証で1本だけにする → has_act=False。
+            # TEST を置かず、重点仮説(課題仮説)を未検証で1本だけにする → has_test=False。
             import gen_views
             root = make_project(tmp, {
                 "wiki/stage.md": "current-stage: CPF\n",
@@ -1089,7 +1089,7 @@ class GenViewsTest(unittest.TestCase):
             })
             proj = gen_views.Project(root)
             nxt = gen_views.next_to_verify(proj, list(proj.hyp_records()), "CPF")
-            self.assertEqual([(s, has_act) for s, _, has_act in nxt], [("DEMO-H-001", False)])
+            self.assertEqual([(s, has_test) for s, _, has_test in nxt], [("DEMO-H-001", False)])
             bullets = gen_views.next_to_verify_bullets(nxt)
             self.assertTrue(any("⚠️未着手" in b for b in bullets))
 
@@ -1098,7 +1098,7 @@ class GenViewsTest(unittest.TestCase):
             gen_views, proj = self._views_project(tmp)
             out = gen_views.gen_board(proj)
             self.assertIn("# ジャベリン実験ボード", out)
-            self.assertIn("DEMO-ACT-001", out)
+            self.assertIn("DEMO-TEST-001", out)
             self.assertIn("次に検証すべき仮説", out)
 
     def test_gen_list_has_mermaid_and_next_to_verify(self):

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""不変ルール6の git 検出: 学び(LEARN)が紐づいた実験計画(ACT)のテストカードが
+"""不変ルール6の git 検出: 学び(LEARN)が紐づいた実験計画(TEST)のテストカードが
 base と比べて書き換えられていないかをチェックする（pre-commit は --staged、レビュー時は --base <ref>）。
 
-新モデルでは学習カードは ACT ではなく別レコード LEARN に積むため、テストカードの不変性は
-ほぼ構造的に保証される（ACT は作成後ふつう触らない）。本チェックはその安全網:
-ある ACT を `learns-from` で指す LEARN が存在する＝その実験は実施され学びが記録された、
-とみなし、以後その ACT のテストカードの変更を後知恵バイアスとして弾く。
-LEARN がまだ無い（検証開始前）ACT はテストカードを直してよい。
+新モデルでは学習カードは TEST ではなく別レコード LEARN に積むため、テストカードの不変性は
+ほぼ構造的に保証される（TEST は作成後ふつう触らない）。本チェックはその安全網:
+ある TEST を `learns-from` で指す LEARN が存在する＝その実験は実施され学びが記録された、
+とみなし、以後その TEST のテストカードの変更を後知恵バイアスとして弾く。
+LEARN がまだ無い（検証開始前）TEST はテストカードを直してよい。
 """
 import argparse
 import re
@@ -22,13 +22,13 @@ def git(*args) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
 
 
-def act_has_learning(act_path: str) -> bool:
-    """この ACT を learns-from で指す LEARN がワークツリーに存在するか。
+def test_has_learning(test_path: str) -> bool:
+    """この TEST を learns-from で指す LEARN がワークツリーに存在するか。
 
-    act_path は `projects/<slug>/wiki/activities/<ACT>.md`。同プロジェクトの
-    `wiki/learnings/*.md` を走査し、frontmatter learns-from が当該 ACT id を含むかを見る。"""
-    p = Path(act_path)
-    act_id = p.stem
+    test_path は `projects/<slug>/wiki/tests/<TEST>.md`。同プロジェクトの
+    `wiki/learnings/*.md` を走査し、frontmatter learns-from が当該 TEST id を含むかを見る。"""
+    p = Path(test_path)
+    test_id = p.stem
     learnings_dir = p.parent.parent / "learnings"
     if not learnings_dir.is_dir():
         return False
@@ -39,7 +39,7 @@ def act_has_learning(act_path: str) -> bool:
             continue
         # frontmatter の learns-from のみを見る（本文・コメントの言及で誤検出しない）。配列/素どちらも可。
         lf = parse_frontmatter(text).get("learns-from", "")
-        if act_id in re.findall(r"[A-Z0-9]+-ACT-\d+", lf):
+        if test_id in re.findall(r"[A-Z0-9]+-TEST-\d+", lf):
             return True
     return False
 
@@ -55,7 +55,7 @@ def main() -> int:
     else:
         diff = git("diff", "--name-only", f"{args.base}...HEAD")
     changed = [f for f in diff.stdout.splitlines()
-               if "/wiki/activities/" in f and f.endswith(".md")]
+               if "/wiki/tests/" in f and f.endswith(".md")]
     failures = []
     for f in changed:
         base_show = git("show", f"{args.base}:{f}")
@@ -72,13 +72,13 @@ def main() -> int:
             except FileNotFoundError:
                 continue  # 削除されたファイルは対象外
         base_text = base_show.stdout
-        if not act_has_learning(f):
-            continue  # 学びがまだ紐づかない（検証開始前）ACT はテストカードを直してよい
+        if not test_has_learning(f):
+            continue  # 学びがまだ紐づかない（検証開始前）TEST はテストカードを直してよい
         if testcard(base_text) != testcard(head_text):
             failures.append(f)
     for f in failures:
         print(f"[error] testcard-immutable | {f} | "
-              "学び(LEARN)が紐づいた実験計画(ACT)のテストカードが変更されている"
+              "学び(LEARN)が紐づいた実験計画(TEST)のテストカードが変更されている"
               "（不変ルール6・後知恵バイアス防止）")
     return 1 if failures else 0
 

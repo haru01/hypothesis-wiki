@@ -30,8 +30,8 @@ def _as_set(value) -> set:
 class Relation:
     """関係型1件。domain→range・cardinality・inverse を保持する。
 
-    domain/range は複数エンティティ種別を許す（例 hypotheses は ACT/LEARN）。
-    集合は `domains`/`ranges`、表示用の文字列は `domain`/`range`（"ACT/LEARN"）で持つ。
+    domain/range は複数エンティティ種別を許す（例 hypotheses は TEST/LEARN）。
+    集合は `domains`/`ranges`、表示用の文字列は `domain`/`range`（"TEST/LEARN"）で持つ。
     種別判定は `in_domain(ent)`/`in_range(ent)` を使う。"""
     __slots__ = ("name", "field", "domains", "ranges", "domain", "range",
                  "domain_subtypes", "range_subtypes",
@@ -40,9 +40,9 @@ class Relation:
     def __init__(self, d: dict):
         self.name = d["name"]
         self.field = d["field"]
-        self.domains = _as_set(d["domain"])             # エンティティ種別の集合 {"ACT"} / {"ACT","LEARN"}
+        self.domains = _as_set(d["domain"])             # エンティティ種別の集合 {"TEST"} / {"TEST","LEARN"}
         self.ranges = _as_set(d["range"])
-        self.domain = "/".join(sorted(self.domains))    # 表示用（例 "ACT/LEARN"）
+        self.domain = "/".join(sorted(self.domains))    # 表示用（例 "TEST/LEARN"）
         self.range = "/".join(sorted(self.ranges))
         self.domain_subtypes = set(d.get("domain-subtypes", []))
         self.range_subtypes = set(d.get("range-subtypes", []))
@@ -74,12 +74,12 @@ def _h_role(role: str) -> set:
 
 # ── エンティティ種別ごとの type 語彙(enum) ───────────────────────────
 H_TYPES = set(_subtype_names("H"))
-ACT_TYPES = set(_subtype_names("ACT"))
+TEST_TYPES = set(_subtype_names("TEST"))
 LEARN_TYPES = set(_subtype_names("LEARN"))
 DEC_TYPES = set(_subtype_names("DEC"))
 
 # エンティティ種別 → dir / id-infix
-ENTITY_INFIXES = list(load()["entities"].keys())           # ["H", "ACT", "DEC"]
+ENTITY_INFIXES = list(load()["entities"].keys())           # ["H", "TEST", "LEARN", "DEC"]
 ID_RE = re.compile(r"^[A-Z0-9]+-(?:" + "|".join(map(re.escape, ENTITY_INFIXES)) + r")-\d+$")
 
 # ── H サブタイプの価値連鎖上の役割 ──────────────────────────────────
@@ -151,7 +151,7 @@ def h_types_for_role(role: str) -> set:
 def _selfcheck() -> int:
     """ontology.yaml がパースでき、期待どおりの定数を導出できるか点検する。"""
     load()
-    assert H_TYPES and ACT_TYPES and DEC_TYPES, "type enum が空"
+    assert H_TYPES and TEST_TYPES and DEC_TYPES, "type enum が空"
     assert STATUS_ORDER and set(STATUS_ORDER) == STATUSES, "status 定義の不整合"
     assert STAGE_FOCUS.keys() == STAGES, "stage-focus と stages が不一致"
     assert len(LIST_GROUPS) == len(H_TYPES), "LIST_GROUPS の件数不一致"

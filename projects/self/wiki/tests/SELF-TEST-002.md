@@ -1,5 +1,5 @@
 ---
-id: SELF-ACT-002
+id: SELF-TEST-002
 title: 問題インタビュー5名（シミュレーション）
 type: interview
 date: 2026-07-17
