@@ -128,6 +128,30 @@ class VocabularyTest(unittest.TestCase):
             })
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "vocab"], [])
 
+    def test_missing_stage_reported_as_missing_not_invalid(self):
+        # agent-platform #2: 必須フィールド stage 欠落は「未指定」と報告し、'None は規約外' の誤誘導を出さない
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = learn().replace("stage: CPF\n", "")
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": rec,
+            })
+            msgs = [p.message for p in hwlint.lint_project(root) if p.check == "vocab"]
+            self.assertTrue(any("stage" in m and "未指定" in m for m in msgs))
+            self.assertFalse(any("None" in m for m in msgs))
+
+    def test_invalid_stage_value_still_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = learn().replace("stage: CPF", "stage: XYZ")
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": rec,
+            })
+            self.assertTrue(any(p.check == "vocab" and "XYZ" in p.message and "規約外" in p.message
+                                for p in hwlint.lint_project(root)))
+
 
 class HistoryConsistencyTest(unittest.TestCase):
     def test_frontmatter_history_mismatch_detected(self):
@@ -1174,6 +1198,44 @@ class RecordsModuleTest(unittest.TestCase):
         import check_testcard_immutable
         self.assertIs(check_testcard_immutable.testcard, records.testcard)
         self.assertIs(gen_views.testcard, records.testcard)
+
+
+class PrefixDerivationTest(unittest.TestCase):
+    """agent-platform #1: PREFIX 導出が空プロジェクト↔レコード有りで一貫し、ハイフン slug でも有効な単一トークンになる。"""
+
+    def _project(self, tmp, slug, files=None):
+        root = Path(tmp) / "projects" / slug
+        (root / "wiki").mkdir(parents=True, exist_ok=True)
+        for rel, text in (files or {}).items():
+            write(root, rel, text)
+        return records.Project(root)
+
+    def test_empty_hyphen_slug_normalized_to_single_token(self):
+        # 空プロジェクト＋ハイフン slug: 従来は 'AGENT-PLATFORM'（ID_RE 違反の無効値）を返していた
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self._project(tmp, "agent-platform").prefix, "AGENT")
+
+    def test_stage_md_prefix_takes_priority_when_empty(self):
+        # stage.md の prefix を最優先。slug と異なる PREFIX（AGP）が空プロジェクトでも確定する
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._project(tmp, "agent-platform",
+                                 {"wiki/stage.md": "current-stage: CPF\nprefix: AGP\n"})
+            self.assertEqual(proj.prefix, "AGP")
+
+    def test_record_derivation_still_works(self):
+        # prefix 未記入の既存プロジェクトはレコードIDの先頭トークンから導出（後方互換）
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._project(tmp, "agent-platform",
+                                 {"wiki/hypotheses/AGP-H-001.md": hyp(id="AGP-H-001")})
+            self.assertEqual(proj.prefix, "AGP")
+
+    def test_stage_md_prefix_overrides_records(self):
+        # stage.md の prefix はレコード導出より優先（明示 > 推測）
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._project(tmp, "agent-platform",
+                                 {"wiki/stage.md": "current-stage: CPF\nprefix: AGP\n",
+                                  "wiki/hypotheses/OLD-H-001.md": hyp(id="OLD-H-001")})
+            self.assertEqual(proj.prefix, "AGP")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 ```yaml
 current-stage: CPF
+prefix: <PREFIX>
 updated: YYYY-MM-DD
 ```
 
@@ -9,6 +10,9 @@ updated: YYYY-MM-DD
 
 <!-- 現在ステージの正本は「最新の stage-transition 意思決定(DEC)の to-stage」。まだ移行の DEC が無い
      プロジェクトはこの current-stage をフォールバックとして使う（`/deciding` がステージ移行時に DEC を作る）。 -->
+<!-- prefix はこのプロジェクトのレコードID接頭辞（英数字1トークン・ハイフン不可。例 ACME）。
+     `/new-project` が決めた PREFIX を記入する。ツール（records.Project.prefix）はこれを最優先で読むので、
+     レコードが1件も無い空プロジェクト期でも PREFIX が確定する（slug と異なる PREFIX も安全）。 -->
 
 
 このステージの中心の問い・重点仮説タイプ・検証手法・移行基準は [playbooks/cpf.md](../../../playbooks/cpf.md) を参照。
