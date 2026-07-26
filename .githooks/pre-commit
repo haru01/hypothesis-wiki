@@ -22,7 +22,7 @@ if git diff --cached -U0 --diff-filter=M -- 'projects/*/wiki/log.md' | grep -qE 
 fi
 
 # 5) sources/ は不変層（既存ファイルの中身の書き換えを禁止）。--diff-filter=M で「改変」だけを見る。
-#    新規追加（/ingest の初回配置）と、削除（誤配置の除去・案件まるごと廃止）は許可。
+#    新規追加（/learning の初回配置）と、削除（誤配置の除去・案件まるごと廃止）は許可。
 #    不変性の要は「観測した生データを後から書き換えない」こと。削除は git 上で可視なので許容する。
 if git diff --cached --name-only --diff-filter=M -- 'projects/*/sources/*' | grep -q .; then
   echo "[error] sources-immutable | projects/*/sources/ の既存ファイルが書き換えられている（不変層）" >&2

@@ -6,7 +6,7 @@
 
 ## Claude Code 以外での使い方
 
-- `.claude/skills/` のスキル（`/formulate` `/plan` `/ingest` …）は Claude Code 用の入口にすぎない。
+- `.claude/skills/` のスキル（`/formulating` `/planning` `/learning` …）は Claude Code 用の入口にすぎない。
   各スキルの実体はただの Markdown 手順書なので、**スキル機構がないエージェントは
   `.claude/skills/<name>/SKILL.md` を読み、その手順に従って作業する**（対応表は CLAUDE.md「ワークフロー」）。
 - 変更後は必ず決定論 lint を実行し、error を残さない:

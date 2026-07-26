@@ -17,7 +17,7 @@ projects/
 │       ├── tests/<PREFIX>-TEST-NNN.md（＋ <PREFIX>-TEST-NNN-script.md）  # 実験計画を立てた（テストカード）
 │       ├── learnings/<PREFIX>-LEARN-NNN.md       # 実施して学びを得た（学習カード）
 │       ├── decisions/<PREFIX>-DEC-NNN.md         # 意思決定した
-│       ├── prototypes/<PREFIX>-TEST-NNN/index.html  # /prototype の生成物
+│       ├── prototypes/<PREFIX>-TEST-NNN/index.html  # /building の生成物
 │       ├── views/        # 生成物（board/list/relations）
 │       ├── index.md（生成物） ├── log.md └── stage.md
 └── ...

@@ -96,7 +96,7 @@ def build() -> str:
             L.append(f"- **{s['name']}** — {s['from']}")
         L += ["",
               f"**記入順 vs 検証順**: 記入は上表の順（網羅のため）。検証は `{ontology.LEAN_CANVAS_VALIDATION_ORDER}`"
-              "（左→右で埋めず、最もリスキーな前提から。TEST の riskiest-assumption・`/plan` の重要度×証拠マップで決める）。",
+              "（左→右で埋めず、最もリスキーな前提から。TEST の riskiest-assumption・`/planning` の重要度×証拠マップで決める）。",
               ""]
         if ontology.LEAN_CANVAS_STAGE_LENS:
             label_of = {b["key"]: b["label"] for b in ontology.LEAN_CANVAS_BLOCKS}

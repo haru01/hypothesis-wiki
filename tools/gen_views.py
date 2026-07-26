@@ -607,7 +607,7 @@ def gen_relations(project):
 def gen_index(project) -> str:
     """wiki/index.md ＝ 全仮説の現在の確信度・ステータス一覧（レコードからの射影）。
 
-    従来 /ingest が手編集していた index を生成物にする（update より create／再生成の思想）。
+    従来 /learning が手編集していた index を生成物にする（update より create／再生成の思想）。
     確信度・ステータスはレコード frontmatter（＝確信度履歴の最新行と一致）から射影する。"""
     stage = read_stage(project)
     today = datetime.date.today().isoformat()

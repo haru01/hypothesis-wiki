@@ -239,7 +239,7 @@ lean-canvas:
     - {name: 空白,     from: 対応roleのHが1件も無い（＝未着手の盲点）}
 
   # 検証の優先順は記入順(sketch-order)と別。本家: 左→右で埋めず、最もリスキー（重要×証拠なし）な前提から検証する。
-  # 具体の優先度は TEST frontmatter の riskiest-assumption と /plan の重要度×証拠マップで決める。
+  # 具体の優先度は TEST frontmatter の riskiest-assumption と /planning の重要度×証拠マップで決める。
   validation-order: riskiest-first
 
   # ブロックの意味はステージで変わる（本家の3段階: 課題解決フィット→PMF→スケール）。
