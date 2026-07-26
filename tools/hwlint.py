@@ -24,8 +24,9 @@ from ontology import (  # noqa: E402
 from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
-    importance, current_slug, Project,
+    importance, Project,
 )
+from project import resolve_current_project  # noqa: E402
 
 
 @dataclass
@@ -507,7 +508,7 @@ def resolve_targets(repo: Path, args) -> list:
     projects_dir = repo / "projects"
     if args.all:
         return [d for d in sorted(projects_dir.iterdir()) if (d / "wiki").is_dir()]
-    slug = args.project or current_slug(repo)   # プロジェクト解決は records.current_slug に一元化
+    slug = resolve_current_project(repo, args.project)   # プロジェクト解決は project.py に一元化
     if not slug or not (projects_dir / slug / "wiki").is_dir():
         sys.exit(f"プロジェクトが見つからない: {slug!r}")
     return [projects_dir / slug]
@@ -515,7 +516,7 @@ def resolve_targets(repo: Path, args) -> list:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="仮説検証Wiki の決定論的 lint")
-    ap.add_argument("--project", help="対象プロジェクト slug（省略時は projects/current.md の current-project）")
+    ap.add_argument("--project", help="対象プロジェクト slug（省略時は .env の CURRENT_PROJECT → self）")
     ap.add_argument("--all", action="store_true", help="全プロジェクトを対象にする")
     ap.add_argument("--repo", default=".", help="リポジトリルート")
     args = ap.parse_args()

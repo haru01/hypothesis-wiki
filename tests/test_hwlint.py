@@ -10,6 +10,7 @@ sys.path.insert(0, str(TOOLS))
 import hwlint  # noqa: E402
 import ontology  # noqa: E402
 import records  # noqa: E402
+import project  # noqa: E402
 
 
 def with_fm(record: str, line: str) -> str:
@@ -453,9 +454,39 @@ class GuardSourcesTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
 
 
+class ResolveProjectTest(unittest.TestCase):
+    """現在プロジェクトの解決順: override(--project) → .env の CURRENT_PROJECT → self。"""
+
+    def test_default_self_when_no_env(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(project.resolve_current_project(Path(tmp)), "self")
+
+    def test_env_current_project_used(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp), ".env", "CURRENT_PROJECT=demo\n")
+            self.assertEqual(project.resolve_current_project(Path(tmp)), "demo")
+
+    def test_override_beats_env(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp), ".env", "CURRENT_PROJECT=demo\n")
+            self.assertEqual(project.resolve_current_project(Path(tmp), "other"), "other")
+
+    def test_env_parsing_ignores_comments_and_quotes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp), ".env",
+                  "# コメント\n\nexport CURRENT_PROJECT = \"demo\"  \nOTHER=x\n")
+            self.assertEqual(project.resolve_current_project(Path(tmp)), "demo")
+
+    def test_empty_env_falls_back_to_self(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp), ".env", "# 選択なし\nOTHER=x\n")
+            self.assertEqual(project.resolve_current_project(Path(tmp)), "self")
+
+
 class StopLintTest(unittest.TestCase):
     def _repo(self, tmp, record):
-        write(Path(tmp), "projects/current.md", "current-project: demo\n")
+        write(Path(tmp), "ontology.yaml", "")  # フックのリポ判定センチネル（検証は実リポの正本を使う）
+        write(Path(tmp), ".env", "CURRENT_PROJECT=demo\n")
         make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": record})
         return Path(tmp)
 

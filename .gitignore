@@ -9,3 +9,6 @@ Thumbs.db
 # Python（決定論lint tools/ のキャッシュ）
 __pycache__/
 *.pyc
+
+# 現在アクティブなプロジェクトの選択（各自ローカル・共有しない）。書式は .env.example
+.env

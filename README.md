@@ -92,7 +92,7 @@ Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい�
 
 典型的な流れ:
 
-0. `projects/current.md` で対象案件を確認（新規なら次の手順で作る）。
+0. `.env` の `CURRENT_PROJECT`（未設定なら `self`）で対象案件を確認（新規なら次の手順で作る）。
 1. **`/new-project`** — 案件を `projects/<slug>/` に作り、接頭辞（例 `ACME`）と現在案件を設定する。
 2. **`/desk-research`**（任意・初期リサーチ） — 対象ドメインと競合を実Web検索で調べ、想定ユーザの状況・行動仮説と課題仮説を出典付きで起票する（確信度3-4）。相場観を掴んでから `/formulate` に入りたいときに。
 3. **`/formulate`** — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする。タイプ・初期確信度・ステータスを付けて起票。
@@ -176,7 +176,6 @@ hypothesis-wiki/
 │   ├── competitive-analysis.md      # 競合調査メモ
 │   └── superpowers/{specs,plans}/   # 設計・計画ドキュメント
 └── projects/               # 案件単位の仮説検証（各案件が sources と wiki を持つ）
-    ├── current.md          # 現在アクティブな案件（slug）を指すポインタ
     └── <slug>/             # 例: self（このツール自体のドッグフーディング。接頭辞 SELF）
         ├── sources/        # 生データ（読み取り専用）
         └── wiki/
@@ -208,13 +207,13 @@ hypothesis-wiki/
 ## 新しいプロジェクト（案件）の追加
 
 同じリポジトリ内に案件を並べられる。**`/new-project` スキル**が `templates/project/` の雛形から
-`projects/<slug>/`（`sources/` と空の `wiki/` 一式）を作り、`projects/current.md` を切り替えるところまで行う。
+`projects/<slug>/`（`sources/` と空の `wiki/` 一式）を作り、`.env` の `CURRENT_PROJECT` を切り替えるところまで行う。
 
 手動で作る場合の要点（詳細は [projects/README.md](projects/README.md)）:
 
 1. `templates/project/` を `projects/<slug>/` にコピーする。
 2. `wiki/stage.md` の日付プレースホルダを埋める。
-3. 大文字の接頭辞（他案件と重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
+3. 大文字の接頭辞（他案件のレコードID接頭辞と重複しない。既定は `slug` の大文字）を決め、`.env` に `CURRENT_PROJECT=<slug>` を書いて切り替える（無ければ `cp .env.example .env`）。
 4. `ontology.yaml`・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` は全案件共有なのでそのまま使う。
 
 リポジトリごと別案件へ複製したい場合は、`projects/` 以下を空にして上記で案件を新規作成すればよい。

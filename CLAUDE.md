@@ -7,8 +7,8 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 仮説検証は**案件（プロジェクト）単位**で分ける。各プロジェクトは `projects/<slug>/` 配下に
 自分の `sources/`（生データ）と `wiki/`（生成・保守層）を持つ。スキーマ層はリポジトリ全体で共有する。
-現在アクティブなプロジェクトは `projects/current.md` の `current-project: <slug>` が持つ。
-スキルはまず `projects/current.md` を読み、`projects/<slug>/` 配下を対象に動く（詳細は `projects/README.md`）。
+現在アクティブなプロジェクトは各自ローカルの `.env` の `CURRENT_PROJECT=<slug>`（未設定なら `self`）が指す
+（`.env` は gitignore・書式はリポ直下の `.env.example`）。スキルはまずこの `.env` を読み、`projects/<slug>/` 配下を対象に動く（詳細は `projects/README.md`）。
 
 以下このスキーマで `sources/` `wiki/` と書くときは、断りがなければ**現在のプロジェクトの
 `projects/<slug>/sources/`・`projects/<slug>/wiki/`** を指す。
@@ -41,7 +41,7 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 `.claude/skills/` の各スキルは、冒頭でこの節を参照し**そのスキル固有の手順だけ**を書く（下記の規約を各スキルにコピーしない＝二重管理・ドリフト防止）。
 
-1. **プロジェクト解決** — まず `projects/current.md` の `current-project: <slug>` を読み、「プロジェクト一覧」表で接頭辞（PREFIX）を確定する。以降 `sources/` `wiki/` は `projects/<slug>/` 配下を指す。`/lint` とビュー生成（`tools/gen_views.py`）は現在プロジェクトのみを対象にする。ステージが要るスキルは `wiki/stage.md` と対応する `playbooks/<stage>.md` も読む。
+1. **プロジェクト解決** — まず `.env` の `CURRENT_PROJECT=<slug>`（未設定・`.env` 無しなら `self`）を読み、接頭辞（PREFIX）は当該プロジェクトの既存レコードID（無ければ `slug` の大文字）から導出する。解決は `tools/project.py` の `resolve_current_project` が正本（`--project` で上書き可）。以降 `sources/` `wiki/` は `projects/<slug>/` 配下を指す。`/lint` とビュー生成（`tools/gen_views.py`）は現在プロジェクトのみを対象にする。ステージが要るスキルは `wiki/stage.md` と対応する `playbooks/<stage>.md` も読む。
 2. **ID・接頭辞** — ID＝ファイル名＝frontmatter `id` を三者一致させ、すべてプロジェクト接頭辞つき（例 `SELF-H-001`）。採番は種別×プロジェクトごとの既存最大+1。再利用禁止（取り下げた番号は欠番として残す）。
 3. **リンク記法** — 接頭辞つきノート間の相互参照は**必ず本文に wikilink**（`[[SELF-H-001]]`。frontmatter 配列だけではObsidianグラフに辺が出ない）。schema層（`playbooks/`・`CLAUDE.md` 等の非ノート）は**相対mdリンク**で書く（wikilinkは解決せずリンク切れになる）。`../` の深さは**参照元ファイルの位置で変わる**:
 
