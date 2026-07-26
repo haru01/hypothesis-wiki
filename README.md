@@ -24,55 +24,6 @@
 Karpathy の「LLM Wiki」パターンを仮説検証ドメインに適用したもので、規約（[CLAUDE.md](CLAUDE.md)）に従う
 AIが「規律あるWikiの保守者」として運用する。
 
-### なぜこのキットか（競合の中での立ち位置）
-
-2ラウンドの競合調査（[docs/competitive-analysis.md](docs/competitive-analysis.md)）では、
-①プレーンテキスト/Git/Obsidian の LLM-wiki、②CPF→PMF のステージゲート、③証拠に強制紐づけされる
-単一の1〜10確信度——の三点を同時に満たす既存プロダクトは確認できなかった。
-
-- **単一の確信度が全記録の背骨** — Strategyzer は定性ティア（Valid/Invalid/Unknown）、GLIDR は確信度を露出しない。
-  「重要 × 確信度低」の仮説を機械的に選べるのは、一本の数直線があるからだ。
-- **証拠なしに確信度・ステータスを変えられない** — 競合ではテンプレ上の慣行に留まる紐づけを、
-  ここでは決定論 lint と git/Claude Code フック（テストカード事後書き換え検出・sources/ 書き込みガードを含む）が
-  機械的に強制する。
-- 3層アーキテクチャやテストカード自体は既存パターン（Karpathy / Strategyzer）の適用であり、発明ではない。
-  立ち位置は「組み合わせ」にある。
-
-> 注: 上記は競合の一次ページ/README にもとづく相対比較であり、効果の第三者検証はまだ無い。
-> 詳細な但し書きは競合分析メモ §4 を参照。
-
-## 仕組み（3層・5ステージ・確信度）
-
-**3層アーキテクチャ** — 生データ・生成物・規約を分けて管理する。
-
-| 層 | 場所 | 編集権 |
-|---|---|---|
-| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning`・`/desk-research` が生データを置く。AIは既存ファイルを改変しない（新規追加は可） |
-| The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新 |
-| The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
-
-**オントロジー（型・関係の正本）** — レコードの型（仮説 H／実験計画 TEST＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
-レコード間の型付きリンク（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`learns-from`／`based-on` の6関係）、
-検証の状態機械（ステージ・ステータス・確信度・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
-人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）。
-lint やビュー生成ツールは `tools/ontology.py` 経由でここを読むため、語彙をコードや規約に再定義しない（二重管理・ドリフト防止）。
-
-**5ステージ** — 顧客と課題から市場まで、段階的に確信度を上げる。詳細は `playbooks/<stage>.md`。
-
-| ステージ | 正式名称 | 問うこと |
-|---|---|---|
-| CPF | Customer Problem Fit | 顧客と課題は実在するか |
-| FPF | Founder Problem Fit | 自分たちが取り組む理由があるか |
-| PSF | Problem Solution Fit | 解決策は課題の芯を捉えるか |
-| SPF | Solution Product Fit | 繰り返し使うプロダクトになるか |
-| PMF | Product Market Fit | 市場が引き寄せるか |
-
-**確信度は2軸で別管理** — 確信度（1〜10、証拠の強さ）とステータス（未検証 → 検証中 → 検証済み ／ 反証）。
-確信度・ステータスの変更は**必ず学び（LEARN）か意思決定（DEC）に紐づける**（勘で書き換えない）。確信度履歴テーブルが追記専用の正本で、frontmatter はその同期キャッシュ。
-
-**案件（プロジェクト）単位** — 仮説検証は `projects/<slug>/` 単位で分け、各案件が自分の `sources/` と `wiki/` を持つ。
-スキーマ層は全案件で共有。規約の詳細は [CLAUDE.md](CLAUDE.md)、案件分割の考え方は [projects/README.md](projects/README.md) を参照。
-
 ## クイックスタート（チュートリアル）
 
 Claude Code でこのリポジトリを開き、スキルを呼ぶ。核は下の**反復ループ（1スプリント）を回し続けること**——
@@ -239,19 +190,37 @@ hypothesis-wiki/
 - frontmatter は Dataview の動的テーブル（確信度一覧など）にもそのまま使える。
 - `.obsidian/` は `.gitignore` 済み。
 
-## 新しいプロジェクト（案件）の追加
+## 仕組み（3層・5ステージ・確信度）
 
-同じリポジトリ内に案件を並べられる。**`/new-project` スキル**が `templates/project/` の雛形から
-`projects/<slug>/`（`sources/` と空の `wiki/` 一式）を作り、`.env` の `CURRENT_PROJECT` を切り替えるところまで行う。
+**3層アーキテクチャ** — 生データ・生成物・規約を分けて管理する。
 
-手動で作る場合の要点（詳細は [projects/README.md](projects/README.md)）:
+| 層 | 場所 | 編集権 |
+|---|---|---|
+| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning`・`/desk-research` が生データを置く。AIは既存ファイルを改変しない（新規追加は可） |
+| The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新 |
+| The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
 
-1. `templates/project/` を `projects/<slug>/` にコピーする。
-2. `wiki/stage.md` の日付プレースホルダを埋める。
-3. 大文字の接頭辞（他案件のレコードID接頭辞と重複しない。既定は `slug` の大文字）を決め、`.env` に `CURRENT_PROJECT=<slug>` を書いて切り替える（無ければ `cp .env.example .env`）。
-4. `ontology.yaml`・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` は全案件共有なのでそのまま使う。
+**オントロジー（型・関係の正本）** — レコードの型（仮説 H／実験計画 TEST＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
+レコード間の型付きリンク（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`learns-from`／`based-on` の6関係）、
+検証の状態機械（ステージ・ステータス・確信度・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
+人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）。
+lint やビュー生成ツールは `tools/ontology.py` 経由でここを読むため、語彙をコードや規約に再定義しない（二重管理・ドリフト防止）。
 
-リポジトリごと別案件へ複製したい場合は、`projects/` 以下を空にして上記で案件を新規作成すればよい。
+**5ステージ** — 顧客と課題から市場まで、段階的に確信度を上げる。詳細は `playbooks/<stage>.md`。
+
+| ステージ | 正式名称 | 問うこと |
+|---|---|---|
+| CPF | Customer Problem Fit | 顧客と課題は実在するか |
+| FPF | Founder Problem Fit | 自分たちが取り組む理由があるか |
+| PSF | Problem Solution Fit | 解決策は課題の芯を捉えるか |
+| SPF | Solution Product Fit | 繰り返し使うプロダクトになるか |
+| PMF | Product Market Fit | 市場が引き寄せるか |
+
+**確信度は2軸で別管理** — 確信度（1〜10、証拠の強さ）とステータス（未検証 → 検証中 → 検証済み ／ 反証）。
+確信度・ステータスの変更は**必ず学び（LEARN）か意思決定（DEC）に紐づける**（勘で書き換えない）。確信度履歴テーブルが追記専用の正本で、frontmatter はその同期キャッシュ。
+
+**案件（プロジェクト）単位** — 仮説検証は `projects/<slug>/` 単位で分け、各案件が自分の `sources/` と `wiki/` を持つ。
+スキーマ層は全案件で共有。規約の詳細は [CLAUDE.md](CLAUDE.md)、案件分割の考え方は [projects/README.md](projects/README.md) を参照。
 
 ## 記述言語
 
