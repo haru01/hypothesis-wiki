@@ -119,15 +119,6 @@ def importance(fm, stage) -> int:
     return IMPORTANCE_FOCUS if fm.get("type") in STAGE_FOCUS.get(stage, set()) else IMPORTANCE_OTHER
 
 
-def current_slug(repo: Path):
-    """projects/current.md の current-project を返す（無ければ None）。プロジェクト解決の共有ヘルパ。"""
-    cur = repo / "projects" / "current.md"
-    if not cur.exists():
-        return None
-    m = re.search(r"current-project:\s*(\S+)", cur.read_text(encoding="utf-8"))
-    return m.group(1) if m else None
-
-
 class Project:
     def __init__(self, root: Path):
         self.root = root

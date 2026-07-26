@@ -13,7 +13,7 @@ def main() -> int:
     if data.get("stop_hook_active"):
         return 0  # このフック起因の続行中は素通し（無限ループ防止）
     repo = Path.cwd()
-    if not (repo / "projects" / "current.md").exists():
+    if not (repo / "ontology.yaml").exists():
         return 0  # 仮説検証Wiki のリポジトリでなければ何もしない
     hwlint = Path(__file__).resolve().parent.parent / "hwlint.py"
     result = subprocess.run(

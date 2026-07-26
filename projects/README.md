@@ -4,9 +4,12 @@
 Wiki（`wiki/`）を1フォルダに持つ。スキーマ層（`ontology.yaml`・`CLAUDE.md`・`AGENTS.md`・
 `playbooks/`・`templates/`・`.claude/skills/`）はリポジトリ全体で共有する。
 
+現在アクティブなプロジェクトは各自ローカルの `.env` の `CURRENT_PROJECT=<slug>`（未設定なら `self`）が指す
+（`.env` は gitignore・書式はリポ直下の `.env.example`）。プロジェクト一覧ファイルは持たない——slug はこの
+ディレクトリ名、接頭辞（PREFIX）は各プロジェクトの既存レコードID（無ければ `slug` の大文字）から導出する。
+
 ```
 projects/
-├── current.md            # 現在アクティブなプロジェクト（slug）を指すポインタ
 ├── <slug>/
 │   ├── sources/          # このプロジェクトの生データ（不変層・AIは読むだけ）
 │   └── wiki/
@@ -29,14 +32,16 @@ projects/
 ## 新しいプロジェクトの作り方
 
 **推奨: `/new-project` スキル**を使う。`templates/project/` の雛形から `projects/<slug>/`
-（`sources/` と空の `wiki/` 一式）を作り、`projects/current.md` を切り替えるところまで行う。
+（`sources/` と空の `wiki/` 一式）を作り、`.env` の `CURRENT_PROJECT` を切り替えるところまで行う。
 
 手動で作る場合:
 
 1. `templates/project/` を `projects/<slug>/` にコピーする（`cp -r templates/project/. projects/<slug>/`）。`sources/`（README付き）と `wiki/{hypotheses,tests,learnings,decisions,views}`＋`index.md`（生成物の雛形）・`log.md`・`stage.md` が揃う。
 2. `wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。
-3. 接頭辞（大文字・他プロジェクトと重複しない）を決め、`projects/current.md` の一覧に追記して `current-project` を切り替える。
+3. 接頭辞（大文字・他プロジェクトのレコードID接頭辞と重複しない。既定は `slug` の大文字）を決める。切り替えは `.env` に `CURRENT_PROJECT=<slug>` を書く（無ければ `cp .env.example .env` して作成）。
 
 ## 現在のプロジェクト
 
+- 切り替えは `.env` の `CURRENT_PROJECT`（未設定なら `self`）。
 - **self**（接頭辞 `SELF`）: このツール自体のドッグフーディング実例。詳細は `projects/self/wiki/`。
+- **ai-reskilling**（接頭辞 `AIRE`）: AI時代のリスキリングを題材にした `/desk-research` のテスト検証。

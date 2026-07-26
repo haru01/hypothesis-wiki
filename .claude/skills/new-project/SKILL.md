@@ -11,7 +11,7 @@ description: 新しい仮説検証プロジェクト（案件）を projects/<sl
 
 1. **slug と接頭辞を決める** — ユーザーに確認する（`AskUserQuestion` 可）:
    - `<slug>`: ディレクトリ名（小文字・ハイフン。例 `acme-app`）。既存の `projects/` と重複しないこと。
-   - `<PREFIX>`: ID接頭辞（大文字。例 `ACME`）。他プロジェクトと重複しないこと（Obsidianのリンク一意性のため）。`projects/current.md` の一覧と照合する。
+   - `<PREFIX>`: ID接頭辞（大文字。例 `ACME`。既定は `slug` の大文字）。他プロジェクトのレコードID接頭辞と重複しないこと（Obsidianのリンク一意性のため）。既存の `projects/*/wiki/` のレコードIDと照合する。
 
 2. **雛形をコピーする** — `templates/project/` の中身を `projects/<slug>/` に複製する:
    `cp -r templates/project/. projects/<slug>/`
@@ -19,9 +19,7 @@ description: 新しい仮説検証プロジェクト（案件）を projects/<sl
 
 3. **雛形のプレースホルダを埋める** — `projects/<slug>/wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。`index.md` は生成物（レコードからの射影）なので手で埋めない（最初のレコードができると Stop フックが再生成する）。
 
-4. **現在のプロジェクトに登録する** — `projects/current.md` を更新:
-   - `current-project: <slug>` に切り替える。
-   - 「プロジェクト一覧」テーブルに `| <slug> | <PREFIX> | <説明> |` を1行追加する。
+4. **現在のプロジェクトに切り替える** — `.env` の `CURRENT_PROJECT=<slug>` を書く（`.env` が無ければ `cp .env.example .env` してから編集）。`.env` は各自ローカル（gitignore）なので、切り替えはコミットに乗らない。
 
 5. **確認して終了** — 作成したパスと、以後 `/formulate` などが `projects/<slug>/` を対象に動くことを伝える。最初の仮説起票は `/formulate` へ誘導する。
 

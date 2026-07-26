@@ -23,8 +23,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from records import (  # noqa: E402
     Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
-    testcard, current_slug,
+    testcard,
 )
+from project import resolve_current_project  # noqa: E402
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
@@ -644,14 +645,14 @@ VIEWS = {
 
 
 def resolve_slug(repo: Path, project):
-    # プロジェクト解決は records.current_slug に一元化（hwlint とも共有）。
-    return project or current_slug(repo)
+    # プロジェクト解決は project.py に一元化（hwlint とも共有）。
+    return resolve_current_project(repo, project)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="仮説検証Wiki のビュー機械生成（board / list / relations / index）")
     ap.add_argument("view", choices=list(VIEWS))
-    ap.add_argument("--project", help="対象プロジェクト slug（省略時は projects/current.md）")
+    ap.add_argument("--project", help="対象プロジェクト slug（省略時は .env の CURRENT_PROJECT → self）")
     ap.add_argument("--repo", default=".", help="リポジトリルート")
     ap.add_argument("--out", help="出力先パス（省略時は wiki/<既定パス> に書き込む）")
     args = ap.parse_args()
