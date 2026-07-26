@@ -865,6 +865,13 @@ class OntologyDerivationTest(unittest.TestCase):
         self.assertLess(ontology.EVIDENCE_RANK["自認"], ontology.EVIDENCE_RANK["実コスト"])
         self.assertLess(ontology.EVIDENCE_RANK["実コスト"], ontology.EVIDENCE_RANK["支払い"])
 
+    def test_evidence_ladder_desc_covers_all_rungs(self):
+        # 階梯・補助タグの各段に説明が付いている（{name, desc} 化。空でない）。
+        for t in ontology.EVIDENCE_LADDER:
+            self.assertTrue(ontology.EVIDENCE_LADDER_DESC.get(t), f"{t} に説明が無い")
+        for t in ontology.EVIDENCE_AUX:
+            self.assertTrue(ontology.EVIDENCE_AUX_DESC.get(t), f"{t} に説明が無い")
+
     def test_fictional_markers_from_ontology(self):
         self.assertIn("架空", ontology.FICTIONAL_MARKERS)
         self.assertIn("シミュレーション", ontology.FICTIONAL_MARKERS)
@@ -887,6 +894,32 @@ class OntologyDerivationTest(unittest.TestCase):
                          ontology.IMPORTANCE_FOCUS)   # CPF の重点タイプ
         self.assertEqual(gen_views.importance({"type": "ソリューション仮説", "importance": "auto"}, "CPF"),
                          ontology.IMPORTANCE_OTHER)   # CPF では非重点
+
+
+class OntologyDocGenTest(unittest.TestCase):
+    """ontology.md 生成（gen_ontology_doc）の smoke と freshness（再生成し忘れ検出）。"""
+
+    def _build(self):
+        import gen_ontology_doc
+        return gen_ontology_doc.build()
+
+    def test_build_runs_and_contains_key_sections(self):
+        md = self._build()
+        # 帯・ステータス説明・証拠の階梯・整合ルールが描画されている。
+        self.assertIn("勘・思いつき", md)                 # 確信度の帯
+        self.assertIn("| 段 | 意味 |", md)                # 証拠の階梯（説明つき表）
+        self.assertIn("〈実コスト〉", md)
+        self.assertIn("hwlint.py` が warning", md)        # 整合ルール小節
+        # エンティティ・サブタイプ・ステータスの説明列/箇条書き。
+        self.assertIn("**各種別の役割**", md)
+        self.assertIn("起票直後の初期値", md)             # ステータス「未検証」の説明
+
+    def test_generated_doc_is_fresh(self):
+        # ontology.md がコミット済み内容と一致（ontology.yaml を変えたら再生成せよ）。
+        out = Path(__file__).resolve().parent.parent / "ontology.md"
+        self.assertEqual(
+            out.read_text(encoding="utf-8"), self._build(),
+            "ontology.md が古い。`python3 tools/gen_ontology_doc.py` で再生成してコミットせよ")
 
 
 class UntestedFocusTest(unittest.TestCase):
