@@ -77,8 +77,12 @@ def check_vocabulary(project) -> list:
         # DEC の to-stage（記入されていれば）は正規のステージ名。現在ステージ導出の正本なので誤記を弾く
         if "-DEC-" in stem and fm.get("to-stage") and fm.get("to-stage") not in STAGES:
             problems.append(Problem("error", stem, "vocab", f"to-stage '{fm.get('to-stage')}' は規約外"))
-        if ("-H-" in stem or "-TEST-" in stem or "-LEARN-" in stem) and fm.get("stage") not in STAGES:
-            problems.append(Problem("error", stem, "vocab", f"stage '{fm.get('stage')}' は規約外"))
+        if "-H-" in stem or "-TEST-" in stem or "-LEARN-" in stem:
+            st = fm.get("stage")
+            if st is None:
+                problems.append(Problem("error", stem, "vocab", "必須フィールド stage が未指定"))
+            elif st not in STAGES:
+                problems.append(Problem("error", stem, "vocab", f"stage '{st}' は規約外"))
     return problems
 
 

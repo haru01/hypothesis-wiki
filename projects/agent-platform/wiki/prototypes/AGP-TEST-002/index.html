@@ -1,0 +1,216 @@
+<!-- 生成物。/building で再生成。紐づく活動: AGP-TEST-002 / 仮説: AGP-H-003, AGP-H-004 / 生成日: 2026-07-26 -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentSpine（仮称） — 本番エージェントの「なぜ」を1本のトレースに</title>
+<style>
+  :root {
+    --fg:#111827; --bg:#ffffff; --soft:#f5f7fa; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb; --accent2:#7c3aed; --tag:#e0e7ff; --tag-fg:#3730a3;
+    --hi:#16a34a;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { scroll-behavior:smooth; }
+  body { font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; color:var(--fg); background:var(--bg); line-height:1.75; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 24px; }
+  a { color:inherit; text-decoration:none; }
+  .nav { position:sticky; top:0; z-index:20; background:rgba(255,255,255,.82); backdrop-filter:saturate(180%) blur(10px); border-bottom:1px solid var(--line); }
+  .nav .row { display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:18px; }
+  .nav .links { display:flex; gap:26px; color:var(--muted); font-size:14px; }
+  .nav .links a:hover { color:var(--fg); }
+  .btn { display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:#fff; border:0; padding:11px 20px; font-size:15px; font-weight:600; border-radius:10px; cursor:pointer; }
+  .btn.lg { padding:15px 30px; font-size:16px; }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
+  @media (max-width:720px){ .nav .links{ display:none; } }
+  .hero { padding:72px 0 64px; background:radial-gradient(1200px 400px at 80% -10%, #eef2ff 0%, transparent 60%); }
+  .hero .grid { display:grid; grid-template-columns:1.05fr .95fr; gap:48px; align-items:center; }
+  .eyebrow { display:inline-block; font-size:13px; font-weight:700; color:var(--accent); background:var(--tag); padding:5px 12px; border-radius:999px; margin-bottom:18px; }
+  .hero h1 { font-size:clamp(30px,4.6vw,52px); line-height:1.22; letter-spacing:-.01em; }
+  .hero p.sub { color:var(--muted); margin-top:20px; font-size:clamp(16px,2vw,19px); max-width:36ch; }
+  .hero .actions { margin-top:32px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .hero .note { margin-top:16px; font-size:13px; color:var(--muted); }
+  .hero .art { width:100%; height:auto; }
+  @media (max-width:820px){ .hero .grid{ grid-template-columns:1fr; gap:32px; } .hero p.sub{ max-width:none; } .hero .art{ max-width:460px; } }
+  .trust { border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--soft); }
+  .trust .row { display:flex; gap:32px; justify-content:space-between; flex-wrap:wrap; padding:22px 0; color:var(--muted); font-size:14px; }
+  .trust b { color:var(--fg); }
+  section.block { padding:80px 0; }
+  .center { text-align:center; }
+  h2.sec { font-size:clamp(24px,3.2vw,34px); letter-spacing:-.01em; }
+  .lead { color:var(--muted); margin-top:14px; font-size:17px; }
+  .kicker { color:var(--accent); font-weight:700; font-size:13px; letter-spacing:.08em; text-transform:uppercase; }
+  .pains { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:36px; }
+  .pain { background:var(--soft); border:1px solid var(--line); padding:20px 22px; border-radius:14px; display:flex; gap:14px; align-items:flex-start; }
+  .pain .ico { flex:0 0 auto; }
+  .tag { display:inline-block; font-size:11px; background:var(--tag); color:var(--tag-fg); padding:2px 9px; border-radius:999px; margin-left:8px; vertical-align:middle; font-weight:700; }
+  @media (max-width:720px){ .pains{ grid-template-columns:1fr; } }
+  .features { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:44px; }
+  .feature { border:1px solid var(--line); border-radius:16px; padding:28px 24px; background:var(--bg); }
+  .feature .fico { width:52px; height:52px; border-radius:13px; display:grid; place-items:center; background:linear-gradient(135deg,#eef2ff,#f5f3ff); margin-bottom:18px; }
+  .feature h3 { font-size:19px; margin-bottom:10px; }
+  .feature p { color:var(--muted); font-size:15px; }
+  @media (max-width:820px){ .features{ grid-template-columns:1fr; } }
+  .steps { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:44px; }
+  .step { padding:28px 24px; border:1px solid var(--line); border-radius:16px; background:var(--soft); }
+  .step .num { width:38px; height:38px; border-radius:50%; background:var(--accent); color:#fff; font-weight:800; display:grid; place-items:center; margin-bottom:16px; }
+  .step h3 { font-size:17px; margin-bottom:8px; }
+  .step p { color:var(--muted); font-size:14px; }
+  @media (max-width:820px){ .steps{ grid-template-columns:1fr; } }
+  .plans { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:44px; }
+  .plan { border:1px solid var(--line); border-radius:18px; padding:30px 26px; background:var(--bg); }
+  .plan.pop { border-color:var(--accent); box-shadow:0 12px 40px rgba(37,99,235,.14); position:relative; }
+  .plan.pop::before { content:"人気（仮）"; position:absolute; top:-12px; left:26px; background:var(--accent); color:#fff; font-size:12px; font-weight:700; padding:3px 12px; border-radius:999px; }
+  .plan h3 { font-size:18px; }
+  .price { font-size:34px; font-weight:800; margin:10px 0 4px; }
+  .price small { font-size:14px; font-weight:500; color:var(--muted); }
+  .plan ul { list-style:none; margin:18px 0 22px; }
+  .plan li { padding:7px 0 7px 26px; position:relative; font-size:14px; color:var(--muted); }
+  .plan li::before { content:"✓"; position:absolute; left:0; color:var(--hi); font-weight:800; }
+  @media (max-width:820px){ .plans{ grid-template-columns:1fr; } }
+  .cta-band { margin:0 24px 80px; border-radius:24px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; text-align:center; padding:64px 24px; }
+  .cta-band h2 { font-size:clamp(24px,3.4vw,34px); }
+  .cta-band p { opacity:.9; margin-top:12px; }
+  .cta-band .btn { background:#fff; color:var(--accent); margin-top:26px; }
+  footer { border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  footer .row { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:28px 0; }
+  .demo-note { text-align:center; font-size:12px; color:var(--muted); padding-bottom:28px; }
+  dialog { border:0; border-radius:16px; padding:32px; max-width:380px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  dialog::backdrop { background:rgba(15,17,21,.5); }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e5e7eb; --bg:#0f1115; --soft:#161a22; --muted:#9ca3af; --line:#262b36; --tag:#312e81; --tag-fg:#c7d2fe; }
+    .nav { background:rgba(15,17,21,.8); }
+    .hero { background:radial-gradient(1200px 400px at 80% -10%, #1a2140 0%, transparent 60%); }
+    .feature .fico { background:linear-gradient(135deg,#1e2440,#241a40); }
+  }
+</style>
+</head>
+<body>
+
+  <div class="nav">
+    <div class="wrap row">
+      <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="#2563eb"/><path d="M9 17.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        AgentSpine<span style="font-size:12px;color:var(--muted);font-weight:600;">（仮称）</span>
+      </div>
+      <nav class="links">
+        <a href="#pains">課題</a><a href="#features">解決</a><a href="#how">使い方</a><a href="#pricing">料金</a>
+      </nav>
+      <button class="btn" onclick="thx.showModal()">早期アクセスに申し込む</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="wrap grid">
+      <div>
+        <span class="eyebrow">AIエージェントを本番運用する基盤・プラットフォームチームへ</span>
+        <h1>本番エージェントの「なぜそう動いたか」を、1本のトレースに。</h1>
+        <p class="sub">複数チームが各自作ったエージェントの障害を、横断で追い、コネクタ保守を肩代わりする。PoCで止まったエージェントを、本番で動かし続けるための水平レイヤー。</p>
+        <div class="actions">
+          <button class="btn lg" onclick="thx.showModal()">早期アクセスに申し込む</button>
+          <a class="btn lg ghost" href="#how">使い方を見る</a>
+        </div>
+        <p class="note">＊これは価値提案の検証用プロトタイプです。実サービスではありません。</p>
+      </div>
+      <div>
+        <svg class="art" viewBox="0 0 480 360" role="img" aria-label="エージェントの因果トレース画面イメージ">
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef2ff"/><stop offset="1" stop-color="#faf5ff"/></linearGradient></defs>
+          <rect x="20" y="24" width="440" height="312" rx="20" fill="url(#g1)"/>
+          <rect x="52" y="56" width="376" height="248" rx="14" fill="#ffffff" stroke="#e5e7eb"/>
+          <circle cx="72" cy="78" r="4" fill="#dc2626"/><circle cx="86" cy="78" r="4" fill="#d97706"/><circle cx="100" cy="78" r="4" fill="#16a34a"/>
+          <text x="72" y="112" font-family="system-ui" font-size="13" font-weight="700" fill="#111827">因果トレース: 注文エージェント #4821</text>
+          <rect x="72" y="128" width="230" height="12" rx="6" fill="#eef1f5"/><rect x="330" y="124" width="78" height="20" rx="10" fill="#16a34a"/><text x="369" y="139" font-family="system-ui" font-size="11" fill="#fff" text-anchor="middle">plan ok</text>
+          <rect x="72" y="164" width="196" height="12" rx="6" fill="#eef1f5"/><rect x="330" y="160" width="78" height="20" rx="10" fill="#d97706"/><text x="369" y="175" font-family="system-ui" font-size="11" fill="#fff" text-anchor="middle">tool 遅延</text>
+          <rect x="72" y="200" width="150" height="12" rx="6" fill="#eef1f5"/><rect x="330" y="196" width="78" height="20" rx="10" fill="#dc2626"/><text x="369" y="211" font-family="system-ui" font-size="11" fill="#fff" text-anchor="middle">silent fail</text>
+          <rect x="72" y="242" width="336" height="44" rx="10" fill="#f5f7fa" stroke="#e5e7eb"/>
+          <text x="92" y="263" font-family="system-ui" font-size="12" fill="#374151">原因: コネクタ `crm.lookup` が空応答 → 後続で誤判断</text>
+          <text x="92" y="279" font-family="system-ui" font-size="11" fill="#6b7280">チェックポイントから再開 / ロールバック可</text>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="trust">
+    <div class="wrap row">
+      <span>✓ <b>全エージェント・ツール・モデル呼び出しを1本の因果トレースに</b></span><span>✓ <b>標準コネクタ層で連携保守を肩代わり</b></span><span>✓ <b>SDK 1行で導入</b></span>
+    </div>
+  </div>
+
+  <section class="block" id="pains">
+    <div class="wrap center">
+      <span class="kicker">Problem</span>
+      <h2 class="sec">PoCは動くのに、本番で止まる。</h2>
+      <p class="lead">＊以下は仮説段階の課題です（本プロトタイプ時点で未検証。一次インタビューで検証中）。</p>
+    </div>
+    <div class="wrap">
+      <div class="pains">
+        <div class="pain"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div>本番で「なぜエージェントがそう動いたか」を追えない。サイレントに失敗する。</div></div>
+        <div class="pain"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div>ツール毎にカスタムコネクタを実装・保守。各々が障害点になり累積で破綻する。</div></div>
+        <div class="pain"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><div>障害のたびに、断片的なログとトレースを手で突き合わせて原因を追う。</div></div>
+        <div class="pain"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><div>複数チームが各自エージェントを本番投入。横断で面倒を見る基盤チームに負荷が集まる。</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features" style="background:var(--soft);">
+    <div class="wrap center">
+      <span class="kicker">Solution</span>
+      <h2 class="sec">「作る」ではなく「本番で動かし続ける」ための水平レイヤー。</h2>
+      <p class="lead">＊解決像は仮説です。実装・効果は未検証（価値提案の反応を測るためのプロトタイプ）。</p>
+    </div>
+    <div class="wrap">
+      <div class="features">
+        <div class="feature"><div class="fico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></div><h3>統合因果トレース</h3><p>全エージェント・ツール呼び出し・モデル呼び出しを1本の因果トレースに。サイレント失敗も「どこで・なぜ」まで辿れる。</p></div>
+        <div class="feature"><div class="fico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 8v4M12 15h.01"/></svg></div><h3>標準コネクタ層</h3><p>ツール連携を標準化し、コネクタの実装・API変更追随・障害切り分けを肩代わり。掛け算の保守地獄をなくす。</p></div>
+        <div class="feature"><div class="fico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="#2563eb" stroke="none"/></svg></div><h3>本番ガードレール</h3><p>チェックポイント・ロールバック・失敗分類で、部分失敗から復帰。本番を止めずに直せる。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="how">
+    <div class="wrap center"><span class="kicker">How it works</span><h2 class="sec">3ステップで本番が見える</h2></div>
+    <div class="wrap">
+      <div class="steps">
+        <div class="step"><div class="num">1</div><h3>SDKを1行入れる</h3><p>既存のLangGraph/CrewAI等のエージェントに、SDKを1行ラップして組み込む。</p></div>
+        <div class="step"><div class="num">2</div><h3>トレースが自動で貯まる</h3><p>本番の全実行が因果トレース・評価・コスト付きで蓄積される。設定不要。</p></div>
+        <div class="step"><div class="num">3</div><h3>障害時に「なぜ」が出る</h3><p>失敗が起きた瞬間に原因の一点まで辿れ、チェックポイントから復帰できる。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="pricing">
+    <div class="wrap center"><span class="kicker">Pricing</span><h2 class="sec">シンプルな料金（デモ）</h2><p class="lead">＊金額はプロトタイプ検証用の仮の表示です。</p></div>
+    <div class="wrap">
+      <div class="plans">
+        <div class="plan"><h3>Starter（仮）</h3><div class="price">無料<small>/ 月</small></div><ul><li>1エージェント</li><li>7日間のトレース保持</li></ul><button class="btn ghost" style="width:100%;" onclick="thx.showModal()">早期アクセス</button></div>
+        <div class="plan pop"><h3>Team（仮）</h3><div class="price">¥XX,XXX<small>/ 月</small></div><ul><li>横断トレース（全チーム）</li><li>標準コネクタ層</li><li>本番ガードレール</li></ul><button class="btn" style="width:100%;" onclick="thx.showModal()">早期アクセスに申し込む</button></div>
+        <div class="plan"><h3>Enterprise（仮）</h3><div class="price">要相談</div><ul><li>セルフホスト</li><li>SLA・監査</li></ul><button class="btn ghost" style="width:100%;" onclick="thx.showModal()">相談する</button></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <h2>本番エージェントの「なぜ」を、見える化する。</h2>
+    <p>早期アクセスの募集に申し込む（検証用プロトタイプ）。</p>
+    <button class="btn lg" onclick="thx.showModal()">早期アクセスに申し込む</button>
+  </div>
+
+  <footer>
+    <div class="wrap row">
+      <div class="brand"><svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="#2563eb"/><path d="M9 17.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg> AgentSpine（仮称）</div>
+      <span>© 2026 AgentSpine（仮称・検証用プロトタイプ）</span>
+    </div>
+    <div class="demo-note">これは検証用プロトタイプであり、実サービス・実在の企業/利用者・確定した価格を表すものではありません。プロダクト名「AgentSpine」は仮称です。</div>
+  </footer>
+
+  <dialog id="thx">
+    <div style="font-size:40px;">🎉</div>
+    <p style="margin-top:8px;font-weight:700;">ありがとうございます！</p>
+    <p style="color:var(--muted);font-size:14px;margin-top:6px;">これは検証用モックです。実際の登録・課金は行われません。</p>
+    <button class="btn" style="margin-top:20px;" onclick="thx.close()">閉じる</button>
+  </dialog>
+
+</body>
+</html>

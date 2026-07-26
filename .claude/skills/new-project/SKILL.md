@@ -11,13 +11,13 @@ description: 新しい仮説検証プロジェクト（案件）を projects/<sl
 
 1. **slug と接頭辞を決める** — ユーザーに確認する（`AskUserQuestion` 可）:
    - `<slug>`: ディレクトリ名（小文字・ハイフン。例 `acme-app`）。既存の `projects/` と重複しないこと。
-   - `<PREFIX>`: ID接頭辞（大文字。例 `ACME`。既定は `slug` の大文字）。他プロジェクトのレコードID接頭辞と重複しないこと（Obsidianのリンク一意性のため）。既存の `projects/*/wiki/` のレコードIDと照合する。
+   - `<PREFIX>`: ID接頭辞（**英数字1トークン・ハイフン不可**の大文字。例 `ACME`）。既定は `slug` の英数字先頭トークンを大文字化（例 `acme-app` → `ACME`。`slug` 全体の大文字化ではない——レコードID `<PREFIX>-H-NNN` はハイフンを1つしか許さないため、`ACME-APP` のような多語接頭辞は無効になる）。ハイフン入り slug には別の単一トークン PREFIX を選ぶ。他プロジェクトのレコードID接頭辞と重複しないこと（Obsidianのリンク一意性のため）。既存の `projects/*/wiki/` のレコードIDと照合する。
 
 2. **雛形をコピーする** — `templates/project/` の中身を `projects/<slug>/` に複製する:
    `cp -r templates/project/. projects/<slug>/`
    これで `sources/`（README付き）と `wiki/`（`hypotheses/` `tests/` `learnings/` `decisions/`＝空・`.gitkeep`、`views/`＝README、`index.md`（生成物の雛形）・`log.md`・`stage.md`）が揃う。
 
-3. **雛形のプレースホルダを埋める** — `projects/<slug>/wiki/stage.md` の `updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。`index.md` は生成物（レコードからの射影）なので手で埋めない（最初のレコードができると Stop フックが再生成する）。
+3. **雛形のプレースホルダを埋める** — `projects/<slug>/wiki/stage.md` の `prefix: <PREFIX>` を手順1で決めた PREFIX にし、`updated:` とステージ履歴の `YYYY-MM-DD` を今日の日付にする。`prefix:` を書いておくと、レコードが1件も無い空プロジェクト期でもツールが PREFIX を確定でき、slug と異なる PREFIX でも一貫する。`index.md` は生成物（レコードからの射影）なので手で埋めない（最初のレコードができると Stop フックが再生成する）。
 
 4. **現在のプロジェクトに切り替える** — `.env` の `CURRENT_PROJECT=<slug>` を書く（`.env` が無ければ `cp .env.example .env` してから編集）。`.env` は各自ローカル（gitignore）なので、切り替えはコミットに乗らない。
 

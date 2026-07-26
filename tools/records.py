@@ -168,11 +168,19 @@ class Project:
 
     @cached_property
     def prefix(self) -> str:
+        # ① プロジェクトが明示した PREFIX を最優先（slug と異なる PREFIX・空プロジェクトに対応）
+        p = self.wiki / "stage.md"
+        if p.exists():
+            m = re.search(r"prefix:\s*([A-Z0-9]+)", p.read_text(encoding="utf-8"))
+            if m:
+                return m.group(1)
+        # ② 既存レコードIDの先頭トークン（後方互換: prefix 未記入の既存プロジェクト）
         for rid in self.records:
             m = re.match(r"^([A-Z0-9]+)-", rid)
             if m:
                 return m.group(1)
-        return self.slug.upper()
+        # ③ slug から単一トークンを正規化（ハイフン等の非英数を落とす。ID_RE と整合）
+        return re.split(r"[^A-Z0-9]+", self.slug.upper())[0]
 
     def hyp_records(self):
         """仮説レコードを (stem, fm, body, history) で列挙する。history はキャッシュ済み。"""
