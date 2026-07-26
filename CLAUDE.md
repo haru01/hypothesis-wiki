@@ -206,6 +206,23 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 
 ## ワークフロー（スキルとの対応）
 
+核は下の**反復ループ（1スプリント）を回し続けること**。更新でなく反復で前進する
+（レコードは追記専用の出来事ログ、状態はその射影＝下記「レコード種別とスキーマ」）。
+
+```mermaid
+flowchart LR
+    subgraph LOOP["反復ループ（1スプリント）"]
+        direction LR
+        F["Formulating<br/>/formulate"] --> P["Planning<br/>/plan"]
+        P --> B["Building<br/>/prototype"]
+        B --> L["Learning<br/>/ingest"]
+        L --> D["Deciding<br/>/decide"]
+        D -->|次の反復へ| F
+    end
+    R["/desk-research"] -.初期投入.-> F
+    C["/chabudai<br/>/lean-canvas<br/>/lint"] -.随時.-> LOOP
+```
+
 | やりたいこと | スキル |
 |---|---|
 | 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |

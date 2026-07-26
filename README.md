@@ -75,7 +75,25 @@ lint やビュー生成ツールは `tools/ontology.py` 経由でここを読む
 
 ## クイックスタート（チュートリアル）
 
-Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい案件を1本まわす流れはこうだ。
+Claude Code でこのリポジトリを開き、スキルを呼ぶ。核は下の**反復ループ（1スプリント）を回し続けること**——
+一度で終わる手続きではなく、**Formulating → Planning → Building → Learning → Deciding** を回して確信度を育てる
+（更新でなく反復で前進する）。
+
+```mermaid
+flowchart LR
+    subgraph LOOP["反復ループ（1スプリント）"]
+        direction LR
+        F["Formulating<br/>/formulate"] --> P["Planning<br/>/plan"]
+        P --> B["Building<br/>/prototype"]
+        B --> L["Learning<br/>/ingest"]
+        L --> D["Deciding<br/>/decide"]
+        D -->|次の反復へ| F
+    end
+    R["/desk-research"] -.初期投入.-> F
+    C["/chabudai<br/>/lean-canvas<br/>/lint"] -.随時.-> LOOP
+```
+
+新しい案件を1本まわす流れはこうだ。
 
 | やりたいこと | スキル |
 |---|---|
@@ -90,17 +108,34 @@ Claude Code でこのリポジトリを開き、スキルを呼ぶ。新しい�
 | 確信度に揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけ引き下げる | `/chabudai` |
 | Wiki の健全性をチェックする | `/lint` |
 
-典型的な流れ:
+典型的な流れ（**準備**したら、あとは **Formulating → Planning → Building → Learning → Deciding** の輪を回す）:
+
+**準備**
 
 0. `.env` の `CURRENT_PROJECT`（未設定なら `self`）で対象案件を確認（新規なら次の手順で作る）。
 1. **`/new-project`** — 案件を `projects/<slug>/` に作り、接頭辞（例 `ACME`）と現在案件を設定する。
 2. **`/desk-research`**（任意・初期リサーチ） — 対象ドメインと競合を実Web検索で調べ、想定ユーザの状況・行動仮説と課題仮説を出典付きで起票する（確信度3-4）。相場観を掴んでから `/formulate` に入りたいときに。
-3. **`/formulate`** — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする。タイプ・初期確信度・ステータスを付けて起票。
-4. **`/plan`** — 「重要 × 確信度低」の仮説を選び、検証前のテストカード（目的・方法・指標・成功基準）を持つ実験計画（`<PREFIX>-TEST-NNN`）を計画する。
-5. **`/prototype`** — 見せて反応を得たい仮説から、自己完結の HTML プロトタイプ（LP／2〜3画面モックアップ）を `wiki/prototypes/` に生成し、demo/interview の TEST に紐づける。
+
+**Formulating**（仮説を立てる）
+
+3. **`/formulate`** — アイデアを反証可能な仮説（`<PREFIX>-H-NNN`）にする。タイプ・初期確信度・ステータスを付けて起票。→ 次は Planning へ。
+
+**Planning**（実験を計画する）
+
+4. **`/plan`** — 「重要 × 確信度低」の仮説を選び、検証前のテストカード（目的・方法・指標・成功基準）を持つ実験計画（`<PREFIX>-TEST-NNN`）を計画する。→ 次は Building へ。
+
+**Building**（見せる物を作る）
+
+5. **`/prototype`** — 見せて反応を得たい仮説から、自己完結の HTML プロトタイプ（LP／2〜3画面モックアップ）を `wiki/prototypes/` に生成し、demo/interview の TEST に紐づける。→ 次は Learning へ。
+
+**Learning**（学びを取り込む）
+
 6. **検証を実施** — インタビュー録やデモ記録などの生データを `projects/<slug>/sources/` に置く（不変層。AIは読むだけ）。
-7. **`/ingest`** — 生データから学びレコード（LEARN＝学習カード: 事実・解釈・驚き）を新規作成し、確信度・ステータスの更新を承認フロー付きで反映する。
-8. **俯瞰と岐路** — `wiki/views/`（Stop フックが自動再生成）で現状を俯瞰、岐路で `/decide`（ステージ移行・ピボット・巻き戻し）、ときどき `/lint` で健全性チェック。高確信度の仮説が甘くないか疑いたいときは `/chabudai` で揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけて引き下げる。
+7. **`/ingest`** — 生データから学びレコード（LEARN＝学習カード: 事実・解釈・驚き）を新規作成し、確信度・ステータスの更新を承認フロー付きで反映する。→ 次は Deciding へ。
+
+**Deciding**（意思決定して次の反復へ）
+
+8. **俯瞰と岐路** — `wiki/views/`（Stop フックが自動再生成）で現状を俯瞰、岐路で `/decide`（ステージ移行・ピボット・巻き戻し）、ときどき `/lint` で健全性チェック。高確信度の仮説が甘くないか疑いたいときは `/chabudai` で揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけて引き下げる。→ そして**また Formulating へ戻り**、次の反復を回す。
 
 ## チャットで頼む・聞く（自然言語でOK）
 
