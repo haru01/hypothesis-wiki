@@ -198,7 +198,7 @@ hypothesis-wiki/
 ├── CLAUDE.md               # スキーマ層（規約・レコードスキーマ・ワークフロー）
 ├── AGENTS.md               # 非Claudeエージェント向けの入口（正典はCLAUDE.md）
 ├── README.md               # このファイル（目的・使い方）
-├── .claude/skills/         # AgentSkills 9つ（new-project/desk-research/formulating/planning/building/learning/deciding/chabudai/lint・共有）
+├── .claude/skills/         # AgentSkills 10（new-project/desk-research/formulating/planning/building/learning/deciding/chabudai/lean-canvas/lint・共有）
 ├── .claude/settings.json   # Claude Codeフック（sourcesガード・Stop時lint/view再生成・hooksPath自動設定）
 ├── .githooks/              # git pre-commitフック（有効化: git config core.hooksPath .githooks）
 ├── tools/                  # オントロジーローダ（ontology.py）・決定論lint（hwlint.py）・ビュー生成（gen_views.py）・ontology.md生成（gen_ontology_doc.py）・テストカード不変チェック・フック実体
