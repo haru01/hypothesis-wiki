@@ -40,7 +40,7 @@
   検証の過程で発見されるもの」だから。
 - **検証順（validation order）＝ `riskiest-first`**: 本家は明確に「**左→右・上→下で埋めない。確信度の低い＝
   最もリスキーな前提から検証する**」と言う。記入で全ブロックを俯瞰したら、次は**最重要×証拠なし**の前提を選び、
-  そこから壊しにいく。本リポジトリでは TEST frontmatter の `riskiest-assumption` と `/plan` の重要度×証拠マップで
+  そこから壊しにいく。本リポジトリでは TEST frontmatter の `riskiest-assumption` と `/planning` の重要度×証拠マップで
   優先度を決める（アサンプションマッピングの「重要×証拠なし」象限）。
 
 ## ブロックの意味はステージで変わる（stage-lens）

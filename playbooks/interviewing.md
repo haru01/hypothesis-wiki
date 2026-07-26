@@ -58,7 +58,7 @@
 3. 既存仮説の自発言及は「listen-for」として**質問せず記録のみ**（誘導との線引き）。
 4. 仮説外の発見は新規仮説候補として起票を検討する（確信度は一次証拠の階梯で判定）。
 
-## 記録（`/ingest` に効く）
+## 記録（`/learning` に効く）
 
 - **事実（発言）は原文引用**、**解釈（こちらの推測）と必ず分ける。**
 - 支持・反証・（発見型なら）仮説外の発見を、それぞれ**別枠**で残す。
@@ -69,5 +69,5 @@
 
 - 現場スクリプト雛形: [../templates/problem-interview-script.md](../templates/problem-interview-script.md)（CPF・課題）・[../templates/solution-interview-script.md](../templates/solution-interview-script.md)（PSF/SPF・ソリューション）・[../templates/demo-script.md](../templates/demo-script.md)（PSF・デモ）
 - 証拠の階梯・確信度規律: [../CLAUDE.md](../CLAUDE.md)
-- 計画（反証型/発見型の選択・ステージ別の雛形選択）: `/plan`（`.claude/skills/plan/SKILL.md`）／取り込み: `/ingest`
+- 計画（反証型/発見型の選択・ステージ別の雛形選択）: `/planning`（`.claude/skills/planning/SKILL.md`）／取り込み: `/learning`
 - ステージ別のインタビュー用途: [cpf.md](cpf.md)（問題インタビュー）・[psf.md](psf.md)（ソリューションインタビュー・デモ）

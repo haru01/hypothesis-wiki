@@ -89,7 +89,7 @@
 - **未検証** — 対応roleのHはあるがstatus=検証済みが無い
 - **空白** — 対応roleのHが1件も無い（＝未着手の盲点）
 
-**記入順 vs 検証順**: 記入は上表の順（網羅のため）。検証は `riskiest-first`（左→右で埋めず、最もリスキーな前提から。TEST の riskiest-assumption・`/plan` の重要度×証拠マップで決める）。
+**記入順 vs 検証順**: 記入は上表の順（網羅のため）。検証は `riskiest-first`（左→右で埋めず、最もリスキーな前提から。TEST の riskiest-assumption・`/planning` の重要度×証拠マップで決める）。
 
 **ブロックの意味はステージで変わる（stage-lens）**:
 

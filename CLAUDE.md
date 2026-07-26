@@ -17,7 +17,7 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 | 層 | 場所 | 編集権 |
 |---|---|---|
-| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/ingest` が生データを置く。AIは**既存ファイルを改変しない**（新規追加は可・既存の編集禁止） |
+| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning` が生データを置く。AIは**既存ファイルを改変しない**（新規追加は可・既存の編集禁止） |
 | The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新する |
 | The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`（他エージェント向け入口）・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更する（全プロジェクト共有） |
 
@@ -136,10 +136,10 @@ to-stage: CPF|FPF|PSF|SPF|PMF        # ステージを動かす判断（stage-tr
 
 ### プロトタイプ生成物 `projects/<slug>/wiki/prototypes/<PREFIX>-TEST-NNN/index.html`
 
-`/prototype` が仮説から生成する自己完結HTML（LP／2〜3画面モックアップ）。レコードではなく**生成物**で、
+`/building` が仮説から生成する自己完結HTML（LP／2〜3画面モックアップ）。レコードではなく**生成物**で、
 demo/interview の実験計画（TEST）に紐づく（TESTのテストカードから相対mdリンクで参照し、対象仮説の本文にも
 `[[<PREFIX>-TEST-NNN]]` を張る）。`views/` と同格に扱い、**手編集せず再生成で上書きする**。生成しても
-確信度・ステータスは動かさない（見せて反応を得たあとの学び作成（LEARN）・確信度更新は `/ingest` に委ねる）。
+確信度・ステータスは動かさない（見せて反応を得たあとの学び作成（LEARN）・確信度更新は `/learning` に委ねる）。
 
 ## 確信度とステータス（2軸・別管理）
 
@@ -170,7 +170,7 @@ demo/interview の実験計画（TEST）に紐づく（TESTのテストカード
 
 1. **確信度・ステータスの変更は必ず学び（LEARN）か意思決定（DEC）に紐づける**。根拠レコードなしに書き換えない
 2. 変更時は仮説レコードの確信度履歴テーブルに1行**追記**し（過去行は書き換えない。この表が正本、frontmatter `confidence`/`status` は最新行の同期キャッシュ）、`projects/<slug>/wiki/log.md` にも追記する
-3. `projects/<slug>/sources/` の既存ファイルは改変・削除しない（`/ingest` による新規生データの追加は可。一度置いた観測データは後から書き換えない）。`projects/<slug>/wiki/log.md` は追記のみ（過去行の編集禁止）
+3. `projects/<slug>/sources/` の既存ファイルは改変・削除しない（`/learning` による新規生データの追加は可。一度置いた観測データは後から書き換えない）。`projects/<slug>/wiki/log.md` は追記のみ（過去行の編集禁止）
 4. `projects/<slug>/wiki/views/`・`projects/<slug>/wiki/index.md`・`projects/<slug>/wiki/prototypes/` は生成物。記録の修正はレコード側で行い、生成物は再生成する（`index.md` はビュー `gen_views.py index`）
 5. ID採番は**種別×プロジェクトごと**に既存最大値+1で、プロジェクト接頭辞つき（例 `SELF-H-001`）。IDの再利用禁止（取り下げた番号は欠番として残す）
 6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。テストカード（TEST）の成功基準・riskiest-assumption は検証開始後に書き換えない（後知恵バイアス防止。学び LEARN が紐づいた TEST の変更は `check_testcard_immutable.py` が検出する）
@@ -213,10 +213,10 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 flowchart LR
     subgraph LOOP["反復ループ（1スプリント）"]
         direction LR
-        F["Formulating<br/>/formulate"] --> P["Planning<br/>/plan"]
-        P --> B["Building<br/>/prototype"]
-        B --> L["Learning<br/>/ingest"]
-        L --> D["Deciding<br/>/decide"]
+        F["Formulating<br/>/formulating"] --> P["Planning<br/>/planning"]
+        P --> B["Building<br/>/building"]
+        B --> L["Learning<br/>/learning"]
+        L --> D["Deciding<br/>/deciding"]
         D -->|次の反復へ| F
     end
     R["/desk-research"] -.初期投入.-> F
@@ -227,12 +227,12 @@ flowchart LR
 |---|---|
 | 新しいプロジェクト（案件）を雛形から作成する | `/new-project` |
 | 対象ドメイン・競合を実Web検索で調べ、想定ユーザの行動/課題仮説を起票し競合を比較する | `/desk-research` |
-| 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulate` |
-| 次に検証すべき仮説の抽出とテストカード立案 | `/plan` |
-| 検証用のHTMLプロトタイプ（LP／モックアップ）を仮説から生成しdemo/interviewのTESTに紐づける | `/prototype` |
-| インタビュー録・デモ記録の取り込みと学び(LEARN)作成・確信度更新 | `/ingest` |
+| 曖昧なアイデアを仮説レコードに精錬する（1問ずつ深掘り） | `/formulating` |
+| 次に検証すべき仮説の抽出とテストカード立案 | `/planning` |
+| 検証用のHTMLプロトタイプ（LP／モックアップ）を仮説から生成しdemo/interviewのTESTに紐づける | `/building` |
+| インタビュー録・デモ記録の取り込みと学び(LEARN)作成・確信度更新 | `/learning` |
 | 一覧／ボード／index のビュー生成 | Stop フックが自動生成（手動は `python3 tools/gen_views.py <view>`。view は board/list/relations/index） |
-| ステージ移行・ピボット・巻き戻しの意思決定 | `/decide` |
+| ステージ移行・ピボット・巻き戻しの意思決定 | `/deciding` |
 | Wikiの確信度に揺さぶり（ちゃぶ台返し）をかけ、バイアスを突いて根拠づけて引き下げ、新しい探索域を発見する | `/chabudai` |
 | リーンキャンバス9ブロックを1マスずつグリルで埋めさせ、証拠の階梯で検証済み/未検証を判定し（SVG図で描画）、空白・脆弱ブロックを次の検証の種にする | `/lean-canvas` |
 | Wikiの健全性チェック | `/lint` |

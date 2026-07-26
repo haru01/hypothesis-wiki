@@ -405,7 +405,7 @@ def check_untested_focus(project) -> list:
                 f"参照されていない（二重表現の破れ／検証実態の欠落の疑い）"))
         else:
             problems.append(Problem("warning", stem, "untested-focus",
-                "重点仮説だが検証活動(TEST)・学び(LEARN)が1本も紐づいていない（未着手。/plan で検証を計画する）"))
+                "重点仮説だが検証活動(TEST)・学び(LEARN)が1本も紐づいていない（未着手。/planning で検証を計画する）"))
     return problems
 
 
