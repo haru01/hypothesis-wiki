@@ -34,11 +34,20 @@ def build() -> str:
         L.append(f"| `{key}` | {ent['label']} | `wiki/{ent['dir']}/` | {subs} |")
     L.append("")
 
+    # 各種別の役割（description を持つものだけ箇条書き）
+    ent_descs = [(k, e) for k, e in o["entities"].items() if e.get("description")]
+    if ent_descs:
+        L += ["**各種別の役割**:", ""]
+        for key, ent in ent_descs:
+            L.append(f"- **`{key}`（{ent['label']}）** — {ent['description']}")
+        L.append("")
+
     # H の価値連鎖上の役割
     L += ["### 仮説（H）サブタイプの価値連鎖上の役割", "",
-          "| サブタイプ | 役割 | 価値連鎖ラベル |", "|---|---|---|"]
+          "| サブタイプ | 役割 | 価値連鎖ラベル | 説明 |", "|---|---|---|---|"]
     for s in o["entities"]["H"]["subtypes"]:
-        L.append(f"| {s['name']} | {s.get('role', '—')} | {s.get('chain-label', '—')} |")
+        L.append(f"| {s['name']} | {s.get('role', '—')} | {s.get('chain-label', '—')} | "
+                 f"{s.get('description', '—')} |")
     L.append("")
 
     # 関係
@@ -66,18 +75,53 @@ def build() -> str:
         L.append(f"| {st} | {ontology.STAGE_NAMES.get(st, '')} | {focus} |")
     L.append("")
 
-    L += ["### ステータス", "", "| ステータス | 記号 |", "|---|---|"]
+    status_desc = {s["name"]: s.get("description", "") for s in o["state-machines"]["statuses"]}
+    L += ["### ステータス", "", "| ステータス | 記号 | 説明 |", "|---|---|---|"]
     for name in ontology.STATUS_ORDER:
-        L.append(f"| {name} | {ontology.STATUS_EMOJI[name]} |")
-    L.append("")
+        L.append(f"| {name} | {ontology.STATUS_EMOJI[name]} | {status_desc.get(name) or '—'} |")
+    L += ["", "検証の進捗: `未検証` → `検証中` → `検証済み` ／ `反証`。", ""]
 
     L += ["### 確信度", "",
-          f"- 範囲: **{ontology.CONFIDENCE_MIN}–{ontology.CONFIDENCE_MAX}**（証拠の強さの目安）",
+          f"- 範囲: **{ontology.CONFIDENCE_MIN}–{ontology.CONFIDENCE_MAX}**（証拠の強さの目安）。"
+          "確信度（証拠の強さ）とステータス（検証の進捗）は別軸で管理する。",
           f"- 架空/シミュレーションデータ由来の確信度は上限 **{ontology.FICTIONAL_CAP}**"
-          f"（本文マーカー: {'・'.join(ontology.FICTIONAL_MARKERS)}）",
-          "- 証拠の階梯（弱→強）: " + " ＜ ".join(f"〈{t}〉" for t in ontology.EVIDENCE_LADDER),
-          "- 階梯外の補助タグ: " + "・".join(f"〈{t}〉" for t in ontology.EVIDENCE_AUX),
+          f"（本文マーカー: {'・'.join(ontology.FICTIONAL_MARKERS)}）。9-10 は実観測に限る。",
           ""]
+
+    # 確信度の帯
+    if ontology.CONFIDENCE_BANDS:
+        L += ["**確信度の帯**（証拠の強さの目安）:", "",
+              "| 確信度 | 目安 |", "|---|---|"]
+        for b in ontology.CONFIDENCE_BANDS:
+            L.append(f"| {b['range']} | {b.get('meaning', '')} |")
+        L.append("")
+
+    # 証拠の階梯（各段の説明つき）
+    L += ["**証拠の階梯**（弱→強。確信度を上げる根拠の強さの序列。本文の根拠セルには 〈…〉 で書く）:", "",
+          "| 段 | 意味 |", "|---|---|"]
+    for t in ontology.EVIDENCE_LADDER:
+        L.append(f"| 〈{t}〉 | {ontology.EVIDENCE_LADDER_DESC.get(t) or '—'} |")
+    for t in ontology.EVIDENCE_AUX:
+        L.append(f"| 〈{t}〉（補助） | {ontology.EVIDENCE_AUX_DESC.get(t) or '—'} |")
+    L.append("")
+
+    # 確信度×ステータスの整合ルール（linter が検出）
+    if ontology.STATUS_BOUNDS or ontology.EVIDENCE_FLOOR:
+        L += ["**確信度×ステータス／証拠の整合ルール**（`hwlint.py` が warning として検出）:", ""]
+        for status in ontology.STATUS_ORDER:
+            b = ontology.STATUS_BOUNDS.get(status)
+            if not b:
+                continue
+            parts = []
+            if "min" in b:
+                parts.append(f"確信度 ≥ {b['min']}")
+            if "max" in b:
+                parts.append(f"確信度 ≤ {b['max']}")
+            L.append(f"- ステータス **{status}** は {'・'.join(parts)} を期待（外れると矛盾）")
+        # EVIDENCE_FLOOR は (min_confidence, floor) の強い順。弱い順に見せる。
+        for min_conf, floor in sorted(ontology.EVIDENCE_FLOOR):
+            L.append(f"- 確信度 {min_conf} 以上は〈{floor}〉以上の証拠を要する（〈発言〉だけでは上げない）")
+        L.append("")
 
     # リーンキャンバス（仮説検証への写像）。/lean-canvas が使う。レコードでなくビュー。
     if ontology.LEAN_CANVAS_BLOCKS:
