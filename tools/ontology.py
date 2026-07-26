@@ -111,6 +111,8 @@ STATUS_EMOJI = {s["name"]: s["emoji"] for s in _STATUS_LIST}
 
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
+# 確信度の帯 [{range, meaning}, ...]（確信度スケールの目安。ontology.md 生成に使う）
+CONFIDENCE_BANDS = list(_SM["confidence"].get("bands", []))
 FICTIONAL_CAP = _SM["confidence"].get("fictional-cap", 8)
 FICTIONAL_MARKERS = tuple(_SM["confidence"].get("fictional-markers", ("架空", "シミュレーション")))
 # status → 確信度の許容域 {status: {"min"/"max": n}}（status↔confidence 矛盾検出に使う）
@@ -121,8 +123,22 @@ EVIDENCE_FLOOR = sorted(
     reverse=True)
 
 # 証拠の階梯（序列あり）＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
-EVIDENCE_LADDER = list(_SM["evidence-ladder"])
-EVIDENCE_AUX = list(_SM.get("evidence-aux", []))
+# YAML 要素は {name, desc} 辞書でも name のみの文字列でも読める（後方互換）。
+
+
+def _tag_name(x):
+    return x["name"] if isinstance(x, dict) else x
+
+
+def _tag_desc(x):
+    return x.get("desc", "") if isinstance(x, dict) else ""
+
+
+EVIDENCE_LADDER = [_tag_name(x) for x in _SM["evidence-ladder"]]
+EVIDENCE_AUX = [_tag_name(x) for x in _SM.get("evidence-aux", [])]
+# 証拠種別 → 説明（ontology.md 生成に使う。説明が無ければ空文字）。
+EVIDENCE_LADDER_DESC = {_tag_name(x): _tag_desc(x) for x in _SM["evidence-ladder"]}
+EVIDENCE_AUX_DESC = {_tag_name(x): _tag_desc(x) for x in _SM.get("evidence-aux", [])}
 # 階梯上の順位（0=最弱）。0件は補助タグ。確信度×証拠の整合チェック（hwlint）に使う。
 EVIDENCE_RANK = {name: i for i, name in enumerate(EVIDENCE_LADDER)}
 # 本文の根拠セルで許容される証拠種別タグ（山括弧つき。階梯＋補助）。
