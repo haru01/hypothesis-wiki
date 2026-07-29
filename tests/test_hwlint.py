@@ -59,14 +59,16 @@ importance: auto
 """
 
 
-def act(id="DEMO-TEST-001", type="interview", hypotheses="[DEMO-H-001]", body="対象仮説: [[DEMO-H-001]]"):
+def act(id="DEMO-TEST-001", type="interview", hypotheses="[DEMO-H-001]", body="対象仮説: [[DEMO-H-001]]",
+        date="2026-07-01", riskiest="対象者が課題を自認していること"):
     return f"""---
 id: {id}
 title: テスト活動
 type: {type}
-date: 2026-07-01
+date: {date}
 stage: CPF
 hypotheses: {hypotheses}
+riskiest-assumption: {riskiest}
 ---
 
 # テスト活動
@@ -151,6 +153,86 @@ class VocabularyTest(unittest.TestCase):
             })
             self.assertTrue(any(p.check == "vocab" and "XYZ" in p.message and "規約外" in p.message
                                 for p in hwlint.lint_project(root)))
+
+
+class FieldsSchemaTest(unittest.TestCase):
+    """スキーマ＝契約: ontology.yaml の fields 宣言に照らした frontmatter の検証（check_fields）。"""
+
+    def _fields(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "fields"]
+
+    def test_valid_records_have_no_field_problems(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(),
+            })
+            self.assertEqual(self._fields(root), [])
+
+    def test_missing_required_field_is_error(self):
+        # date は Project.stage / latest_dec_next_move のソートキー。欠落は静かに順序を壊すので error。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act().replace("date: 2026-07-01\n", ""),
+            })
+            probs = self._fields(root)
+            self.assertTrue(any(p.level == "error" and "date" in p.message for p in probs), probs)
+
+    def test_missing_riskiest_assumption_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(riskiest=""),
+            })
+            self.assertTrue(any(p.level == "error" and "riskiest-assumption" in p.message
+                                for p in self._fields(root)))
+
+    def test_unknown_key_is_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("importance: auto", "importance: auto\nconfidance: 5")   # タイポ
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            probs = self._fields(root)
+            self.assertTrue(any(p.level == "warning" and "confidance" in p.message for p in probs), probs)
+
+    def test_bad_date_format_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(date="2026/07/01"),
+            })
+            self.assertTrue(any(p.level == "error" and "YYYY-MM-DD" in p.message
+                                for p in self._fields(root)))
+
+    def test_optional_empty_field_is_not_reported(self):
+        # derived-from は「キーはあるが空（YAML null）」が実データに多数ある。省略可なので鳴らさない。
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("importance: auto", "importance: auto\nderived-from:")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            self.assertEqual(self._fields(root), [])
+
+    def test_outcome_vocabulary_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(outcome="なんとなく支持"),
+            })
+            self.assertTrue(any(p.check == "vocab" and "outcome" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_all_outcome_values_accepted(self):
+        for outcome in sorted(ontology.OUTCOMES):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = make_project(tmp, {
+                    "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                    "wiki/tests/DEMO-TEST-001.md": act(),
+                    "wiki/learnings/DEMO-LEARN-001.md": learn(outcome=outcome),
+                })
+                self.assertEqual([p for p in hwlint.lint_project(root)
+                                  if p.check == "vocab" and "outcome" in p.message], [],
+                                 f"outcome={outcome} が拒否された")
 
 
 class HistoryConsistencyTest(unittest.TestCase):
@@ -880,6 +962,35 @@ class OntologyDerivationTest(unittest.TestCase):
         # hwlint はローカル再定義でなく ontology の定数を参照する。
         self.assertIs(hwlint.EVIDENCE_TAGS, ontology.EVIDENCE_TAGS)
         self.assertIs(hwlint.FICTIONAL_MARKERS, ontology.FICTIONAL_MARKERS)
+        self.assertIs(hwlint.OUTCOMES, ontology.OUTCOMES)
+        self.assertIs(hwlint.PROVENANCE, ontology.PROVENANCE)
+
+    def test_record_dirs_derived_from_entity_dir(self):
+        # レコード置き場は entities.*.dir が正本。records.py / stop_view_gen.py のハードコードを排した。
+        import records
+        self.assertEqual(ontology.RECORD_DIRS,
+                         tuple(e["dir"] for e in ontology.load()["entities"].values()))
+        self.assertIs(records.RECORD_DIRS, ontology.RECORD_DIRS)
+        self.assertIs(records.ENTITY_INFIXES, ontology.ENTITY_INFIXES)
+
+    def test_fields_declare_every_relation_field(self):
+        # 宣言した関係の frontmatter キーが、必ず domain 側 entity の fields に現れる（死んだ関係を防ぐ）。
+        for r in ontology.RELATIONS:
+            for ent in r.domains:
+                self.assertIn(r.field, ontology.FIELDS_BY_NAME[ent],
+                              f"関係 {r.name} の field が {ent}.fields に無い")
+
+    def test_provenance_declared_in_learn_fields(self):
+        self.assertEqual(ontology.PROVENANCE.domains, {"LEARN"})
+        self.assertIn(ontology.PROVENANCE.field, ontology.FIELDS_BY_NAME["LEARN"])
+        # required-for-types は LEARN のサブタイプ（活動種別）の部分集合。
+        self.assertTrue(ontology.PROVENANCE.required_for_types <= ontology.LEARN_TYPES)
+
+    def test_staleness_thresholds_from_ontology(self):
+        # 閾値はコードやスキルのマジックナンバーでなく ontology.yaml が正本。
+        self.assertEqual(ontology.STALENESS_CONFIDENCE_DAYS, 180)
+        self.assertEqual(ontology.STALENESS_TEST_DAYS, 14)
+        self.assertIs(hwlint.STALENESS_CONFIDENCE_DAYS, ontology.STALENESS_CONFIDENCE_DAYS)
 
     def test_team_role_not_dropped(self):
         # 自分たち仮説(role: team)が role マッピングに存在する（従来は欠落していた）。
@@ -914,12 +1025,35 @@ class OntologyDocGenTest(unittest.TestCase):
         self.assertIn("**各種別の役割**", md)
         self.assertIn("起票直後の初期値", md)             # ステータス「未検証」の説明
 
+    def test_build_contains_new_sections(self):
+        md = self._build()
+        self.assertIn("frontmatter フィールド（スキーマ＝契約）", md)
+        self.assertIn("| `riskiest-assumption` | 必須 |", md)
+        self.assertIn("プロヴェナンス（出典＝生データへの参照）", md)
+        self.assertIn("検証判定（学び LEARN の `outcome`）", md)
+        self.assertIn("陳腐化（時間軸）の閾値", md)
+
     def test_generated_doc_is_fresh(self):
         # ontology.md がコミット済み内容と一致（ontology.yaml を変えたら再生成せよ）。
         out = Path(__file__).resolve().parent.parent / "ontology.md"
         self.assertEqual(
             out.read_text(encoding="utf-8"), self._build(),
             "ontology.md が古い。`python3 tools/gen_ontology_doc.py` で再生成してコミットせよ")
+
+    def test_check_mode_detects_drift(self):
+        # --check は生成せず差分の有無を exit code で返す（pre-commit が ontology.yaml 単独編集の穴を塞ぐ）。
+        import gen_ontology_doc
+        out = gen_ontology_doc.OUT
+        original = out.read_text(encoding="utf-8")
+        argv = sys.argv
+        try:
+            sys.argv = ["gen_ontology_doc.py", "--check"]
+            self.assertEqual(gen_ontology_doc.main(), 0)
+            out.write_text(original + "\n<!-- drift -->\n", encoding="utf-8")
+            self.assertEqual(gen_ontology_doc.main(), 1)
+        finally:
+            sys.argv = argv
+            out.write_text(original, encoding="utf-8")
 
 
 class UntestedFocusTest(unittest.TestCase):

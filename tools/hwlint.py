@@ -13,20 +13,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
-    STATUSES, STAGES, H_TYPES, TEST_TYPES, LEARN_TYPES, DEC_TYPES,
+    STATUSES, STAGES, H_TYPES, TEST_TYPES, LEARN_TYPES, DEC_TYPES, OUTCOMES,
     CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
+    EVIDENCE_FLOOR_MIN_CONFIDENCE, EVIDENCE_AUX,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
-    IMPORTANCE_FOCUS,
+    IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
+    STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS,
 )
 # レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
 # ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
 from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
-    importance, Project,
+    importance, source_paths, Project,
 )
 from project import resolve_current_project  # noqa: E402
+
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @dataclass
@@ -51,8 +55,45 @@ def check_id_matches_filename(project) -> list:
     return problems
 
 
+def check_fields(project) -> list:
+    """スキーマ＝契約: frontmatter のキー構成を ontology.yaml の fields 宣言に照らす。
+
+    論文（Knowledge Graph Engineering）の「the schema is the contract」に対応する層。
+    entity/relation/state-machine は宣言済みでもフィールド自体の宣言が無かったため、
+    必須キーの欠落も未知キー（タイポ）の混入も機械検出できなかった穴を塞ぐ。
+
+    - required なフィールドの欠落／空 → error（例: date 欠落は Project.stage のソートを静かに壊す）
+    - 宣言に無いキー → warning（タイポ・旧スキーマの残骸）
+    - kind: date が YYYY-MM-DD でない → error
+    """
+    problems = []
+    for stem, (_, fm, _) in project.records.items():
+        ent = entity_of(stem)
+        declared = FIELDS_BY_NAME.get(ent)
+        if not declared:
+            continue
+        for name in FIELDS_BY_NAME[ent]:
+            f = declared[name]
+            if f.required and not fm.get(name, "").strip():
+                problems.append(Problem("error", stem, "fields",
+                    f"必須フィールド {name}（{f.kind}）が未指定/空"))
+        for key in fm:
+            if key not in declared:
+                problems.append(Problem("warning", stem, "fields",
+                    f"ontology.yaml の {ent}.fields に宣言の無いキー '{key}'"
+                    f"（タイポか、スキーマへの宣言漏れ）"))
+        for name, f in declared.items():
+            value = fm.get(name, "").strip()
+            if not value:
+                continue
+            if f.kind == "date" and not DATE_RE.match(value):
+                problems.append(Problem("error", stem, "fields",
+                    f"{name} '{value}' は YYYY-MM-DD 形式でない"))
+    return problems
+
+
 def check_vocabulary(project) -> list:
-    """status・type・stage・confidence の語彙/範囲を規約に照らして検証する。"""
+    """status・type・stage・confidence・outcome の語彙/範囲を規約に照らして検証する。"""
     problems = []
     for stem, (_, fm, _) in project.records.items():
         if "-H-" in stem:
@@ -72,6 +113,10 @@ def check_vocabulary(project) -> list:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
         if "-LEARN-" in stem and fm.get("type") not in LEARN_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
+        # LEARN の outcome（検証判定）。board サマリへ射影される正本なので誤記を弾く
+        if "-LEARN-" in stem and fm.get("outcome") and fm.get("outcome") not in OUTCOMES:
+            problems.append(Problem("error", stem, "vocab",
+                f"outcome '{fm.get('outcome')}' は規約外（{'・'.join(sorted(OUTCOMES))}）"))
         if "-DEC-" in stem and fm.get("type") not in DEC_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
         # DEC の to-stage（記入されていれば）は正規のステージ名。現在ステージ導出の正本なので誤記を弾く
@@ -492,7 +537,8 @@ def check_relation_cycles(project) -> list:
     return problems
 
 
-CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency, check_evidence_links,
+CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
+          check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,

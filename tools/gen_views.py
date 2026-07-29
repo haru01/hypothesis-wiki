@@ -30,7 +30,8 @@ from project import resolve_current_project  # noqa: E402
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
     STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
-    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS,
+    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, PROVENANCE,
+    version as ontology_version,
 )
 
 
@@ -137,9 +138,13 @@ def latest_dec_next_move(project):
 
 
 def header_lines(view: str, stage: str, today: str, fictional: list) -> list:
-    """生成物マーカー＋架空データ警告。fictional は架空 TEST/LEARN の stem リスト。"""
+    """生成物マーカー＋スキーマ版＋架空データ警告。fictional は架空 TEST/LEARN の stem リスト。
+
+    ontology-version を刻むのは「どのスキーマ版で射影した生成物か」を追えるようにするため
+    （スキーマを変えると生成物の意味が変わるので、版を生成物と並べて持つ）。"""
     lines = [f"<!-- 生成物: gen_views.py {view} による機械生成。手編集禁止。"
-             f"`python3 tools/gen_views.py {view}` で再生成する。生成基準日: {today}（ステージ {stage}） -->"]
+             f"`python3 tools/gen_views.py {view}` で再生成する。生成基準日: {today}（ステージ {stage}）"
+             f" / ontology-version: {ontology_version()} -->"]
     if fictional:
         links = " ".join(f"[[{s}]]" for s in fictional)
         lines.append(f"<!-- ⚠️ 架空/シミュレーションデータを含む活動: {links}。"

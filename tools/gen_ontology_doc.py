@@ -3,7 +3,9 @@
 
 正本は ontology.yaml。このスクリプトはそれを Markdown の表に射影するだけ。
 `python3 tools/gen_ontology_doc.py` で ../ontology.md を上書きする。
+`--check` は生成せずドリフトの有無だけを exit code で返す（pre-commit が使う）。
 """
+import argparse
 import sys
 from pathlib import Path
 
@@ -42,6 +44,20 @@ def build() -> str:
             L.append(f"- **`{key}`（{ent['label']}）** — {ent['description']}")
         L.append("")
 
+    # frontmatter フィールド（スキーマ＝契約）。必須欠落は error・未宣言キーは warning として lint が弾く。
+    L += ["### frontmatter フィールド（スキーマ＝契約）", "",
+          "各レコードが持つ frontmatter キーの宣言。**必須の欠落は error、宣言に無いキーは warning** として "
+          "`hwlint.py` の `check_fields` が検出する（`kind` の意味は `ontology.yaml` 冒頭のコメントが正本）。", ""]
+    for key, fields in ontology.FIELDS.items():
+        if not fields:
+            continue
+        L += [f"**`{key}`（{o['entities'][key]['label']}）**", "",
+              "| フィールド | 必須 | kind | 語彙(enum-ref) |", "|---|---|---|---|"]
+        for f in fields:
+            L.append(f"| `{f.name}` | {'必須' if f.required else '省略可'} | {f.kind} | "
+                     f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} |")
+        L.append("")
+
     # H の価値連鎖上の役割
     L += ["### 仮説（H）サブタイプの価値連鎖上の役割", "",
           "| サブタイプ | 役割 | 価値連鎖ラベル | 説明 |", "|---|---|---|---|"]
@@ -65,6 +81,24 @@ def build() -> str:
                  f"{r.inverse}（{r.inverse_label}） | {wl} | {r.description} |")
     L.append("")
 
+    # プロヴェナンス（出典）。関係(record→record)とは別概念で、グラフの外（不変層）を指す属性。
+    p = ontology.PROVENANCE
+    L += ["## プロヴェナンス（出典＝生データへの参照）", "",
+          "型付きリンク（関係）は record→record だが、**出典はグラフの外（不変層 "
+          f"`projects/<slug>/{p.base_dir}/`）を指す属性**として別に宣言する。これが確信度の根拠鎖の"
+          "**最後の一歩**にあたる: `H の確信度履歴` → `[[LEARN-NNN]]` → `出典ファイル`。", "",
+          "| 項目 | 値 |", "|---|---|",
+          f"| frontmatter | `{p.field}`（{'配列' if p.cardinality == 'many' else '単一'}・"
+          f"`{p.base_dir}/` 基準の相対パス） |",
+          f"| 出典を持つ種別 | {'・'.join(sorted(p.domains))} |",
+          f"| 本文の相対mdリンク | {'必須' if p.must_body_link else '任意'} |",
+          f"| 出典が必須の活動種別 | {'・'.join(sorted(p.required_for_types)) or '—'} |",
+          f"| 架空判定で読む冒頭行数 | {p.fictional_header_scan_lines} 行 |",
+          "",
+          "`hwlint.py` が検証すること: パスの実在（**error**）／必須種別での欠落／"
+          "**確信度を上げた履歴行が指す学び(LEARN)に出典が無い**（根拠鎖の断絶）／"
+          "どの学びからも参照されていない生データ（取り込み忘れ）。", ""]
+
     # 状態機械（射影定数 ontology.py 経由。生 YAML を直読みしない＝単一の入口）
     stage_focus = o["state-machines"]["stage-focus"]   # 順序保持のため元の list を使う
     L += ["## 状態機械", "", "### ステージ", "",
@@ -80,6 +114,15 @@ def build() -> str:
     for name in ontology.STATUS_ORDER:
         L.append(f"| {name} | {ontology.STATUS_EMOJI[name]} | {status_desc.get(name) or '—'} |")
     L += ["", "検証の進捗: `未検証` → `検証中` → `検証済み` ／ `反証`。", ""]
+
+    # 学び(LEARN)の検証判定（outcome）
+    if ontology.OUTCOME_ORDER:
+        L += ["### 検証判定（学び LEARN の `outcome`）", "",
+              "実験の成功基準に対する判定。board サマリの outcome 列へ射影する。", "",
+              "| 判定 | 意味 |", "|---|---|"]
+        for name in ontology.OUTCOME_ORDER:
+            L.append(f"| {name} | {ontology.OUTCOME_DESC.get(name) or '—'} |")
+        L.append("")
 
     L += ["### 確信度", "",
           f"- 範囲: **{ontology.CONFIDENCE_MIN}–{ontology.CONFIDENCE_MAX}**（証拠の強さの目安）。"
@@ -121,7 +164,16 @@ def build() -> str:
         # EVIDENCE_FLOOR は (min_confidence, floor) の強い順。弱い順に見せる。
         for min_conf, floor in sorted(ontology.EVIDENCE_FLOOR):
             L.append(f"- 確信度 {min_conf} 以上は〈{floor}〉以上の証拠を要する（〈発言〉だけでは上げない）")
-        L.append("")
+        L += [f"- 確信度 {ontology.EVIDENCE_FLOOR_MIN_CONFIDENCE} 以上なのに履歴に階梯タグが"
+              "**1つも無い**場合も warning（補助タグ〈二次〉〈架空〉は階梯を満たさない）", ""]
+
+    # 陳腐化（時間軸）。数値は自動で下げない＝再検証を促す可視化のみ。
+    L += ["**陳腐化（時間軸）の閾値**（`hwlint.py` が warning として検出。"
+          "**確信度は自動で下げない**＝再検証を促す可視化のみ）:", "",
+          f"- `status: 検証済み` かつ確信度 {ontology.EVIDENCE_FLOOR_MIN_CONFIDENCE} 以上で、"
+          f"確信度履歴の最終行が **{ontology.STALENESS_CONFIDENCE_DAYS} 日**より古い → 再検証を検討",
+          f"- 学び(LEARN)が紐づかない実験計画(TEST)が **{ontology.STALENESS_TEST_DAYS} 日**より古い"
+          "（計画したのに実施されていない）", ""]
 
     # リーンキャンバス（仮説検証への写像）。/lean-canvas が使う。レコードでなくビュー。
     if ontology.LEAN_CANVAS_BLOCKS:
@@ -153,7 +205,20 @@ def build() -> str:
 
 
 def main() -> int:
-    OUT.write_text(build(), encoding="utf-8")
+    ap = argparse.ArgumentParser(description="ontology.yaml → ontology.md の生成")
+    ap.add_argument("--check", action="store_true",
+                    help="生成せず、ontology.md が ontology.yaml と同期しているかだけを検査する（差分あれば exit 1）")
+    args = ap.parse_args()
+    want = build()
+    if args.check:
+        have = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
+        if have == want:
+            print(f"同期OK: {OUT.name} は ontology.yaml と一致")
+            return 0
+        print(f"ドリフト検出: {OUT.name} が ontology.yaml と不一致。"
+              f"`python3 tools/gen_ontology_doc.py` で再生成する", file=sys.stderr)
+        return 1
+    OUT.write_text(want, encoding="utf-8")
     print(f"生成: {OUT}")
     return 0
 
