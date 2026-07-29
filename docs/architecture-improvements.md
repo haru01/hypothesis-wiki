@@ -167,3 +167,53 @@
 > 本バックログは 2026-07-22 のアーキテクチャ分析（`tools/`・`.claude/skills/`・オントロジー・規約の
 > 突き合わせ）に基づく。既存で追跡済みの項目（demo-script=SI-019、切替スキル=SI-017、addresses 候補提案=
 > OI-C3 済）は重複記録せず参照に留めた。
+
+---
+
+## P1 追補（2026-07-29・論文点検で判明した残存ドリフト）
+
+論文「Knowledge Graph Engineering for Multi-Agentic Systems」に照らした点検
+（[kg-improvements.md](kg-improvements.md)）で、本バックログの軸（＝SSoT の迂回路・解析層の脆さ）に
+属する残存ドリフトが追加で判明し、同時に対応した。
+
+### AR-08: `entities.*.dir` の二重管理（SSoT の迂回路）
+
+- **対象**: `tools/records.py`、`tools/hooks/stop_view_gen.py`、`tools/ontology.py`
+- **状態**: 対応済み（2026-07-29）
+- **課題**: レコード置き場が `("hypotheses","tests","learnings","decisions")` として**2箇所にハードコード**
+  されており、`ontology.yaml` の `entities.*.dir` を迂回していた。新しい entity を dir つきで宣言しても
+  レコード探索が拾わない（黙って読まれない）状態だった。`records.entity_of` の
+  `("H","TEST","LEARN","DEC")` も同様で、`ontology.py` が導出済みの `ENTITY_INFIXES` は
+  **誰も import していないデッドコード**だった（OI-A4 が指摘した死蔵定数の残り）。
+- **改善案 / 対応**: `ontology.py` に `ENTITY_DIRS`／`RECORD_DIRS` を追加し両箇所を差し替え。
+  `entity_of` を `ENTITY_INFIXES` 経由に。`tests/test_hwlint.py` に `assertIs` でドリフトガードを追加した。
+
+### AR-09: `ontology.md` の鮮度が `ontology.yaml` 単独編集で守られない
+
+- **対象**: `tools/gen_ontology_doc.py`、`.githooks/pre-commit`
+- **状態**: 対応済み（2026-07-29）
+- **課題**: `ontology.md` の鮮度は `tests/test_hwlint.py` の freshness テスト経由でしか守られておらず、
+  pre-commit がテストを走らせるのは `tools/` か `tests/` が staged のときだけ。
+  **`ontology.yaml` だけを編集したコミットでは古い `ontology.md` が通る穴**があった。
+- **改善案 / 対応**: `gen_ontology_doc.py --check`（生成せず差分の有無を exit code で返す）を追加し、
+  pre-commit に「`ontology.yaml` が staged なら `--check`」を挿入。
+
+### AR-10: `stop` フックのプロジェクト非対称（非アクティブ案件が静かに古びる）
+
+- **対象**: `tools/hooks/stop_lint.py`、`tools/hooks/stop_view_gen.py`
+- **状態**: 対応済み（2026-07-29）
+- **課題**: `stop_lint.py` は現在プロジェクトのみ（`--all` なし）だが `.githooks/pre-commit` は `--all` で、
+  **「ターン終了時は通るのにコミット時に落ちる」非対称**があった。`stop_view_gen.py` も現在プロジェクトのみのため、
+  案件を切り替えると非アクティブ案件のビューが静かに古びる（生成基準日が食い違う）。
+- **改善案 / 対応**: 両フックを全プロジェクト対象に揃えた。ビュー生成は mtime 比較で変化の無い案件をスキップするので、
+  案件が増えてもコストはほぼ変わらない。
+
+### AR-11: `MD_LINK_RE` は wikilink 直後の括弧書きを誤読しうる（解析層の脆さ・対処済み）
+
+- **対象**: `tools/hwlint.py`
+- **状態**: 対応済み（2026-07-29）
+- **課題**: 新設した相対mdリンク検証（`check_relative_links`）の初版が、実データの
+  `[[AIRE-H-003]](b) の対抗` を「`(b)` を指すmdリンク」と誤読して誤検出した。AR-03/AR-04 が指摘した
+  「部分一致・手書きパーサ由来の脆さ」と同型の問題。
+- **改善案 / 対応**: 直前が `]` のものを除外する負の後読み（`(?<!\])`）を入れ、テストケース
+  （`test_wikilink_followed_by_parenthetical_is_not_a_link`）で固定した。
