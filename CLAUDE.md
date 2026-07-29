@@ -65,6 +65,10 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 **wikilinkではなく相対mdリンク**で書く。`../` の深さは参照元ファイルの位置で変わる（上記「スキル共通規約」3を参照。
 `wiki/` 直下は `../../../`、`wiki/<種別>/` 配下の H・TEST・LEARN・DEC は `../../../../`）。
 
+> **フィールド定義の正本は [ontology.yaml](ontology.yaml) の `entities.*.fields`**（人間可読は [ontology.md](ontology.md)
+> 「frontmatter フィールド」）。以下の各節の YAML ブロックは**読み手向けの例示**であり、必須／省略可・語彙の判定は
+> オントロジー側が持つ。`/lint`（`check_fields`）が必須キーの欠落を **error**、宣言に無いキー（タイポ）を warning で弾く。
+
 ### 仮説レコード `projects/<slug>/wiki/hypotheses/<PREFIX>-H-NNN.md`
 
 ```yaml
@@ -114,11 +118,27 @@ date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
 learns-from: <PREFIX>-TEST-NNN        # 省略可。実施した実験計画(TEST)。回顧型（desk-research/self-reflection 等）は持たない
 hypotheses: [H-NNN, ...]             # この学びが確信度を動かした仮説
-outcome: 起票|支持|反証|判断保留|是正       # 検証の判定。board サマリへ射影
+outcome: <判定>                       # 検証の判定。語彙の正本は ontology.md「検証判定」。board サマリへ射影
+sources: [YYYY-MM-DD-....md, ...]    # 根拠となった生データ（sources/ 基準の相対パス）。下記「出典（プロヴェナンス）」参照
 ```
 
 本文＝**学習カード**（検証後に記入・新規作成で積む）: **学びの要点**（board へ射影する一行の見出し的学び）／事実（observed）／解釈（inference）／驚き・想定外／確信度の更新テーブル／次のアクション。
 計画型は `learns-from` で TEST を参照し（board で1実験に束ねる）、回顧型（desk-research/self-reflection/chabudai）は TEST を持たず学びを直接作成する。
+
+#### 出典（プロヴェナンス） — 確信度の根拠鎖の末端
+
+学び(LEARN)は `sources` で**根拠となった生データ**（不変層 `projects/<slug>/sources/` 配下）を指す。これにより
+確信度の根拠鎖が端まで繋がる: **`H の確信度履歴` → `[[LEARN-NNN]]` → `sources/<生データ>`**。
+frontmatter と本文の**二重表現**で書く（本文は相対mdリンク。生データは接頭辞つきノートでないので wikilink は解決しない）:
+
+```markdown
+生データ: [2026-07-17-problem-interviews-sim.md](../../sources/2026-07-17-problem-interviews-sim.md)
+```
+
+仕様の正本は [ontology.yaml](ontology.yaml) の `provenance` 節（人間可読は [ontology.md](ontology.md)）。`/lint` が検証する:
+出典パスの実在（**error**）／観測を伴う活動種別（interview・demo 等）での欠落／**確信度を上げた履歴行が指す
+LEARN に出典が無い**（根拠鎖の断絶）／どの学びからも参照されていない生データ（取り込み忘れ）。
+**生データ冒頭の架空/シミュレーション宣言はここから読まれる**（`fictional-cap` 判定の一次情報）。
 
 ### 意思決定レコード `projects/<slug>/wiki/decisions/<PREFIX>-DEC-NNN.md`
 
@@ -166,6 +186,7 @@ demo/interview の実験計画（TEST）に紐づく（TESTのテストカード
 4. `projects/<slug>/wiki/views/`・`projects/<slug>/wiki/index.md`・`projects/<slug>/wiki/prototypes/` は生成物。記録の修正はレコード側で行い、生成物は再生成する（`index.md` はビュー `gen_views.py index`）
 5. ID採番は**種別×プロジェクトごと**に既存最大値+1で、プロジェクト接頭辞つき（例 `SELF-H-001`）。IDの再利用禁止（取り下げた番号は欠番として残す）
 6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。テストカード（TEST）の成功基準・riskiest-assumption は検証開始後に書き換えない（後知恵バイアス防止。学び LEARN が紐づいた TEST の変更は `check_testcard_immutable.py` が検出する）
+7. **確信度を動かした学び(LEARN)は、根拠となった生データを `sources` で指す**（出典なき確信度上昇を作らない）。根拠鎖 `H の確信度履歴 → [[LEARN-NNN]] → sources/<生データ>` を端まで繋ぐ。frontmatter と本文の相対mdリンクの二重表現で書く（上記「出典（プロヴェナンス）」）
 
 ## ステージと重要度
 

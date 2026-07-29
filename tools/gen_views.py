@@ -23,13 +23,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from records import (  # noqa: E402
     Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
-    testcard,
+    testcard, source_paths, fictional_activities,
 )
 from project import resolve_current_project  # noqa: E402
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
-    STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
+    STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
     STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, PROVENANCE,
     version as ontology_version,
 )
@@ -43,11 +43,11 @@ def read_stage(project) -> str:
 
 
 def fictional_records(project) -> list:
-    """本文に架空/シミュレーションマーカーを含む TEST/LEARN の stem を並べる。
-    架空マーカーは主に学びカード（LEARN）に現れるが、実験計画（TEST）本文の注記も拾う。"""
-    return sorted(s for s in project.records
-                  if ("-TEST-" in s or "-LEARN-" in s)
-                  and any(m in project.records[s][2] for m in FICTIONAL_MARKERS))
+    """架空/シミュレーション由来の TEST/LEARN の stem を並べる（ビューの警告バナー用）。
+
+    判定は records.fictional_activities が正本（出典＝生データ冒頭の架空宣言を一次情報とし、
+    本文マーカーは後方互換のフォールバック）。lint の fictional-cap と同じ導出を共有する。"""
+    return sorted(fictional_activities(project))
 
 
 def next_to_verify(project, hyps, stage) -> list:
@@ -197,6 +197,7 @@ def gen_board(project) -> str:
         lfm, ltext = project.records[learn_stem][1], project.records[learn_stem][2]
         return {"stem": learn_stem, "result": learning_point(learning(ltext)) or "—",
                 "outcome": lfm.get("outcome", "").strip() or "—",
+                "sources": source_paths(lfm),
                 "ids": parse_id_array(lfm.get("hypotheses", ""))}
 
     def test_unit(test_stem) -> dict:
@@ -264,6 +265,11 @@ def gen_board(project) -> str:
             # 回顧型ユニットは行の stem がユニット自身なのでリンク重複を避ける
             tag = f"[[{r['stem']}]] " if r["stem"] != e["stem"] else ""
             L.append(f"- **結果（{tag}学びの要点）**: {r['result']}（判定: {r['outcome']}）")
+        # 出典（生データ）— 確信度の根拠鎖の末端。生成物からも一次資料へ辿れるようにする。
+        srcs = list(dict.fromkeys(s for r in e["rows"] for s in r["sources"]))
+        if srcs:
+            links = " ".join(f"[{s}](../../{PROVENANCE.base_dir}/{s})" for s in srcs)
+            L.append(f"- **出典（生データ）**: {links}")
         L += [
             f"- **判断（DEC）**: {e['judgment']}",
             "",

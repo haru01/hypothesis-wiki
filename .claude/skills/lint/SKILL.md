@@ -19,7 +19,7 @@ python3 tools/hwlint.py --all      # 全プロジェクト
 python3 tools/check_testcard_immutable.py --base origin/main   # 成功基準の事後書き換え（項目7）
 ```
 
-hwlint が機械的に担う部分（下記チェック項目のうち **1 の証拠リンク・5 の index/log 同期・6 の status↔confidence 矛盾（`status-confidence`）と証拠の階梯×確信度（`evidence-floor`）・8 の ID 整合・9 の架空上限の機械判定（履歴全行走査）・10 の関係の型検証と H→H 循環（`relation-cycle`）・2 の DEC 根拠欠落（`dec-based-on`）**、および status/type/stage/confidence の語彙・範囲などのスキーマ整合）と、`check_testcard_immutable.py` が担う **7 の成功基準の事後書き換え**は、スクリプトの出力をそのまま報告に転記する（再点検に時間を使わない）。LLM は残りの**意味的チェック**（2 の孤立の文脈判断・3 矛盾する仮説・4 長期放置・6 の機械判定を超える解釈・7 の機械検出が拾えない文脈判断・9 の「明示が十分か」の判断）に集中する。
+hwlint が機械的に担う部分（下記チェック項目のうち **1 の証拠リンク・5 の index/log 同期・6 の status↔confidence 矛盾（`status-confidence`）と証拠の階梯×確信度（`evidence-floor`）・8 の ID 整合・9 の架空上限の機械判定（履歴全行走査）・10 の出典鎖（`provenance`・`provenance-chain`・`orphan-source`）・11 の関係の型検証と H→H 循環（`relation-cycle`）・2 の DEC 根拠欠落（`dec-based-on`）**、および frontmatter フィールドの必須/未宣言キー（`fields`）・status/type/stage/confidence/outcome の語彙・範囲などのスキーマ整合）と、`check_testcard_immutable.py` が担う **7 の成功基準の事後書き換え**は、スクリプトの出力をそのまま報告に転記する（再点検に時間を使わない）。LLM は残りの**意味的チェック**（2 の孤立の文脈判断・3 矛盾する仮説・4 長期放置・6 の機械判定を超える解釈・7 の機械検出が拾えない文脈判断・9 の「明示が十分か」の判断・下記「無作為サンプル点検」）に集中する。
 
 関係の型検証・二重表現は [ontology.yaml](../../../ontology.yaml) の宣言（domain/range/cardinality/inverse/must-wikilink）を単一の真実源とする。語彙(enum)も同様（`tools/ontology.py` 経由で hwlint が読む）。
 
@@ -37,7 +37,8 @@ hwlint が機械的に担う部分（下記チェック項目のうち **1 の�
 7. **成功基準の事後書き換え疑い** — 学び(LEARN)が紐づいた（＝実施済みの）TEST のテストカードが後から変更された痕跡。**手順0の `check_testcard_immutable.py` が機械検出する**（`--base` にレビュー基点を渡す。pre-commit でも `--staged` で強制済み）。機械検出が拾えないケース（成功基準の意味だけ変えて字面が近い等）の文脈判断のみ LLM が補う。
 8. **ID の不整合** — 重複、種別ごとの最大値との齟齬。**欠番は一律に異常としない**: `wiki/log.md` に対応する「取り下げ」記録がある欠番は正常（取り下げ運用の結果）。記録のない欠番・ID重複のみを異常として検出する。あわせて **ファイル名と frontmatter `id` の整合** を確認する: `id` はファイル名と完全一致（接頭辞つき。例 `SELF-H-001.md` → `id: SELF-H-001`）であるべきで、接頭辞なし（`id: H-001`）やファイル名と異なる `id` は不整合として報告する。
 9. **架空/デモデータの未明示** — 確信度・「検証済み」の根拠が架空/デモ・シミュレーションデータ（`sources/` 冒頭に「架空」明記があるもの）なのに、仮説レコード・LEARN・ビューに「実データ未検証」の注記/フラグが無いもの。実証拠と誤認されうるため要対応として報告する。**確信度が上限（8）を超える行の架空根拠は hwlint が履歴全行を走査して `fictional-cap`（error）で検出する**（最終行だけでなく中間行の架空根拠も取りこぼさない）。LLM は「明示が十分か」の判断に集中する。
-10. **関係の型違反・二重表現の欠落**（機械判定） — frontmatter の関係リンクが [ontology.yaml](../../../ontology.yaml) の宣言に反するもの: 接頭辞なし・不在参照・range 種別違反（例: `hypotheses` が H でなく TEST を指す、`learns-from` が TEST 以外を指す）・cardinality 違反（単一関係 `derived-from`・`learns-from` に複数）・domain/range サブタイプ違反（例: 課題仮説が `addresses` を持つ／`addresses` が課題仮説以外を指す）を **error**（`refs`）で検出する。加えて `must-wikilink` な関係が frontmatter にあるのに本文 wikilink `[[…]]` に無いものを **warning**（`relation-wikilink`）で検出する（二重表現規約: Obsidian グラフに辺を出すため本文にも張る）。さらに H→H 関係（`derived-from`/`leads-to`）の自己参照・循環を **error**（`relation-cycle`）で検出する。
+10. **出典（プロヴェナンス）の断絶**（機械判定） — 確信度の根拠鎖 `H の確信度履歴 → [[LEARN-NNN]] → sources/<生データ>` の検証。hwlint が4つを検出する: 出典パスが `sources/` 配下に実在しない **error**（`provenance`・出典切れ）／観測を伴う活動種別（`provenance.required-for-types`）の LEARN で `sources` が空 **warning**／**確信度を上げた履歴行が指す LEARN に出典が無い warning（`provenance-chain`）**＝根拠鎖が生データまで繋がっていない／どの LEARN からも参照されていない生データ **warning**（`orphan-source`・取り込み忘れ）。LLM は「出典の内容が主張を実際に支えているか」（下記「無作為サンプル点検」）に集中する。
+11. **関係の型違反・二重表現の欠落**（機械判定） — frontmatter の関係リンクが [ontology.yaml](../../../ontology.yaml) の宣言に反するもの: 接頭辞なし・不在参照・range 種別違反（例: `hypotheses` が H でなく TEST を指す、`learns-from` が TEST 以外を指す）・cardinality 違反（単一関係 `derived-from`・`learns-from` に複数）・domain/range サブタイプ違反（例: 課題仮説が `addresses` を持つ／`addresses` が課題仮説以外を指す）を **error**（`refs`）で検出する。加えて `must-wikilink` な関係が frontmatter にあるのに本文 wikilink `[[…]]` に無いものを **warning**（`relation-wikilink`）で検出する（二重表現規約: Obsidian グラフに辺を出すため本文にも張る）。さらに H→H 関係（`derived-from`/`leads-to`）の自己参照・循環を **error**（`relation-cycle`）で検出する。
 
 ## 出力
 

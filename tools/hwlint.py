@@ -26,7 +26,7 @@ from ontology import (  # noqa: E402
 from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
-    importance, source_paths, Project,
+    importance, source_paths, fictional_activities, Project,
 )
 from project import resolve_current_project  # noqa: E402
 
@@ -339,14 +339,12 @@ def check_fictional_cap(project) -> list:
     """架空/シミュレーションデータ由来の確信度は上限 FICTIONAL_CAP（それ超は実観測に限る）。
 
     履歴の**全行**を走査する（最終行だけでなく、確信度を上限超へ押し上げた中間行の
-    架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく TEST が
-    架空マーカーを含む、(b) 根拠セルに 〈架空〉タグ、のいずれか。根拠セルの地の文に
-    架空マーカー語が出るだけ（例: 架空データに言及した注記）では判定しない
-    （構造化シグナルに一本化して誤検出を避ける）。"""
+    架空根拠も取りこぼさない）。行の根拠が架空と判定されるのは、(a) 紐づく TEST/LEARN が
+    架空（fictional_activities の判定＝出典の冒頭宣言または本文マーカー）、(b) 根拠セルに
+    〈架空〉タグ、のいずれか。根拠セルの地の文に架空マーカー語が出るだけ（例: 架空データに
+    言及した注記）では判定しない（構造化シグナルに一本化して誤検出を避ける）。"""
     problems = []
-    fictional_acts = {stem for stem, (_, _, body) in project.records.items()
-                      if ("-TEST-" in stem or "-LEARN-" in stem)
-                      and any(m in body for m in FICTIONAL_MARKERS)}
+    fictional_acts = fictional_activities(project)
     for stem, _, _, rows in project.hyp_records():
         for row in rows:
             rc = row["confidence"]
@@ -359,6 +357,115 @@ def check_fictional_cap(project) -> list:
                 problems.append(Problem("error", stem, "fictional-cap",
                     f"履歴 {row['date']} 行 confidence={rc} だが根拠が架空/シミュレーション"
                     f"（{src}）。上限{FICTIONAL_CAP}"))
+    return problems
+
+
+# 相対mdリンク（schema層・生データへの参照）。外部URL・アンカーのみは対象外。
+MD_LINK_RE = re.compile(r"\]\((?!https?://|mailto:|#)([^)\s]+)\)")
+
+
+def _md_link_targets(body: str) -> list:
+    """本文の相対リンク先（アンカー・クエリを落としたパス文字列）を並べる。"""
+    out = []
+    for target in MD_LINK_RE.findall(strip_comments(strip_frontmatter(body))):
+        out.append(target.split("#", 1)[0].split("?", 1)[0])
+    return out
+
+
+def _learn_sources(project) -> dict:
+    """LEARN stem → 宣言された出典パス（相対）のリスト。"""
+    return {stem: source_paths(fm) for stem, (_, fm, _) in project.records.items()
+            if PROVENANCE.in_domain(entity_of(stem))}
+
+
+def check_provenance_paths(project) -> list:
+    """出典（provenance）のパスが不変層 sources/ に実在すること（error）。
+
+    確信度の根拠鎖 `H の確信度履歴 → [[LEARN-NNN]] → sources/<生データ>` の最後の一歩。
+    ここが検証されていないと、生データを改名・削除しても確信度を支えた記録が無言で宙に浮く。"""
+    problems = []
+    files = project.source_files
+    for stem, paths in _learn_sources(project).items():
+        for rel in paths:
+            if rel.startswith("/") or ".." in Path(rel).parts:
+                problems.append(Problem("error", stem, "provenance",
+                    f"{PROVENANCE.field} '{rel}' は {PROVENANCE.base_dir}/ 基準の相対パスで書く"
+                    f"（絶対パス・'..' は不可）"))
+            elif rel not in files:
+                problems.append(Problem("error", stem, "provenance",
+                    f"{PROVENANCE.field} '{rel}' が {PROVENANCE.base_dir}/ 配下に存在しない（出典切れ）"))
+    return problems
+
+
+def check_provenance_presence(project) -> list:
+    """観測を伴う活動種別の学び(LEARN)は出典を持つ（warning）。
+
+    required-for-types（interview/demo/… の正本は ontology.yaml の provenance 節）に限る。
+    self-reflection は内省なので出典なしを正当とする。"""
+    problems = []
+    for stem, (_, fm, _) in project.records.items():
+        if not PROVENANCE.in_domain(entity_of(stem)):
+            continue
+        if fm.get("type") in PROVENANCE.required_for_types and not source_paths(fm):
+            problems.append(Problem("warning", stem, "provenance",
+                f"type={fm.get('type')} の学びだが {PROVENANCE.field}（出典）が空"
+                f"（どの生データから学んだのかを {PROVENANCE.base_dir}/ 配下の相対パスで書く）"))
+    return problems
+
+
+def check_provenance_body_link(project) -> list:
+    """二重表現規約: 出典は frontmatter だけでなく本文にも相対mdリンクで置く（warning）。
+
+    生データは接頭辞つきノートでないので wikilink は解決しない（規約どおり相対mdリンクを使う）。"""
+    problems = []
+    if not PROVENANCE.must_body_link:
+        return problems
+    for stem, (_, fm, body) in project.records.items():
+        if not PROVENANCE.in_domain(entity_of(stem)):
+            continue
+        targets = _md_link_targets(body)
+        for rel in source_paths(fm):
+            if not any(t.endswith(rel) for t in targets):
+                problems.append(Problem("warning", stem, "provenance",
+                    f"{PROVENANCE.field} '{rel}' が本文の相対mdリンクに無い"
+                    f"（二重表現規約: 読み手が出典へ辿れるように本文にも張る）"))
+    return problems
+
+
+def check_provenance_chain(project) -> list:
+    """確信度を上げた履歴行が指す学び(LEARN)に出典があること（warning）。
+
+    このリポジトリの生命線は「確信度は必ず証拠に紐づく」だが、紐づけが
+    `H の履歴 → [[LEARN-NNN]]` で止まっていると「その学びは何を観測したのか」が辿れない。
+    根拠鎖を端（生データ）まで繋ぐことを要求する＝出典なき確信度上昇を作らない。"""
+    problems = []
+    sources_of = _learn_sources(project)
+    for stem, _, _, rows in project.hyp_records():
+        prev = None
+        for row in rows:
+            cur = int(row["confidence"]) if row["confidence"].isdigit() else None
+            if cur is not None and prev is not None and cur > prev:
+                for rid in EVIDENCE_RE.findall(row["activity"]):
+                    if rid in sources_of and not sources_of[rid]:
+                        problems.append(Problem("warning", stem, "provenance-chain",
+                            f"履歴 {row['date']} 行で確信度を {prev}→{cur} に上げているが、根拠の "
+                            f"[[{rid}]] に {PROVENANCE.field}（出典）が無い（根拠鎖が生データまで繋がっていない）"))
+            if cur is not None:
+                prev = cur
+    return problems
+
+
+def check_orphan_sources(project) -> list:
+    """sources/ にあるがどの学び(LEARN)からも参照されていない生データ（warning）。
+
+    「記録が散逸し過去の学びが忘れられる」を機械が拾う層。置いたのに取り込まれていない
+    生データは、確信度に反映されないまま忘れられる（＝このキットが解こうとしている課題そのもの）。"""
+    problems = []
+    referenced = {rel for paths in _learn_sources(project).values() for rel in paths}
+    for rel in sorted(project.source_files - referenced):
+        problems.append(Problem("warning", f"{PROVENANCE.base_dir}/{rel}", "orphan-source",
+            f"どの学び(LEARN)の {PROVENANCE.field} からも参照されていない生データ"
+            f"（取り込み忘れ。/learning で学びを作るか、参照元の {PROVENANCE.field} に加える）"))
     return problems
 
 
@@ -540,6 +647,8 @@ def check_relation_cycles(project) -> list:
 CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
+          check_provenance_paths, check_provenance_presence, check_provenance_body_link,
+          check_provenance_chain, check_orphan_sources,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,

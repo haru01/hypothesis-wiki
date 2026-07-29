@@ -7,6 +7,7 @@ stage: SPF
 learns-from: SELF-TEST-004
 hypotheses: [SELF-H-009, SELF-H-010]
 outcome: 反証
+sources: [2026-07-18-lp-interviews-sim.md]
 ---
 
 
@@ -16,7 +17,7 @@ outcome: 反証
 実験計画: [[SELF-TEST-004]]
 
 
-生データ: `sources/2026-07-18-lp-interviews-sim.md`（⚠️架空・実データ未検証）
+生データ: [2026-07-18-lp-interviews-sim.md](../../sources/2026-07-18-lp-interviews-sim.md)（⚠️架空・実データ未検証）
 
 > **先取りの断り**: 現ステージは **FPF**。本活動は PSF（ソリューション）/SPF（個別購買）の見通しを LP で先取り検証するプレビューであり、`/prototype` の LP生成パスのドッグフーディング実演を兼ねる。プレビューのため確信度の上限を抑える（本検証は実プロダクト提示・課金導線で行う）。
 

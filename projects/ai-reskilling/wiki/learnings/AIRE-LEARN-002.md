@@ -6,6 +6,7 @@ date: 2026-07-19
 stage: CPF
 hypotheses: [AIRE-H-001, AIRE-H-002, AIRE-H-003]
 outcome: 是正
+sources: [2026-07-19-chabudai-ai-reskilling.md]
 ---
 
 
@@ -13,7 +14,7 @@ outcome: 是正
 
 対象仮説: [[AIRE-H-001]] [[AIRE-H-002]] [[AIRE-H-003]]
 
-揺さぶり材料: `sources/2026-07-19-chabudai-ai-reskilling.md`
+揺さぶり材料: [2026-07-19-chabudai-ai-reskilling.md](../../sources/2026-07-19-chabudai-ai-reskilling.md)
 監査対象の初期起票: [[AIRE-LEARN-001]]（デスクリサーチ・二次情報）
 
 <!-- /chabudai による自己批判（反証監査）ラウンド。新規の実観測ではなく既存記録の批判的再解釈。確信度は下げる／据え置くのみ（机上監査で上げない）。 -->

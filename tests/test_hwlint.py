@@ -78,19 +78,22 @@ riskiest-assumption: {riskiest}
 
 
 def learn(id="DEMO-LEARN-001", learns_from="DEMO-TEST-001", hypotheses="[DEMO-H-001]",
-          outcome="支持", body=None):
+          outcome="支持", body=None, type="interview", sources=None, body_link=True):
     lf = f"learns-from: {learns_from}\n" if learns_from else ""
     lf_link = f"実験計画: [[{learns_from}]]\n" if learns_from else ""
-    body = body if body is not None else f"対象仮説: [[DEMO-H-001]]\n{lf_link}"
+    src = f"sources: [{', '.join(sources)}]\n" if sources else ""
+    src_link = ("生データ: " + " ".join(f"[{s}](../../sources/{s})" for s in sources) + "\n"
+                if sources and body_link else "")
+    body = body if body is not None else f"対象仮説: [[DEMO-H-001]]\n{lf_link}{src_link}"
     return f"""---
 id: {id}
 title: テスト学び
-type: interview
+type: {type}
 date: 2026-07-02
 stage: CPF
 {lf}hypotheses: {hypotheses}
 outcome: {outcome}
----
+{src}---
 
 # テスト学び
 
@@ -233,6 +236,161 @@ class FieldsSchemaTest(unittest.TestCase):
                 self.assertEqual([p for p in hwlint.lint_project(root)
                                   if p.check == "vocab" and "outcome" in p.message], [],
                                  f"outcome={outcome} が拒否された")
+
+
+SRC = "2026-07-02-interviews.md"
+
+
+class ProvenanceTest(unittest.TestCase):
+    """出典（provenance）: 確信度の根拠鎖 H履歴 → LEARN → sources/<生データ> の機械検証。"""
+
+    def _project(self, tmp, files, source_text="# インタビュー記録\n\n対象者A: …\n"):
+        root = make_project(tmp, files)
+        if source_text is not None:
+            write(root, f"sources/{SRC}", source_text)
+        return root
+
+    def _probs(self, root, *checks):
+        return [p for p in hwlint.lint_project(root) if p.check in checks]
+
+    def test_valid_provenance_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC]),
+            })
+            self.assertEqual(self._probs(root, "provenance", "orphan-source", "provenance-chain"), [])
+
+    def test_nonexistent_source_is_error(self):
+        # 生データを改名・削除しても確信度を支えた記録が無言で宙に浮く、を防ぐ。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=["2026-07-02-missing.md"]),
+            })
+            probs = self._probs(root, "provenance")
+            self.assertTrue(any(p.level == "error" and "存在しない" in p.message for p in probs), probs)
+
+    def test_escaping_path_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=["../wiki/log.md"]),
+            })
+            self.assertTrue(any(p.level == "error" and "相対パス" in p.message
+                                for p in self._probs(root, "provenance")))
+
+    def test_missing_sources_on_observational_learn_is_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(),          # sources なし
+            }, source_text=None)
+            probs = self._probs(root, "provenance")
+            self.assertTrue(any(p.level == "warning" and "出典" in p.message for p in probs), probs)
+
+    def test_self_reflection_learn_may_omit_sources(self):
+        # 内省（self-reflection）は出典なしを正当とする＝required-for-types の外。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(learns_from=None, type="self-reflection"),
+            }, source_text=None)
+            self.assertEqual(self._probs(root, "provenance"), [])
+
+    def test_body_link_required(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC], body_link=False),
+            })
+            self.assertTrue(any("本文の相対mdリンク" in p.message
+                                for p in self._probs(root, "provenance")))
+
+    def test_chain_breaks_when_confidence_rises_without_sources(self):
+        rows = ["| 2026-07-01 | 3 | 未検証 | 初期作成 | — |",
+                "| 2026-07-02 | 6 | 検証中 | 〈自認〉自分の言葉で語った | [[DEMO-LEARN-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(confidence="6", status="検証中", rows=rows),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(),          # sources なし＝鎖が切れている
+            }, source_text=None)
+            probs = self._probs(root, "provenance-chain")
+            self.assertTrue(any("3→6" in p.message for p in probs), probs)
+
+    def test_chain_ok_when_learn_has_sources(self):
+        rows = ["| 2026-07-01 | 3 | 未検証 | 初期作成 | — |",
+                "| 2026-07-02 | 6 | 検証中 | 〈自認〉自分の言葉で語った | [[DEMO-LEARN-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(confidence="6", status="検証中", rows=rows),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC]),
+            })
+            self.assertEqual(self._probs(root, "provenance-chain"), [])
+
+    def test_chain_ignores_confidence_drops(self):
+        # 引き下げ（ちゃぶ台返し等）は出典なしでも許す。上げるときだけ生データを要求する。
+        rows = ["| 2026-07-01 | 8 | 検証済み | 初期 | — |",
+                "| 2026-07-02 | 4 | 検証中 | 〈架空〉架空データ依存が露呈 | [[DEMO-LEARN-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(confidence="4", status="検証中", rows=rows),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(learns_from=None, type="self-reflection",
+                                                          outcome="是正"),
+            }, source_text=None)
+            self.assertEqual(self._probs(root, "provenance-chain"), [])
+
+    def test_orphan_source_detected(self):
+        # 置いたのに取り込まれていない生データ＝「記録が散逸し過去の学びが忘れられる」の機械検出。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp()})
+            probs = self._probs(root, "orphan-source")
+            self.assertEqual(len(probs), 1, probs)
+            self.assertIn(SRC, probs[0].where)
+
+    def test_readme_is_not_orphan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp()})
+            write(root, "sources/README.md", "# 生データの置き場\n")
+            self.assertEqual(self._probs(root, "orphan-source"), [])
+
+    def test_fictional_cap_derives_from_source_header(self):
+        """壊れていた連鎖の修理: LEARN 本文に架空の語が無くても、出典冒頭の宣言で蓋が働く。"""
+        rows = ["| 2026-07-01 | 3 | 未検証 | 初期作成 | — |",
+                "| 2026-07-02 | 9 | 検証済み | 〈自認〉〈実コスト〉5名中3名 | [[DEMO-LEARN-001]] |"]
+        files = {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(confidence="9", status="検証済み", rows=rows),
+            "wiki/tests/DEMO-TEST-001.md": act(),
+            # LEARN/TEST 本文には架空の語を書かない（＝偶然の書き写しが無い状態）
+            "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC]),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, files,
+                                 source_text="# 【架空・シミュレーション】インタビュー\n\n実証拠として扱わない。\n")
+            self.assertTrue(any(p.check == "fictional-cap" for p in hwlint.lint_project(root)),
+                            "出典冒頭の架空宣言から fictional-cap が導出されていない")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, files, source_text="# 実インタビュー\n\n実在の顧客5名。\n")
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [],
+                             "実データ由来なのに fictional-cap が誤検出された")
+
+    def test_views_share_the_same_fictional_derivation(self):
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC]),
+            }, source_text="# 【架空・シミュレーション】インタビュー\n")
+            self.assertEqual(gen_views.fictional_records(Project(root)), ["DEMO-LEARN-001"])
 
 
 class HistoryConsistencyTest(unittest.TestCase):

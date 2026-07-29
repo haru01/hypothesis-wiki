@@ -18,7 +18,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ontology import (  # noqa: E402
     ID_RE, STAGE_FOCUS, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
-    ENTITY_INFIXES, RECORD_DIRS, PROVENANCE,
+    ENTITY_INFIXES, RECORD_DIRS, PROVENANCE, FICTIONAL_MARKERS,
 )
 
 HISTORY_HEADER = "## 確信度履歴"
@@ -118,6 +118,31 @@ def referenced_ids(project, field, infix=None, where=None) -> set:
         if where and not where(fm):
             continue
         out.update(parse_id_array(fm.get(field, "")))
+    return out
+
+
+def fictional_activities(project) -> set:
+    """架空/シミュレーション由来と判定される TEST/LEARN の stem 集合（lint とビューで共有）。
+
+    判定は2経路で、**出典（provenance）が一次情報**:
+    (a) 学び(LEARN)の `sources` が指す生データの**冒頭**に架空マーカーがある
+        — `sources/README.md` は生データ冒頭への架空宣言を要求している。その宣言を実際に読む。
+    (b) TEST/LEARN 本文に架空マーカーがある — 出典を持たないレコード向けの後方互換フォールバック。
+
+    (a) が無いと連鎖が最初の一歩で切れる: 生データ側の宣言を誰も読まないので、
+    著者が偶然 LEARN 本文にも「架空」と書き写しているときだけ蓋（fictional-cap）が働く、
+    という状態になる（＝規約が実質機能しない）。"""
+    out = set()
+    for stem, (_, fm, body) in project.records.items():
+        if not ("-TEST-" in stem or "-LEARN-" in stem):
+            continue
+        if any(m in body for m in FICTIONAL_MARKERS):
+            out.add(stem)
+            continue
+        for rel in source_paths(fm):
+            if any(m in project.source_header(rel) for m in FICTIONAL_MARKERS):
+                out.add(stem)
+                break
     return out
 
 

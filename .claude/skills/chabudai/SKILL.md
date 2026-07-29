@@ -47,7 +47,8 @@ Wikiレコードに規律をもって適用する版である。
    対象仮説ごとに **危うい前提／バイアスの兆候／根拠不足の具体指摘（どの確信度行のどのタグが弱いか）／別解釈／反証仮説の種** を構造化して書く。**一度置いた `sources/` は以後編集しない**（不変ルール3）。既存のsourceファイルには一切手を触れない。
 
 5. **self-reflection 学びレコード（LEARN）を作る** — `wiki/learnings/` の既存最大+1で `<PREFIX>-LEARN-NNN` を採番し、`templates/learning.md` に従い `type: self-reflection` で作成する（`id` はファイル名と同じ接頭辞つき。回顧型なので **`learns-from` は書かない**。`.gitkeep` が残っていれば削除してよい）。
-   - 本文冒頭に `対象仮説: [[<PREFIX>-H-NNN]] …`（wikilink）と `揺さぶり材料: sources/YYYY-MM-DD-chabudai-<topic>.md`（相対mdリンク。`実験計画:` 行は回顧型なので置かない）を書く。frontmatter `hypotheses` は接頭辞つき配列。
+   - 本文冒頭に `対象仮説: [[<PREFIX>-H-NNN]] …`（wikilink）と `揺さぶり材料: [YYYY-MM-DD-chabudai-<topic>.md](../../sources/YYYY-MM-DD-chabudai-<topic>.md)`（相対mdリンク。`実験計画:` 行は回顧型なので置かない）を書く。frontmatter `hypotheses` は接頭辞つき配列。
+   - **出典（`sources`）に手順4の揺さぶりメモを書く**（`sources/` 基準の相対パス。例 `sources: [2026-07-19-chabudai-<topic>.md]`）。self-reflection は出典必須の種別ではないが、揺さぶり材料を置いたなら指すこと（`orphan-source` warning が出る＝取り込み忘れに見える）。
    - **学習カード**（監査後に記入）: **学びの要点**（board へ射影する一行）／事実（記録に実際に何が書かれているかを引用）／解釈（どこが根拠不足か・どのバイアスか、事実と分けて）／驚き・想定外／確信度の更新テーブル／次のアクション。引き下げたとき frontmatter `outcome` は `是正`、崩れず据え置きなら `判断保留` を記入する。
    - 監査の狙い（何を崩しに行くか＝各仮説の確信度の根拠を証拠の階梯・不変ルールで反証しに行く）は学習カードの解釈に明記する。
 
