@@ -1037,9 +1037,123 @@ class EvidenceFloorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:   # conf 7 を〈実コスト〉で支える
             self.assertEqual(self._hits(self._proj(tmp, 7, "〈実コスト〉")), [])
 
-    def test_no_ladder_tag_not_double_reported(self):
-        with tempfile.TemporaryDirectory() as tmp:   # 階梯タグ無し → evidence-tag の担当（二重報告しない）
-            self.assertEqual(self._hits(self._proj(tmp, 7, "〈二次〉")), [])
+    def test_aux_tag_only_is_warned(self):
+        """補助タグ〈二次〉〈架空〉は階梯を満たさない＝根拠の強さが不明なまま確信度が高い。
+
+        旧実装は `if not ranks: continue` で黙って見送っていたため、このチェックは
+        「階梯タグを書いた人だけが検査される」ものになっていた（実データでは self の履歴に
+        階梯タグ0行・aire は〈二次〉のみで、両プロジェクトで一度も発火していなかった）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            hits = self._hits(self._proj(tmp, 7, "〈二次〉"))
+            self.assertTrue(hits)
+            self.assertIn("階梯タグが1つも無い", hits[0].message)
+            self.assertIn("〈二次〉", hits[0].message)   # 何があるのかを示す
+
+    def test_no_tag_at_all_is_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hits = self._hits(self._proj(tmp, 6, ""))
+            self.assertTrue(hits)
+            self.assertIn("階梯タグが1つも無い", hits[0].message)
+
+    def test_below_floor_band_is_silent(self):
+        # 確信度 4 は evidence-floor の要求域外（3-4 は二次情報・状況証拠の帯）。
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self._hits(self._proj(tmp, 4, "〈二次〉")), [])
+
+
+class RelativeLinkTest(unittest.TestCase):
+    """相対mdリンクの実在検証（wikilink 以外のリンクは従来誰も見ていなかった）。"""
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "relative-link"]
+
+    def test_broken_relative_link_detected(self):
+        body = "対象仮説: [[DEMO-H-001]]\n\n手順は [/ingest](../../../../.claude/skills/ingest/SKILL.md) を参照。\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(body=body),
+            })
+            self.assertTrue(any("ingest" in p.message for p in self._hits(root)))
+
+    def test_resolvable_relative_link_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/log.md": "# ログ\n",
+                "wiki/tests/DEMO-TEST-001.md": act(
+                    body="対象仮説: [[DEMO-H-001]]\n\nログは [log](../log.md)。\n"),
+            })
+            self.assertEqual(self._hits(root), [])
+
+    def test_wikilink_followed_by_parenthetical_is_not_a_link(self):
+        # 実データにある `[[AIRE-H-003]](b) の対抗` を mdリンクと誤読しない。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(body="対象仮説: [[DEMO-H-001]](b) の対抗。\n"),
+            })
+            self.assertEqual(self._hits(root), [])
+
+    def test_external_url_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-001.md": act(
+                    body="対象仮説: [[DEMO-H-001]]\n\n出典 [NN/g](https://nngroup.com/x)。\n"),
+            })
+            self.assertEqual(self._hits(root), [])
+
+
+class SourceLinkTest(unittest.TestCase):
+    """不変層 sources/ 内の宙に浮いた wikilink の可視化（warning 固定・修正はしない）。"""
+
+    def test_dangling_wikilink_in_source_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp()})
+            write(root, "sources/2026-07-01-interviews.md",
+                  "# 記録\n\n[[DEMO-TEST-001]] の実施記録。\n")
+            hits = [p for p in hwlint.lint_project(root) if p.check == "source-link"]
+            self.assertEqual(len(hits), 1, hits)
+            self.assertEqual(hits[0].level, "warning")   # 不変層は直せないので error にしない
+
+    def test_resolvable_wikilink_in_source_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(
+                    learns_from=None, type="desk-research", outcome="起票",
+                    sources=["2026-07-01-interviews.md"]),
+            })
+            write(root, "sources/2026-07-01-interviews.md", "# 記録\n\n[[DEMO-H-001]] の材料。\n")
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "source-link"], [])
+
+
+class StageDocTest(unittest.TestCase):
+    """stage.md の current-stage と playbook 参照の食い違い（/deciding が誤った基準で判断する）。"""
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "stage-doc"]
+
+    def test_mismatched_playbook_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/stage.md": "---\nprefix: DEMO\n---\n\ncurrent-stage: CPF\n\n"
+                                 "移行基準は [playbooks/fpf.md](../../../playbooks/fpf.md) を使用。\n",
+            })
+            hits = self._hits(root)
+            self.assertTrue(hits)
+            self.assertIn("FPF", hits[0].message)
+
+    def test_matching_playbook_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/stage.md": "---\nprefix: DEMO\n---\n\ncurrent-stage: CPF\n\n"
+                                 "移行基準は [playbooks/cpf.md](../../../playbooks/cpf.md)。\n",
+            })
+            self.assertEqual(self._hits(root), [])
 
 
 class DecBasedOnTest(unittest.TestCase):

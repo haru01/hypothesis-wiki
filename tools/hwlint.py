@@ -19,7 +19,7 @@ from ontology import (  # noqa: E402
     EVIDENCE_FLOOR_MIN_CONFIDENCE, EVIDENCE_AUX,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
     IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
-    STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS,
+    STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
 )
 # レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
 # ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
@@ -260,6 +260,88 @@ def check_wikilinks(project) -> list:
     return problems
 
 
+def check_relative_links(project) -> list:
+    """レコード本文の相対リンク（schema層・生データ・生成物への参照）が実在すること（warning）。
+
+    wikilink は check_wikilinks が見ているが、**相対mdリンクは誰も見ていなかった**。
+    スキル名の改名（`/ingest` → `/learning` など）やファイル移動でリンクが壊れても検出されず、
+    しかもテストカード本文の壊れたリンクは board ビューへ逐語転記されるため、
+    再生成しても直らない壊れたリンクが生成物に残り続ける。
+
+    リンク先はリポジトリのどこでもよい（schema層・sources/・prototypes/）ので、
+    参照元ファイルのディレクトリを基準に解決してリポジトリ内に収まっているかも併せて見る。"""
+    problems = []
+    repo = project.root.parent.parent      # projects/<slug> → repo root
+    for stem, (path, _, body) in project.records.items():
+        for target in _md_link_targets(body):
+            if not target or target.startswith("/"):
+                continue                   # 絶対パスは規約外だが誤検出を避けて素通し（相対で書く規約）
+            resolved = (path.parent / target).resolve()
+            if not resolved.exists():
+                problems.append(Problem("warning", stem, "relative-link",
+                    f"相対リンク '{target}' が解決しない（リンク切れ）"))
+            elif repo.resolve() not in resolved.parents:
+                problems.append(Problem("warning", stem, "relative-link",
+                    f"相対リンク '{target}' がリポジトリ外を指している"))
+    return problems
+
+
+SOURCE_LINK_RE = re.compile(r"\[\[([A-Z0-9]+-(?:" + "|".join(map(re.escape, ENTITY_INFIXES))
+                            + r")-\d+)\]\]")
+
+
+def check_source_links(project) -> list:
+    """不変層 sources/ 内の wikilink がレコードとして実在すること（warning 固定）。
+
+    lint は従来 sources/ を走査していなかったため、改名・欠番で宙に浮いた参照が見えなかった。
+    **sources/ は不変層なので直せない**（不変ルール3）。level は warning 固定にして
+    「修正せよ」ではなく「この生データは古い ID を指している」という事実として可視化する
+    （読み手が生データを辿るとき、存在しないレコードを探して迷わないために要る）。"""
+    problems = []
+    d = project.sources_dir
+    if not d.is_dir():
+        return problems
+    for rel in sorted(project.source_files):
+        p = d / rel
+        if p.suffix != ".md":
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for rid in dict.fromkeys(SOURCE_LINK_RE.findall(strip_comments(text))):
+            if rid not in project.records:
+                problems.append(Problem("warning", f"{PROVENANCE.base_dir}/{rel}", "source-link",
+                    f"[[{rid}]] が解決しない（改名・取り下げで宙に浮いた参照）。"
+                    f"sources/ は不変層なので修正せず、現在のIDは学び(LEARN)側で辿る"))
+    return problems
+
+
+def check_stage_doc(project) -> list:
+    """stage.md 内の playbook 参照が current-stage と一致すること（warning）。
+
+    `/deciding` は「stage.md の移行基準の上書き（あれば優先）」を読むため、
+    current-stage と別ステージの playbook を指していると**現在ステージと違う基準で判断される**。
+    巻き戻し（rollback）で current-stage だけを直し、本文の playbook 参照が前ステージのまま
+    取り残されると起きる。"""
+    problems = []
+    p = project.wiki / "stage.md"
+    if not p.exists():
+        return problems
+    text = p.read_text(encoding="utf-8")
+    m = re.search(r"current-stage:\s*(\w+)", text)
+    if not m:
+        return problems
+    current = m.group(1)
+    referenced = {s.upper() for s in re.findall(r"playbooks/(\w+)\.md", text)}
+    stray = {s for s in referenced if s in STAGES and s != current}
+    for s in sorted(stray):
+        problems.append(Problem("warning", "stage.md", "stage-doc",
+            f"current-stage は {current} なのに playbooks/{s.lower()}.md（{s} の基準）を参照している"
+            f"（/deciding が現在ステージと違う移行基準で判断してしまう）"))
+    return problems
+
+
 INDEX_ROW_RE = re.compile(r"^\|\s*\[\[([A-Z0-9]+-H-\d+)\]\]\s*\|[^|]*\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|")
 
 
@@ -361,7 +443,9 @@ def check_fictional_cap(project) -> list:
 
 
 # 相対mdリンク（schema層・生データへの参照）。外部URL・アンカーのみは対象外。
-MD_LINK_RE = re.compile(r"\]\((?!https?://|mailto:|#)([^)\s]+)\)")
+# 直前が `]` のものは除く: `[[ID]](補足)` のように wikilink の閉じ括弧に括弧書きが続く記述を
+# mdリンクと誤読しないため（実データに `[[AIRE-H-003]](b) の対抗` がある）。
+MD_LINK_RE = re.compile(r"(?<!\])\]\((?!https?://|mailto:|#)([^)\s]+)\)")
 
 
 def _md_link_targets(body: str) -> list:
@@ -508,8 +592,19 @@ def _floor_for(conf: int):
 def check_evidence_floor(project) -> list:
     """確信度の帯に対して証拠の階梯が弱すぎないか（例: confidence 7 を〈発言〉だけで支えていないか）。
 
-    根拠タグに階梯タグが1つも無い場合は evidence-tag / fictional-cap の担当なので二重報告しない。
-    階梯タグが在るのにその最強が要求段未満のときだけ warning にする。"""
+    2通りの未達を報告する:
+    - 階梯タグが在るのにその最強が要求段未満（例: 7 を〈発言〉止まりで支えている）
+    - **階梯タグが1つも無いまま要求域に達している**（＝根拠の強さが不明なまま確信度が高い）
+
+    後者を黙って見送ると（旧実装の `if not ranks: continue`）このチェックは
+    「階梯タグを書いた人だけが検査される」ものになり、タグを書かなければ無検査で通る。
+    実データではまさにそれが起きていた（self の履歴に階梯タグ0行・ai-reskilling は補助タグ〈二次〉のみで、
+    両プロジェクトでこの規律が一度も発火していなかった）。補助タグ〈二次〉〈架空〉は序列を持たないので
+    階梯を満たさない。
+
+    evidence-tag（タグの有無）との違い: あちらは履歴**行ごと**の記入漏れ、こちらは仮説の**現在の確信度**が
+    証拠の強さに見合っているか。既に確定した過去行は追記専用ルールで直せないので、
+    「現在値が支えられていない」という事実の側を鳴らす。"""
     problems = []
     for stem, fm, _, rows in project.hyp_records():
         c = fm.get("confidence", "")
@@ -521,6 +616,11 @@ def check_evidence_floor(project) -> list:
         ranks = [EVIDENCE_RANK[name] for name in EVIDENCE_RANK
                  for row in rows if f"〈{name}〉" in row["reason"]]
         if not ranks:
+            aux = sorted({t for t in EVIDENCE_AUX for row in rows if f"〈{t}〉" in row["reason"]})
+            aux_note = f"（履歴にあるのは補助タグ {'・'.join(f'〈{t}〉' for t in aux)} のみ＝階梯外）" if aux else ""
+            problems.append(Problem("warning", stem, "evidence-floor",
+                f"confidence={c} には〈{floor}〉以上の証拠が要るが、確信度履歴に証拠の階梯タグが"
+                f"1つも無い{aux_note}（根拠の強さが不明なまま確信度が高い）"))
             continue
         if max(ranks) < EVIDENCE_RANK[floor]:
             problems.append(Problem("warning", stem, "evidence-floor",
@@ -649,6 +749,7 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_provenance_paths, check_provenance_presence, check_provenance_body_link,
           check_provenance_chain, check_orphan_sources,
+          check_relative_links, check_source_links, check_stage_doc,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,
