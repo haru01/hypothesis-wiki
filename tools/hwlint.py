@@ -5,6 +5,7 @@ CLAUDE.md の不変ルールのうち機械検証可能なものだけをチェ�
 意味的チェック（矛盾する仮説・長期放置など）は /lint スキル（LLM）が担い、両者で併用する。
 """
 import argparse
+import datetime
 import re
 import sys
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ from records import (  # noqa: E402
     importance, source_paths, fictional_activities, Project,
 )
 from project import resolve_current_project  # noqa: E402
+import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の算出）
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -702,6 +704,76 @@ def check_addresses_gaps(project) -> list:
     return problems
 
 
+def check_isolated_hypothesis(project) -> list:
+    """どの関係も持たない仮説（グラフから浮いている）を検出する（warning）。
+
+    `check_untested_focus` は重点タイプの `hypotheses` 入次数0だけを見るので、非重点の完全孤立
+    （系譜も検証活動も無い）は漏れる。論文 §V.E の連結性診断に対応する層。
+    誤検知を避けるため**起票直後（履歴1行のみ・status 未検証）は対象外**——立てた直後に系譜が
+    無いのは正常で、警告すると /formulating の直後に必ず鳴ってしまう。"""
+    problems = []
+    for stem in graph.isolated(project):
+        fm, rows = project.records[stem][1], project.history.get(stem, [])
+        if len(rows) <= 1 and fm.get("status") == "未検証":
+            continue
+        problems.append(Problem("warning", stem, "isolated-hypothesis",
+            "どの関係も持たない孤立仮説（系譜 derived-from/leads-to も検証活動 hypotheses も無い）"
+            "。関係を張るか、取り下げを検討する"))
+    return problems
+
+
+def _days_between(a: str, b: str):
+    """YYYY-MM-DD 文字列2つの日数差（b - a）。パースできなければ None。"""
+    try:
+        return (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
+    except ValueError:
+        return None
+
+
+def check_stale_confidence(project, today: str = None) -> list:
+    """検証済み・高確信度なのに確信度履歴の最終行が古い仮説を検出する（warning）。
+
+    論文の締め「the pipeline is not done when it runs; it is done when you can tell, on any given
+    morning, whether what it produced overnight was actually right」に対応する時間軸の診断。
+    市場・前提が動く仮説検証ドメインでは「半年前の確信度8」と「昨日の8」は同格でない。
+
+    **確信度は自動で下げない**（不変ルール1）。再検証を促す可視化に留める。
+    下げたいときは必ず学び(LEARN)か意思決定(DEC)に紐づけて人が動かす。"""
+    problems = []
+    today = today or datetime.date.today().isoformat()
+    for stem, fm, _, rows in project.hyp_records():
+        c = fm.get("confidence", "")
+        if fm.get("status") != "検証済み" or not c.isdigit():
+            continue
+        if int(c) < EVIDENCE_FLOOR_MIN_CONFIDENCE or not rows:
+            continue
+        age = _days_between(rows[-1]["date"], today)
+        if age is not None and age > STALENESS_CONFIDENCE_DAYS:
+            problems.append(Problem("warning", stem, "stale-confidence",
+                f"status=検証済み・confidence={c} だが確信度履歴の最終行が {rows[-1]['date']}"
+                f"（{age}日前・閾値{STALENESS_CONFIDENCE_DAYS}日）。前提が動いていないか再検証を検討する"))
+    return problems
+
+
+def check_stale_test(project, today: str = None) -> list:
+    """学び(LEARN)が紐づかない実験計画(TEST)が放置されていないか（warning）。
+
+    計画したのに実施されていない＝board に「未実施」で駐機したままになる。
+    実データで AIRE-TEST-002/003 が該当し、どのチェックもカバーしていなかった。"""
+    problems = []
+    today = today or datetime.date.today().isoformat()
+    learned = referenced_ids(project, "learns-from", infix="-LEARN-")
+    for stem, (_, fm, _) in project.records.items():
+        if entity_of(stem) != "TEST" or stem in learned:
+            continue
+        age = _days_between(fm.get("date", ""), today)
+        if age is not None and age > STALENESS_TEST_DAYS:
+            problems.append(Problem("warning", stem, "stale-test",
+                f"学び(LEARN)が紐づかない実験計画が {fm.get('date')} から {age}日放置"
+                f"（閾値{STALENESS_TEST_DAYS}日）。実施して /learning で学びを積むか、取り下げを検討する"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -753,6 +825,7 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,
+          check_isolated_hypothesis, check_stale_confidence, check_stale_test,
           check_relation_cycles]
 
 

@@ -26,11 +26,12 @@ from records import (  # noqa: E402
     testcard, source_paths, fictional_activities,
 )
 from project import resolve_current_project  # noqa: E402
+import graph  # noqa: E402  関係グラフの走査層（診断・下流依存度。辺集合の単一の入口）
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
     STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
-    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, PROVENANCE,
+    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, IMPORTANCE_OTHER, PROVENANCE,
     version as ontology_version,
 )
 
@@ -51,24 +52,30 @@ def fictional_records(project) -> list:
 
 
 def next_to_verify(project, hyps, stage) -> list:
-    """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。
+    """アサンプションマッピング「重要×証拠なし」象限＝重点 × 確信度低 × 未検証/検証中。
 
-    検証活動(TEST)・学び(LEARN)が1本も紐づかない（未着手）ものを最優先に並べる
-    （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, has_test)。"""
+    並び順のシグナルは3つ（優先度の高い順）:
+    1. 検証活動(TEST/LEARN)が1本も紐づかない＝**未着手**（OI-F1: トポロジー由来の探索域ギャップ）
+    2. **下流依存度**（`leads-to` の推移閉包）が大きい＝崩れると波及が大きい背骨（OI-D4 の残タスク）
+    3. 確信度が低い
+
+    返り値は (stem, fm, has_test, downstream)。"""
     tested = (referenced_ids(project, "hypotheses", infix="-TEST-")
               | referenced_ids(project, "hypotheses", infix="-LEARN-"))
-    nxt = [(s, fm, s in tested) for s, fm, *_ in hyps
+    down = graph.downstream_counts(project)
+    nxt = [(s, fm, s in tested, down.get(s, 0)) for s, fm, *_ in hyps
            if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
-    return sorted(nxt, key=lambda x: (x[2], int(x[1].get("confidence", "0") or 0), x[0]))
+    return sorted(nxt, key=lambda x: (x[2], -x[3], int(x[1].get("confidence", "0") or 0), x[0]))
 
 
 def next_to_verify_bullets(nxt) -> list:
     """next_to_verify の各項目を箇条書き行に整形する（board/list 共通の逐語部分）。"""
     lines = []
-    for stem, fm, has_test in nxt:
+    for stem, fm, has_test, downstream in nxt:
         mark = "" if has_test else " ⚠️未着手（検証活動なし）"
+        spine = f" ・下流{downstream}" if downstream else ""
         lines.append(f"- [[{stem}]] {fm.get('title', '')}"
-                     f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
+                     f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}{spine}）{mark}")
     return lines
 
 
@@ -293,8 +300,8 @@ def gen_board(project) -> str:
         L.append(f"| [[{stem}]] {fm.get('title', '')} | {fm.get('type', '')} | "
                  f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm, stage)} |")
     nxt = next_to_verify(project, hyps, stage)
-    legend = "・⚠️＝検証活動なし＝最優先" if any(not has_test for *_, has_test in nxt) else ""
-    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中{legend}）:", ""]
+    legend = "・⚠️＝検証活動なし＝最優先" if any(not e[2] for e in nxt) else ""
+    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中・下流＝leads-to 推移閉包{legend}）:", ""]
     L += next_to_verify_bullets(nxt)
     L.append("")
     return "\n".join(L)
@@ -352,7 +359,7 @@ def gen_list(project) -> str:
 
     L = header_lines("list", stage, today, fictional_records(project))
     L += ["", f"# 全仮説リスト（{project.slug}）", ""]
-    L.append(f"現在ステージ: **{stage}**。重要度は {stage} 重点タイプ=8・その他=4 で算出（frontmatter 射影）。"
+    L.append(f"現在ステージ: **{stage}**。重要度は {stage} 重点タイプ={IMPORTANCE_FOCUS}・その他={IMPORTANCE_OTHER} で算出（frontmatter 射影）。"
              "★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動 TEST・学び LEARN。")
 
     # mermaid バリューチェーン（ノード=frontmatter、矢印=leads-to）
@@ -394,8 +401,8 @@ def gen_list(project) -> str:
 
     # 次に検証すべき
     nxt = next_to_verify(project, hyps, stage)
-    legend = "。⚠️＝検証活動なし＝最優先" if any(not has_test for *_, has_test in nxt) else ""
-    L += [f"## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中{legend}）", ""]
+    legend = "。⚠️＝検証活動なし＝最優先" if any(not e[2] for e in nxt) else ""
+    L += [f"## 次に検証すべき仮説（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中・下流＝leads-to 推移閉包{legend}）", ""]
     L += next_to_verify_bullets(nxt)
     L.append("")
 
@@ -502,18 +509,8 @@ def node_label(project, stem) -> str:
 
 
 def relation_edges(project) -> list:
-    """(relation, 始点stem, 終点stem) を frontmatter から収集する。
-    終点が同一プロジェクトに実在し range 種別が一致する辺だけを返す。"""
-    edges = []
-    for stem, (_, fm, _) in project.records.items():
-        ent = entity_of(stem)
-        for rel in RELATIONS:
-            if not rel.in_domain(ent):
-                continue
-            for tgt in parse_id_array(fm.get(rel.field, "")):
-                if tgt in project.records and rel.in_range(entity_of(tgt)):
-                    edges.append((rel, stem, tgt))
-    return edges
+    """(relation, 始点stem, 終点stem)。実体は graph.edges（診断と同じ辺集合を共有する）。"""
+    return graph.edges(project)
 
 
 def gen_relations(project):
@@ -610,7 +607,52 @@ def gen_relations(project):
             L.append("- ※ どの課題にも `addresses` が張られていない"
                      "（ソリューション仮説の frontmatter に `addresses: [課題ID]` を書くとフィットが埋まる）")
         L.append("")
+
+    L += graph_diagnostics(project)
     return "\n".join(L)
+
+
+def graph_diagnostics(project) -> list:
+    """グラフ全体の歪みを数値で出す（連結性・密度・孤立・ハブ・下流依存度・未取り込み生データ）。
+
+    個別の辺の型は lint が検証するのに対し、ここは**グラフ全体の欠落・偏り**を見る層。
+    0件でも節と「なし」を出す（その診断軸が存在することを読者に伝えるため。OI-D3 と同じ思想）。"""
+    n, m, dens = graph.density(project)
+    comps = graph.components(project)
+    deg = graph.degree(project)
+    down = {k: v for k, v in graph.downstream_counts(project).items() if v}
+    band = "疎（孤立が多い）" if dens < 1.0 else ("密（richly connected）" if dens > 2.0 else "健全な中間域")
+
+    L = ["## グラフ診断", "",
+         "グラフ全体の欠落・偏りを機械算出する（個別の辺の型検証は `/lint` の担当）。", "",
+         f"- **規模**: ノード {n} ／ 辺 {m} ／ **辺÷ノード = {dens:.2f}**（{band}）",
+         f"- **連結成分**: {len(comps)}（最大成分 {len(comps[0]) if comps else 0} ノード）"
+         + ("。単一成分＝全レコードが関係で繋がっている" if len(comps) == 1 else
+            "。**島に割れている＝系譜(derived-from/leads-to)・検証(hypotheses)の張り忘れの疑い**")]
+    if len(comps) > 1:
+        for i, c in enumerate(comps, 1):
+            L.append(f"  - 成分{i}（{len(c)}）: " + " ".join(f"[[{s}]]" for s in sorted(c)))
+
+    iso = graph.isolated(project)
+    L.append("- **孤立仮説**（どの関係も持たない）: "
+             + (" ".join(f"[[{s}]]" for s in iso) if iso else "なし"))
+
+    hubs = sorted((s for s in project.records if deg.get(s)), key=lambda s: (-deg[s], s))[:5]
+    L.append("- **ハブ**（次数上位＝コーパスを束ねているレコード）: "
+             + (" ".join(f"[[{s}]]({deg[s]})" for s in hubs) if hubs else "なし"))
+
+    top_down = sorted(down.items(), key=lambda x: (-x[1], x[0]))[:5]
+    L.append("- **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: "
+             + (" ".join(f"[[{s}]]({c})" for s, c in top_down) if top_down else "なし"))
+
+    referenced = {rel for stem, (_, fm, _) in project.records.items()
+                  if PROVENANCE.in_domain(entity_of(stem)) for rel in source_paths(fm)}
+    orphans = sorted(project.source_files - referenced)
+    L.append(f"- **未取り込みの生データ**（どの学びの `{PROVENANCE.field}` からも参照されていない）: "
+             + (" ".join(f"[{s}](../../{PROVENANCE.base_dir}/{s})" for s in orphans)
+                if orphans else "なし"))
+    L.append("")
+    return L
 
 
 # ---- index ビュー（wiki/index.md。手編集をやめ再生成に一本化） ----
