@@ -30,7 +30,10 @@ fi
 # 6) sources/ は不変層（既存ファイルの中身の書き換えを禁止）。--diff-filter=M で「改変」だけを見る。
 #    新規追加（/learning の初回配置）と、削除（誤配置の除去・案件まるごと廃止）は許可。
 #    不変性の要は「観測した生データを後から書き換えない」こと。削除は git 上で可視なので許容する。
-if git diff --cached --name-only --diff-filter=M -- 'projects/*/sources/*' | grep -q .; then
+#    README.md は不変層の**説明文**であって観測データでないので対象外（雛形を直したとき既存案件の
+#    README が陳腐化したまま凍結されるのを避ける。tools/hooks/guard_sources.py と同じ扱い）。
+if git diff --cached --name-only --diff-filter=M -- 'projects/*/sources/*' \
+   | grep -v '/sources/README\.md$' | grep -q .; then
   echo "[error] sources-immutable | projects/*/sources/ の既存ファイルが書き換えられている（不変層）" >&2
   exit 1
 fi

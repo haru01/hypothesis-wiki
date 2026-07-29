@@ -1,12 +1,12 @@
 <!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-07-29（ステージ CPF） / ontology-version: 1 -->
-<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
+<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # self — 仮説インデックス
 
 全仮説の現在の確信度・ステータス（レコードからの射影）。詳細は [board](views/board.md)・[list](views/hypotheses-list.md)・[relations](views/relations.md) 各ビューを参照。
 
 - ステージ: **CPF** Customer Problem Fit
-- 仮説(H) 10 ｜ 実験計画(TEST) 3 ｜ 学び(LEARN) 5 ｜ 意思決定(DEC) 2
+- 仮説(H) 10 ｜ 実験計画(TEST) 3 ｜ 学び(LEARN) 6 ｜ 意思決定(DEC) 2
 
 | 仮説 | タイトル | 確信度 | ステータス | 重要度 |
 |---|---|---|---|---|
