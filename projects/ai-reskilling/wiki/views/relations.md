@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-25（ステージ CPF） -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-29（ステージ CPF） / ontology-version: 1 -->
 
 # 関係グラフ（ai-reskilling）
 
@@ -84,3 +84,14 @@ flowchart LR
 - [[AIRE-H-001]] ← 検証活動: [[AIRE-TEST-002]] [[AIRE-TEST-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
 - [[AIRE-H-002]] ← 因果元: [[AIRE-H-001]] ／ 検証活動: [[AIRE-TEST-002]] [[AIRE-TEST-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
 - [[AIRE-H-003]] ← 因果元: [[AIRE-H-001]] ／ 検証活動: [[AIRE-TEST-002]] [[AIRE-TEST-003]] [[AIRE-LEARN-001]] [[AIRE-LEARN-002]]
+
+## グラフ診断
+
+グラフ全体の欠落・偏りを機械算出する（個別の辺の型検証は `/lint` の担当）。
+
+- **規模**: ノード 7 ／ 辺 14 ／ **辺÷ノード = 2.00**（健全な中間域）
+- **連結成分**: 1（最大成分 7 ノード）。単一成分＝全レコードが関係で繋がっている
+- **孤立仮説**（どの関係も持たない）: なし
+- **ハブ**（次数上位＝コーパスを束ねているレコード）: [[AIRE-H-001]](6) [[AIRE-H-002]](5) [[AIRE-H-003]](5) [[AIRE-LEARN-001]](3) [[AIRE-LEARN-002]](3)
+- **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: [[AIRE-H-001]](2)
+- **未取り込みの生データ**（どの学びの `sources` からも参照されていない）: なし

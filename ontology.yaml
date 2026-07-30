@@ -6,12 +6,28 @@
 # - 人間可読な要約 ontology.md は `python3 tools/gen_ontology_doc.py` でここから生成する（手編集禁止）。
 #
 # 用語（Ontology-Playground 流）:
-#   entity   = レコード種別（H / TEST / DEC）とそのサブタイプ（frontmatter type の enum）
+#   entity   = レコード種別（H / TEST / LEARN / DEC）とそのサブタイプ（frontmatter type の enum）
+#   field    = レコードの frontmatter キー。required（必須か）と kind（値の種別）を宣言する。
+#              「スキーマが契約」＝宣言に無いキーはタイポ、required の欠落は error として lint が弾く。
 #   relation = レコード間の型付きリンク。domain（始点の型）→ range（終点の型）、
 #              cardinality（one=単一 / many=配列）、inverse（逆方向の呼称）を宣言する。
 #   各 relation は frontmatter 配列 と 本文 wikilink の二重表現を持つ（must-wikilink: true）。
+#   provenance = グラフの外（不変層 sources/）を指す出典属性。relation とは別概念（下記 provenance 節）。
 
+# スキーマ版。生成ビューのヘッダに ontology-version として刻まれる（どの版で射影した生成物かを追える）。
 version: 1
+
+# ── フィールドの kind（値の種別）の意味 ─────────────────────────────
+# id          … ファイル名と一致する接頭辞つきID（check_id_matches_filename が検証）
+# text        … 自由記述の一行
+# subtype     … 当該 entity の subtypes 名（check_vocabulary が検証）
+# enum        … enum-ref が指す状態機械の語彙（stages / statuses / outcomes）
+# date        … YYYY-MM-DD
+# confidence  … confidence.min〜max の整数
+# importance  … auto または 1-10（auto は stage-focus から解決）
+# flag        … 真偽（true のときだけ意味を持つ省略可フィールド）
+# relation    … 関係キー。型の正本は下記 relations 節（ここでは required/存在だけを宣言）
+# provenance  … 出典キー。仕様の正本は下記 provenance 節
 
 # ── エンティティ（レコード種別とサブタイプ） ─────────────────────────────
 entities:
@@ -19,6 +35,19 @@ entities:
     label: 仮説
     dir: hypotheses
     description: 反証可能な仮説文。追記専用の確信度履歴テーブルを正本として持ち、TEST/LEARN/DEC から検証・更新される。事業の前提を1つずつ言語化した検証の起点。
+    fields:
+      - {name: id,           required: true,  kind: id}
+      - {name: title,        required: true,  kind: text}
+      - {name: short-title,  required: false, kind: text}
+      - {name: type,         required: true,  kind: subtype}
+      - {name: status,       required: true,  kind: enum, enum-ref: statuses}
+      - {name: confidence,   required: true,  kind: confidence}
+      - {name: stage,        required: true,  kind: enum, enum-ref: stages}
+      - {name: importance,   required: false, kind: importance}
+      - {name: derived-from, required: false, kind: relation}
+      - {name: leads-to,     required: false, kind: relation}
+      - {name: addresses,    required: false, kind: relation}
+      - {name: core,         required: false, kind: flag}
     # サブタイプは価値連鎖（行動→課題→解決→市場スケール／自分たち）の順。
     # key        = list の mermaid subgraph ID / chain-label = その表示名 / role = 価値連鎖上の役割
     subtypes:
@@ -52,6 +81,14 @@ entities:
     label: 実験計画
     dir: tests
     description: テストカード。検証前に記入し以後不変（後知恵バイアス防止）。「動いて検証する(Act)→学ぶ(Learn)」の計画側で、目的・方法・指標・成功基準・riskiest-assumption を宣言する。検証後の学びは LEARN（別レコード）に積む。
+    fields:
+      - {name: id,                   required: true, kind: id}
+      - {name: title,                required: true, kind: text}
+      - {name: type,                 required: true, kind: subtype}
+      - {name: date,                 required: true, kind: date}
+      - {name: stage,                required: true, kind: enum, enum-ref: stages}
+      - {name: hypotheses,           required: true, kind: relation}
+      - {name: riskiest-assumption,  required: true, kind: text}
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -63,7 +100,17 @@ entities:
   LEARN:
     label: 学び
     dir: learnings
-    description: 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（支持/反証/判断保留 等）と確信度更新を記録する。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。
+    description: 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
+    fields:
+      - {name: id,          required: true,  kind: id}
+      - {name: title,       required: true,  kind: text}
+      - {name: type,        required: true,  kind: subtype}
+      - {name: date,        required: true,  kind: date}
+      - {name: stage,       required: true,  kind: enum, enum-ref: stages}
+      - {name: learns-from, required: false, kind: relation}
+      - {name: hypotheses,  required: true,  kind: relation}
+      - {name: outcome,     required: true,  kind: enum, enum-ref: outcomes}
+      - {name: sources,     required: false, kind: provenance}
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -76,6 +123,15 @@ entities:
     label: 意思決定
     dir: decisions
     description: ステージ移行・ピボット・撤退・巻き戻しなどの節目の判断。based-on で根拠の LEARN/TEST に結び、to-stage を持つ最新 DEC が現在ステージの正本になる。巻き戻しポイントと次の一手を残す。
+    fields:
+      # based-on は「根拠なき意思決定」を専用チェック（check_dec_based_on・warning）で扱うため
+      # ここでは required: false とし、error での二重報告を避ける。
+      - {name: id,       required: true,  kind: id}
+      - {name: title,    required: true,  kind: text}
+      - {name: date,     required: true,  kind: date}
+      - {name: type,     required: true,  kind: subtype}
+      - {name: based-on, required: false, kind: relation}
+      - {name: to-stage, required: false, kind: enum, enum-ref: stages}
     subtypes:
       - {name: stage-transition}
       - {name: pivot}
@@ -159,6 +215,26 @@ relations:
     inverse-label: 導いた判断
     description: この意思決定が根拠にした学び(LEARN)・実験計画(TEST)（複数可）。判定を持つ LEARN を優先する。判断がどの証拠に基づいたかを追跡でき、活動側からは逆引き（導いた判断）でその活動がどの決定を導いたかを辿れる。
 
+# ── プロヴェナンス（出典＝不変層 sources/ への参照） ──────────────────
+# 型付きリンク(relations)は record→record。出典は「グラフの外を指す属性」なので別に宣言する
+# （relation にすると domain/range ⊆ entities の不変条件を壊す）。
+#
+# この宣言が担うのは、確信度の根拠鎖の**最後の一歩**である:
+#   H の確信度履歴 → [[LEARN-NNN]] → sources/<生データ>
+# ここが機械可読でないと (a) 出典切れが検出できず、(b) 生データ冒頭の架空宣言が
+# fictional-cap の判定に届かず（＝架空データで確信度を水増ししても気づけず）、
+# (c) sources/ に置いたのに取り込まれていない生データを拾えない。
+provenance:
+  field: sources                    # frontmatter キー（base-dir 基準の相対パス配列）
+  domain: [LEARN]                   # 出典を持つレコード種別
+  cardinality: many
+  base-dir: sources                 # projects/<slug>/ 配下の基準ディレクトリ
+  must-body-link: true              # 本文にも相対mdリンクを置く（schema層と同じ記法。wikilink は使わない）
+  # この活動種別の LEARN は出典を要する（欠落は warning）。
+  # self-reflection は内省なので出典なしを正当とする（chabudai の揺さぶり材料があれば書いてよい）。
+  required-for-types: [interview, demo, survey, mvp-test, desk-research]
+  fictional-header-scan-lines: 12   # 出典冒頭N行の fictional-markers を架空判定の一次情報にする
+
 # ── 状態機械 ────────────────────────────────────────────────────────
 state-machines:
   # 検証ステージ（正式名称は playbooks/<stage>.md の見出しが正典）
@@ -192,6 +268,15 @@ state-machines:
     - {name: 未検証,   emoji: "⚪", description: まだ実験で確かめていない状態。起票直後の初期値}
     - {name: 反証,     emoji: "❌", description: 実験で否定された状態。もはや信じていないので確信度も低いはず}
 
+  # 学び(LEARN)の検証判定（frontmatter outcome）。board サマリの outcome 列へ射影する。
+  # 成功基準の機械判定は〈支持／反証／判断保留〉の3値で、起票・是正はそれ以外の記録行為。
+  outcomes:
+    - {name: 起票,     description: 仮説を起票した（確信度の初期値を置いた。真偽判定ではない）}
+    - {name: 支持,     description: 成功基準を満たし仮説が支持された}
+    - {name: 反証,     description: 成功基準を満たさず仮説が否定された}
+    - {name: 判断保留, description: 実験したが結論が出ず証拠が足りない（確信度は原則上げない）}
+    - {name: 是正,     description: 記録・運用の誤りを正した（仮説の真偽判定ではないので確信度は動かさない）}
+
   # 確信度（1-10）
   confidence:
     min: 1
@@ -218,6 +303,11 @@ state-machines:
       - {min-confidence: 5, floor: 自認}      # 5-6 は〈自認〉以上を要する
       - {min-confidence: 7, floor: 実コスト}   # 7-8 は〈実コスト〉以上を要する
 
+  # 陳腐化（時間軸）の閾値。**数値は自動で下げない**（不変ルール1厳守）。再検証を促す可視化のみ。
+  # 市場・前提が動く仮説検証ドメインでは「半年前の確信度8」と「昨日の8」は同格でない、という観点。
+  staleness:
+    confidence-days: 180   # status:検証済み かつ evidence-floor を要する確信度で、履歴最終行がこれより古い → warning
+    test-days: 14          # 学び(LEARN)が紐づかない実験計画(TEST)がこれより古い → warning（計画したのに放置）
   # 証拠の階梯（弱→強）。確信度を上げる根拠の強さの序列。
   # 本文の根拠セルでは 〈発言〉のように山括弧つきで書く（ツールが山括弧を補う）。
   # 要素は {name, desc}。序列は記載順（先頭が最弱）。name のみ書いた文字列でも後方互換で読める。

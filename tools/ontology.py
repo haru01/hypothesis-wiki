@@ -16,6 +16,11 @@ import yaml
 ONTOLOGY_PATH = Path(__file__).resolve().parent.parent / "ontology.yaml"
 
 
+def version() -> int:
+    """スキーマ版（ontology.yaml の version）。生成ビューのヘッダに刻む。"""
+    return load().get("version", 0)
+
+
 @lru_cache(maxsize=1)
 def load() -> dict:
     """ontology.yaml をパースして dict で返す（プロセス内で1回だけ読む）。"""
@@ -64,6 +69,40 @@ class Relation:
         return self.cardinality == "one"
 
 
+class Field:
+    """frontmatter フィールド1件。required（必須か）と kind（値の種別）を保持する。
+
+    kind の意味は ontology.yaml 冒頭のコメントが正本。`enum` は enum-ref が指す
+    状態機械の語彙（stages/statuses/outcomes）で検証する。"""
+    __slots__ = ("name", "required", "kind", "enum_ref")
+
+    def __init__(self, d: dict):
+        self.name = d["name"]
+        self.required = bool(d.get("required", False))
+        self.kind = d.get("kind", "text")
+        self.enum_ref = d.get("enum-ref", "")
+
+
+class Provenance:
+    """出典（不変層 sources/ への参照）の宣言。relation ではなくレコードの属性。
+
+    確信度の根拠鎖 `H の履歴 → LEARN → sources/<file>` の最後の一歩を機械可読にする。"""
+    __slots__ = ("field", "domains", "cardinality", "base_dir", "must_body_link",
+                 "required_for_types", "fictional_header_scan_lines")
+
+    def __init__(self, d: dict):
+        self.field = d.get("field", "sources")
+        self.domains = _as_set(d.get("domain", ["LEARN"]))
+        self.cardinality = d.get("cardinality", "many")
+        self.base_dir = d.get("base-dir", "sources")
+        self.must_body_link = bool(d.get("must-body-link", False))
+        self.required_for_types = set(d.get("required-for-types", []))
+        self.fictional_header_scan_lines = int(d.get("fictional-header-scan-lines", 12))
+
+    def in_domain(self, ent: str) -> bool:
+        return ent in self.domains
+
+
 def _subtype_names(entity: str) -> list:
     return [s["name"] for s in load()["entities"][entity]["subtypes"]]
 
@@ -81,6 +120,14 @@ DEC_TYPES = set(_subtype_names("DEC"))
 # エンティティ種別 → dir / id-infix
 ENTITY_INFIXES = list(load()["entities"].keys())           # ["H", "TEST", "LEARN", "DEC"]
 ID_RE = re.compile(r"^[A-Z0-9]+-(?:" + "|".join(map(re.escape, ENTITY_INFIXES)) + r")-\d+$")
+# エンティティ種別 → レコード置き場（wiki/ 配下のサブディレクトリ）。records.py の探索が使う。
+ENTITY_DIRS = {ent: e["dir"] for ent, e in load()["entities"].items()}
+RECORD_DIRS = tuple(ENTITY_DIRS.values())                  # ("hypotheses","tests","learnings","decisions")
+
+# ── frontmatter フィールド（スキーマ＝契約） ─────────────────────────
+FIELDS = {ent: [Field(f) for f in e.get("fields", [])] for ent, e in load()["entities"].items()}
+FIELDS_BY_NAME = {ent: {f.name: f for f in fs} for ent, fs in FIELDS.items()}
+REQUIRED_FIELDS = {ent: [f.name for f in fs if f.required] for ent, fs in FIELDS.items()}
 
 # ── H サブタイプの価値連鎖上の役割 ──────────────────────────────────
 CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
@@ -109,6 +156,15 @@ STATUSES = {s["name"] for s in _STATUS_LIST}
 STATUS_ORDER = [s["name"] for s in _STATUS_LIST]
 STATUS_EMOJI = {s["name"]: s["emoji"] for s in _STATUS_LIST}
 
+# 学び(LEARN)の検証判定（frontmatter outcome）。
+_OUTCOME_LIST = _SM.get("outcomes", [])
+OUTCOMES = {o["name"] for o in _OUTCOME_LIST}
+OUTCOME_ORDER = [o["name"] for o in _OUTCOME_LIST]
+OUTCOME_DESC = {o["name"]: o.get("description", "") for o in _OUTCOME_LIST}
+
+# enum フィールドの enum-ref → 語彙集合（check_fields が引く）
+ENUM_REFS = {"stages": STAGES, "statuses": STATUSES, "outcomes": OUTCOMES}
+
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
 # 確信度の帯 [{range, meaning}, ...]（確信度スケールの目安。ontology.md 生成に使う）
@@ -121,6 +177,13 @@ STATUS_BOUNDS = {k: dict(v) for k, v in _SM["confidence"].get("status-bounds", {
 EVIDENCE_FLOOR = sorted(
     ((e["min-confidence"], e["floor"]) for e in _SM["confidence"].get("evidence-floor", [])),
     reverse=True)
+# evidence-floor を要求される最小の確信度（これ未満の帯は階梯タグを要求しない）
+EVIDENCE_FLOOR_MIN_CONFIDENCE = min((c for c, _ in EVIDENCE_FLOOR), default=CONFIDENCE_MAX + 1)
+
+# ── 陳腐化（時間軸）の閾値。数値は自動で下げない＝可視化のみ ──────────
+_STALE = _SM.get("staleness", {})
+STALENESS_CONFIDENCE_DAYS = int(_STALE.get("confidence-days", 180))
+STALENESS_TEST_DAYS = int(_STALE.get("test-days", 14))
 
 # 証拠の階梯（序列あり）＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
 # YAML 要素は {name, desc} 辞書でも name のみの文字列でも読める（後方互換）。
@@ -148,6 +211,9 @@ EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 RELATIONS = [Relation(d) for d in load()["relations"]]
 RELATIONS_BY_FIELD = {r.field: r for r in RELATIONS}
 
+# ── プロヴェナンス（出典）────────────────────────────────────────────
+PROVENANCE = Provenance(load().get("provenance", {}))
+
 # ── リーンキャンバス（仮説検証への写像。レコードでなくビュー） ──────────
 # 各 block は H サブタイプの役割(role)へ対応。ブロック検証状態は対応 role の H から射影する。
 _LC = load().get("lean-canvas", {})
@@ -171,17 +237,44 @@ def _selfcheck() -> int:
     assert STATUS_ORDER and set(STATUS_ORDER) == STATUSES, "status 定義の不整合"
     assert STAGE_FOCUS.keys() == STAGES, "stage-focus と stages が不一致"
     assert len(LIST_GROUPS) == len(H_TYPES), "LIST_GROUPS の件数不一致"
+    assert OUTCOMES, "outcomes 定義が空"
     for r in RELATIONS:
         assert r.domains <= set(ENTITY_INFIXES) and r.ranges <= set(ENTITY_INFIXES), \
             f"{r.name} の domain/range 不正"
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
+    # フィールド宣言（スキーマ＝契約）の整合
+    for ent, fields in FIELDS.items():
+        assert fields, f"{ent} に fields 宣言が無い"
+        names = [f.name for f in fields]
+        assert len(names) == len(set(names)), f"{ent} の fields に重複キー"
+        assert "id" in names, f"{ent} の fields に id が無い"
+        for f in fields:
+            if f.kind == "enum":
+                assert f.enum_ref in ENUM_REFS, f"{ent}.{f.name} の enum-ref '{f.enum_ref}' が未知"
+            if f.kind == "relation":
+                assert f.name in RELATIONS_BY_FIELD, f"{ent}.{f.name} は relations に宣言が無い"
+            if f.kind == "provenance":
+                assert f.name == PROVENANCE.field, f"{ent}.{f.name} は provenance.field と不一致"
+    # 関係は必ずどこかの fields に現れる（宣言したのに frontmatter キーとして未登録＝死んだ関係を防ぐ）
+    for r in RELATIONS:
+        for ent in r.domains:
+            assert r.field in FIELDS_BY_NAME.get(ent, {}), \
+                f"関係 {r.name} の field '{r.field}' が {ent} の fields に無い"
+    # プロヴェナンス
+    assert PROVENANCE.domains <= set(ENTITY_INFIXES), "provenance の domain 不正"
+    for ent in PROVENANCE.domains:
+        assert PROVENANCE.field in FIELDS_BY_NAME[ent], \
+            f"provenance.field '{PROVENANCE.field}' が {ent} の fields に無い"
+        assert PROVENANCE.required_for_types <= set(_subtype_names(ent)), \
+            f"provenance.required-for-types に {ent} のサブタイプでない値がある"
     # リーンキャンバス写像: 各 block の maps-to-role が実在する H role か（role ドリフト検出）
     for b in LEAN_CANVAS_BLOCKS:
         assert b.get("maps-to-role") in H_ROLES, f"lean-canvas block {b.get('key')} の maps-to-role 不正"
     for bk in LEAN_CANVAS_STAGE_LENS:
         assert bk in {b["key"] for b in LEAN_CANVAS_BLOCKS}, f"stage-lens の未知ブロック {bk}"
-    print(f"ontology.yaml OK: entities={list(load()['entities'])} "
-          f"relations={[r.name for r in RELATIONS]} stages={STAGE_ORDER} statuses={STATUS_ORDER} "
+    print(f"ontology.yaml OK (version={load().get('version')}): entities={list(load()['entities'])} "
+          f"relations={[r.name for r in RELATIONS]} provenance={PROVENANCE.field} "
+          f"stages={STAGE_ORDER} statuses={STATUS_ORDER} outcomes={OUTCOME_ORDER} "
           f"lean-canvas-blocks={[b['key'] for b in LEAN_CANVAS_BLOCKS]}")
     return 0
 

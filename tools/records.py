@@ -18,6 +18,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ontology import (  # noqa: E402
     ID_RE, STAGE_FOCUS, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
+    ENTITY_INFIXES, RECORD_DIRS, PROVENANCE, FICTIONAL_MARKERS,
 )
 
 HISTORY_HEADER = "## 確信度履歴"
@@ -58,11 +59,21 @@ def parse_id_array(value: str) -> list:
 
 
 def entity_of(stem: str) -> str:
-    """レコード stem からエンティティ種別（H/TEST/LEARN/DEC）を返す。該当なしは空。"""
-    for infix in ("H", "TEST", "LEARN", "DEC"):
+    """レコード stem からエンティティ種別（H/TEST/LEARN/DEC）を返す。該当なしは空。
+
+    種別の一覧は ontology.yaml の entities が正本（ENTITY_INFIXES 経由。ここに再定義しない）。"""
+    for infix in ENTITY_INFIXES:
         if f"-{infix}-" in stem:
             return infix
     return ""
+
+
+def source_paths(fm: dict) -> list:
+    """frontmatter の出典キー（provenance.field＝sources）を相対パス配列で返す。
+
+    値は parse_frontmatter の契約どおり "[a, b]" 形式の文字列なので parse_id_array を流用する
+    （ID でなくパスだが、カンマ区切り配列の解析としては同一）。"""
+    return parse_id_array(fm.get(PROVENANCE.field, ""))
 
 
 def strip_frontmatter(text: str) -> str:
@@ -110,6 +121,31 @@ def referenced_ids(project, field, infix=None, where=None) -> set:
     return out
 
 
+def fictional_activities(project) -> set:
+    """架空/シミュレーション由来と判定される TEST/LEARN の stem 集合（lint とビューで共有）。
+
+    判定は2経路で、**出典（provenance）が一次情報**:
+    (a) 学び(LEARN)の `sources` が指す生データの**冒頭**に架空マーカーがある
+        — `sources/README.md` は生データ冒頭への架空宣言を要求している。その宣言を実際に読む。
+    (b) TEST/LEARN 本文に架空マーカーがある — 出典を持たないレコード向けの後方互換フォールバック。
+
+    (a) が無いと連鎖が最初の一歩で切れる: 生データ側の宣言を誰も読まないので、
+    著者が偶然 LEARN 本文にも「架空」と書き写しているときだけ蓋（fictional-cap）が働く、
+    という状態になる（＝規約が実質機能しない）。"""
+    out = set()
+    for stem, (_, fm, body) in project.records.items():
+        if not ("-TEST-" in stem or "-LEARN-" in stem):
+            continue
+        if any(m in body for m in FICTIONAL_MARKERS):
+            out.add(stem)
+            continue
+        for rel in source_paths(fm):
+            if any(m in project.source_header(rel) for m in FICTIONAL_MARKERS):
+                out.add(stem)
+                break
+    return out
+
+
 def importance(fm, stage) -> int:
     """仮説の重要度。手動指定(1-10)が優先。auto は現ステージの重点タイプ=IMPORTANCE_FOCUS・
     それ以外=IMPORTANCE_OTHER（重みの正本は ontology.yaml の importance-weights）。"""
@@ -127,7 +163,7 @@ class Project:
         self.records = {}
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
-        for sub in ("hypotheses", "tests", "learnings", "decisions"):
+        for sub in RECORD_DIRS:            # 置き場の正本は ontology.yaml の entities.*.dir
             d = self.wiki / sub
             if not d.is_dir():
                 continue
@@ -181,6 +217,36 @@ class Project:
                 return m.group(1)
         # ③ slug から単一トークンを正規化（ハイフン等の非英数を落とす。ID_RE と整合）
         return re.split(r"[^A-Z0-9]+", self.slug.upper())[0]
+
+    @property
+    def sources_dir(self) -> Path:
+        """不変層（生データ）のディレクトリ。基準名の正本は ontology.yaml の provenance.base-dir。"""
+        return self.root / PROVENANCE.base_dir
+
+    @cached_property
+    def source_files(self) -> set:
+        """sources/ 配下の生データの相対パス集合（README.md と隠しファイルは除く）。
+
+        出典の実在検証・取り込み忘れ（orphan）検出に使う。**読むだけ**で不変層は触らない。"""
+        d = self.sources_dir
+        if not d.is_dir():
+            return set()
+        return {str(p.relative_to(d)) for p in sorted(d.rglob("*"))
+                if p.is_file() and p.name != "README.md" and not p.name.startswith(".")}
+
+    def source_header(self, rel: str) -> str:
+        """生データ冒頭 N 行（N の正本は provenance.fictional-header-scan-lines）。
+
+        架空/シミュレーション宣言（`sources/README.md` が冒頭に明記させるもの）を
+        fictional-cap 判定の一次情報として読むために使う。存在しないパスは空文字。"""
+        p = self.sources_dir / rel
+        if not p.is_file():
+            return ""
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            return ""
+        return "\n".join(lines[:PROVENANCE.fictional_header_scan_lines])
 
     def hyp_records(self):
         """仮説レコードを (stem, fm, body, history) で列挙する。history はキャッシュ済み。"""

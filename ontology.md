@@ -18,8 +18,66 @@
 
 - **`H`（仮説）** — 反証可能な仮説文。追記専用の確信度履歴テーブルを正本として持ち、TEST/LEARN/DEC から検証・更新される。事業の前提を1つずつ言語化した検証の起点。
 - **`TEST`（実験計画）** — テストカード。検証前に記入し以後不変（後知恵バイアス防止）。「動いて検証する(Act)→学ぶ(Learn)」の計画側で、目的・方法・指標・成功基準・riskiest-assumption を宣言する。検証後の学びは LEARN（別レコード）に積む。
-- **`LEARN`（学び）** — 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（支持/反証/判断保留 等）と確信度更新を記録する。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。
+- **`LEARN`（学び）** — 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
 - **`DEC`（意思決定）** — ステージ移行・ピボット・撤退・巻き戻しなどの節目の判断。based-on で根拠の LEARN/TEST に結び、to-stage を持つ最新 DEC が現在ステージの正本になる。巻き戻しポイントと次の一手を残す。
+
+### frontmatter フィールド（スキーマ＝契約）
+
+各レコードが持つ frontmatter キーの宣言。**必須の欠落は error、宣言に無いキーは warning** として `hwlint.py` の `check_fields` が検出する（`kind` の意味は `ontology.yaml` 冒頭のコメントが正本）。
+
+**`H`（仮説）**
+
+| フィールド | 必須 | kind | 語彙(enum-ref) |
+|---|---|---|---|
+| `id` | 必須 | id | — |
+| `title` | 必須 | text | — |
+| `short-title` | 省略可 | text | — |
+| `type` | 必須 | subtype | — |
+| `status` | 必須 | enum | `statuses` |
+| `confidence` | 必須 | confidence | — |
+| `stage` | 必須 | enum | `stages` |
+| `importance` | 省略可 | importance | — |
+| `derived-from` | 省略可 | relation | — |
+| `leads-to` | 省略可 | relation | — |
+| `addresses` | 省略可 | relation | — |
+| `core` | 省略可 | flag | — |
+
+**`TEST`（実験計画）**
+
+| フィールド | 必須 | kind | 語彙(enum-ref) |
+|---|---|---|---|
+| `id` | 必須 | id | — |
+| `title` | 必須 | text | — |
+| `type` | 必須 | subtype | — |
+| `date` | 必須 | date | — |
+| `stage` | 必須 | enum | `stages` |
+| `hypotheses` | 必須 | relation | — |
+| `riskiest-assumption` | 必須 | text | — |
+
+**`LEARN`（学び）**
+
+| フィールド | 必須 | kind | 語彙(enum-ref) |
+|---|---|---|---|
+| `id` | 必須 | id | — |
+| `title` | 必須 | text | — |
+| `type` | 必須 | subtype | — |
+| `date` | 必須 | date | — |
+| `stage` | 必須 | enum | `stages` |
+| `learns-from` | 省略可 | relation | — |
+| `hypotheses` | 必須 | relation | — |
+| `outcome` | 必須 | enum | `outcomes` |
+| `sources` | 省略可 | provenance | — |
+
+**`DEC`（意思決定）**
+
+| フィールド | 必須 | kind | 語彙(enum-ref) |
+|---|---|---|---|
+| `id` | 必須 | id | — |
+| `title` | 必須 | text | — |
+| `date` | 必須 | date | — |
+| `type` | 必須 | subtype | — |
+| `based-on` | 省略可 | relation | — |
+| `to-stage` | 省略可 | enum | `stages` |
 
 ### 仮説（H）サブタイプの価値連鎖上の役割
 
@@ -43,6 +101,20 @@
 | **検証対象** | `hypotheses` | LEARN/TEST → H | 配列(many) | validated-by（検証活動） | 必須 | この実験計画(TEST)が狙う、または学び(LEARN)が確信度を動かした仮説（複数可）。TEST と LEARN の両方が始点になれ、同じ仮説群を指すことで「計画→結果」が1本に束なる。仮説側からは逆引き（検証活動）で「どの活動がこの仮説を検証したか」を辿れる。 |
 | **実験計画** | `learns-from` | LEARN → TEST | 単一(one) | learnings（学び） | 必須 | この学びが実施した実験計画（テストカード）を1つ指す。計画(TEST)と結果(LEARN)を1対1で束ね、board ビューが「1実験＝計画＋学び」を1行にまとめる。回顧型（desk-research/self-reflection 等）は計画を立てず学びだけ作るため持たない。 |
 | **根拠活動** | `based-on` | DEC → LEARN/TEST | 配列(many) | informs（導いた判断） | 必須 | この意思決定が根拠にした学び(LEARN)・実験計画(TEST)（複数可）。判定を持つ LEARN を優先する。判断がどの証拠に基づいたかを追跡でき、活動側からは逆引き（導いた判断）でその活動がどの決定を導いたかを辿れる。 |
+
+## プロヴェナンス（出典＝生データへの参照）
+
+型付きリンク（関係）は record→record だが、**出典はグラフの外（不変層 `projects/<slug>/sources/`）を指す属性**として別に宣言する。これが確信度の根拠鎖の**最後の一歩**にあたる: `H の確信度履歴` → `[[LEARN-NNN]]` → `出典ファイル`。
+
+| 項目 | 値 |
+|---|---|
+| frontmatter | `sources`（配列・`sources/` 基準の相対パス） |
+| 出典を持つ種別 | LEARN |
+| 本文の相対mdリンク | 必須 |
+| 出典が必須の活動種別 | demo・desk-research・interview・mvp-test・survey |
+| 架空判定で読む冒頭行数 | 12 行 |
+
+`hwlint.py` が検証すること: パスの実在（**error**）／必須種別での欠落／**確信度を上げた履歴行が指す学び(LEARN)に出典が無い**（根拠鎖の断絶）／どの学びからも参照されていない生データ（取り込み忘れ）。
 
 ## 状態機械
 
@@ -68,6 +140,18 @@
 | 反証 | ❌ | 実験で否定された状態。もはや信じていないので確信度も低いはず |
 
 検証の進捗: `未検証` → `検証中` → `検証済み` ／ `反証`。
+
+### 検証判定（学び LEARN の `outcome`）
+
+実験の成功基準に対する判定。board サマリの outcome 列へ射影する。
+
+| 判定 | 意味 |
+|---|---|
+| 起票 | 仮説を起票した（確信度の初期値を置いた。真偽判定ではない） |
+| 支持 | 成功基準を満たし仮説が支持された |
+| 反証 | 成功基準を満たさず仮説が否定された |
+| 判断保留 | 実験したが結論が出ず証拠が足りない（確信度は原則上げない） |
+| 是正 | 記録・運用の誤りを正した（仮説の真偽判定ではないので確信度は動かさない） |
 
 ### 確信度
 
@@ -104,6 +188,12 @@
 - ステータス **反証** は 確信度 ≤ 4 を期待（外れると矛盾）
 - 確信度 5 以上は〈自認〉以上の証拠を要する（〈発言〉だけでは上げない）
 - 確信度 7 以上は〈実コスト〉以上の証拠を要する（〈発言〉だけでは上げない）
+- 確信度 5 以上なのに履歴に階梯タグが**1つも無い**場合も warning（補助タグ〈二次〉〈架空〉は階梯を満たさない）
+
+**陳腐化（時間軸）の閾値**（`hwlint.py` が warning として検出。**確信度は自動で下げない**＝再検証を促す可視化のみ）:
+
+- `status: 検証済み` かつ確信度 5 以上で、確信度履歴の最終行が **180 日**より古い → 再検証を検討
+- 学び(LEARN)が紐づかない実験計画(TEST)が **14 日**より古い（計画したのに実施されていない）
 
 ## リーンキャンバス（仮説検証への写像）
 

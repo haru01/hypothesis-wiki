@@ -39,3 +39,5 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-24] self-reflection | SELF-TEST-004 を学び SELF-LEARN-004 に分割（SELF-TEST-004 はテストカードとして存続。確信度の根拠 citation は SELF-LEARN-004 へ張替）
 
 ## [2026-07-25] self-reflection | レコード種別 ACT を TEST に改名（ディレクトリ activities→tests・日本語ラベル『実験計画』に統一）。純粋な機械リネームで確信度・ステータス・出来事の意味は不変
+
+## [2026-07-29] self-reflection | SELF-LEARN-006 出典突き合わせによる記録の是正（表層形の乱れ・購買意向2/10のうち対象T の転記漏れ・SELF-TEST-004 と出典のコホート記述の矛盾）。名寄せ規約を制定 → 確信度・ステータスは不変（SELF-H-004/008/009/010）

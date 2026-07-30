@@ -43,8 +43,14 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 | E-1〜E-4 | 未着手（要設計合意） |
 | F-1 | `feat(lint,views): 未検証の重点仮説（hypotheses入次数0）を検出・最優先表示`（2026-07-21） |
 | F-2 | `feat(lint,views): 課題↔解決の構造ギャップ（課題なき解決／未対応の課題）を検出`（2026-07-21） |
-| F-3 | 未着手（調査由来・要設計。孤立/ブリッジ/下流依存度の算出） |
-| G-1〜G-2 | 未着手（調査由来。G1 は staleness 可視化で低リスク、G2 は E4 と統合） |
+| F-3 | `feat(views,lint): グラフ診断と時間軸の放置検出を追加`（2026-07-29。`tools/graph.py` 新設） |
+| G-1 | 同上（`staleness.confidence-days: 180` で閾値合意） |
+| G-2 | 未着手（E4 と統合して設計） |
+
+さらに 2026-07-29、論文「Knowledge Graph Engineering for Multi-Agentic Systems」に照らした点検で
+**オントロジーに欠けていた層**（frontmatter フィールド宣言・`outcome` の語彙・出典 provenance）と
+**宣言はあるのに発火していなかった規律**（証拠の階梯）が判明し、対応した。軸が異なるため
+[kg-improvements.md](kg-improvements.md)（KG-01〜10）に分けて記録している。
 
 ---
 
@@ -272,7 +278,10 @@ A〜D を実装済み（各項目の「状態」を参照）。E は設計合意
 ### OI-D4: 「次に検証すべき仮説」の高度化
 
 - **対象**: `tools/gen_views.py`
-- **状態**: 対応済み（2026-07-21・上表のコミット参照）
+- **状態**: 対応済み（2026-07-21・上表のコミット参照）。**残タスクだった下流依存度シグナルも 2026-07-29 に対応**
+  （`next_to_verify` の並びを「未着手 → 下流依存度大 → 確信度低」にし、`gen_list`/`gen_board` に残っていた
+  「重点タイプ=8・その他=4」「重要度8」のハードコードを `IMPORTANCE_FOCUS`/`IMPORTANCE_OTHER` 補間へ。
+  詳細は [kg-improvements.md](kg-improvements.md) の KG-05）
 - **課題**: `next_to_verify`(`gen_views.py:57`) は importance>=8 × 低確信度 × 未検証/検証中 の2軸のみ。
   未カバー課題（addresses、relations で算出済み）や関係グラフ上の依存度（崩れると波及が大きい「背骨」）を
   優先度に織り込んでいない。閾値 8/4 も `ontology.yaml` に無くコード側の暗黙値（`gen_views.py:48,60` 等に散在）。
@@ -388,13 +397,23 @@ importance × confidence × status の2軸のみで、関係グラフ上の位�
 
 ### OI-F3: 孤立ノード・ブリッジ・下流依存度の算出
 
-- **対象**: `tools/gen_views.py`
-- **状態**: 未対応（要設計）
+- **対象**: `tools/graph.py`（新規）、`tools/gen_views.py`、`tools/hwlint.py`
+- **状態**: 対応済み（2026-07-29。詳細は [kg-improvements.md](kg-improvements.md) の KG-05）
 - **課題**: 系譜（derived-from/leads-to）と検証（hypotheses）を合成した仮説グラフ上で、(a) どの関係も
   持たない**孤立仮説**、(b) 系譜クラスタ間をつなぐ**ブリッジ仮説**、(c) `leads-to` の下流被参照数＝
   「崩れると波及が大きい背骨」（OI-D4 が未カバーと明記した依存度シグナル）を機械算出できる。
 - **改善案（案）**: これらをトポロジー指標として `relations` ビュー末尾に要約表で出す。優先度は F1/F2 より低い
   （表現力より運用実感が先）。
+- **実装**:
+  1. `tools/graph.py` を新設（走査層）: `edges`／`adjacency`／`degree`／`components`／`descendants`／
+     `downstream_counts`／`isolated`／`density`。`gen_views.relation_edges` は `graph.edges` へ委譲し、
+     診断とビューが同じ辺集合を共有する。**ランタイムのグラフ検索は作らない**（末尾「H. あえて採らない」を維持）。
+  2. `relations` ビューに「グラフ診断」節: 辺÷ノード（密度。1.0未満=疎／2.0超=密の帯を注記）・
+     弱連結成分と最大成分・孤立仮説・ハブ（次数上位）・下流依存度・未取り込みの生データ。0件でも「なし」を出す。
+  3. `hwlint` に `check_isolated_hypothesis`（起票直後＝履歴1行・未検証は対象外）。
+  4. (b) ブリッジ仮説は**採らなかった**: 実データは両案件とも単一連結成分で、割れていない状態では
+     ブリッジの概念が意味を持たない。成分が2つ以上になったら診断節が成分の内訳を列挙するので、
+     必要になった時点で追加する。
 - **根拠**: `gen_views.py`（`relation_edges`:446 は辺を持つが次数・中心性を算出していない）、OI-D4。
 
 ---
@@ -412,7 +431,8 @@ importance × confidence × status の2軸のみで、関係グラフ上の位�
 ### OI-G1: 検証済み高確信度の staleness 検出
 
 - **対象**: `tools/hwlint.py`、`ontology.yaml`
-- **状態**: 未対応（要設計・閾値合意）
+- **状態**: 対応済み（2026-07-29。閾値 `staleness.confidence-days: 180` で合意。詳細は
+  [kg-improvements.md](kg-improvements.md) の KG-05）
 - **課題**: `status:検証済み` かつ高確信度のHで、確信度履歴の**最終行の日付が古い**ものを「陳腐化の疑い＝
   再検証を検討」として出せるのに出していない。
 - **改善案（案）**:
@@ -420,6 +440,10 @@ importance × confidence × status の2軸のみで、関係グラフ上の位�
   2. hwlint に基準日（`--today` 引数 or `datetime.date.today()`）を渡し、最終履歴日付が閾値超のHを warning。
   3. **数値は自動で下げない**（不変ルール1「証拠なしに確信度を動かさない」を厳守）。あくまで再検証を促す
      可視化のみ。減衰させたい場合は必ず TEST/DEC（例: self-reflection や再検証）に紐づけて人が動かす。
+- **実装**: `ontology.yaml` の `state-machines.staleness` に `confidence-days: 180`・`test-days: 14` を置き、
+  `check_stale_confidence`（`--today` 相当の引数を取り、既定は当日）と `check_stale_test`（学びが紐づかない
+  実験計画の放置。実データの AIRE-TEST-002/003 が該当しうる駐機ケース）を追加。**確信度は自動で下げない**。
+  `/lint` スキルに居座っていたマジックナンバー「目安 30日」も ontology 参照へ一元化した。
 - **根拠**: `hwlint.py:70`（履歴日付は取得済み・未活用）、CLAUDE.md「長期放置は /lint（LLM）が担う」記述、
   不変ルール1。
 
