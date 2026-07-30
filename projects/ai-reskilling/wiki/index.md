@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-07-29（ステージ CPF） / ontology-version: 1 -->
+<!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-07-31（ステージ CPF） / ontology-version: 1 -->
 
 # ai-reskilling — 仮説インデックス
 
