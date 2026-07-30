@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-07-29（ステージ CPF） / ontology-version: 1 -->
+<!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-07-31（ステージ CPF） / ontology-version: 1 -->
 <!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # 全仮説リスト（self）
@@ -41,17 +41,17 @@ flowchart TB
 
 | ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |
 |---|---|---|---|---|---|---|
-| [[SELF-H-001]] | 実践者は作る前に検証を反復する | 6 | 🔄検証中 | 8 | → [[SELF-H-004]] [[SELF-H-006]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] | 〈架空〉揺さぶり監査で引き下げ。反復の一貫性は架空データのみで、現実で未検証。検証済み7… |
-| [[SELF-H-002]] | 学びが複数ツールに散在し集約されない | 6 | 🔄検証中 | 8 | ← [[SELF-H-001]] ・ → [[SELF-H-004]] [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] | 〈架空〉揺さぶり監査で引き下げ。8/10自認は架空データのみ。検証済み7は不成立、正直な… |
-| [[SELF-H-003]] | 仮説の更新は報告サイクルに駆動される | 5 | 🔄検証中 | 8 | ← [[SELF-H-001]] ・ → [[SELF-H-008]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-TEST-002]] | 架空5名中4名が「報告前日にまとめて整理、普段は更新しない」と行動を報告。実データ未検証… |
+| [[SELF-H-001]] | 実践者は作る前に検証を反復する | 6 | 🔄検証中 | 8 | → [[SELF-H-004]] [[SELF-H-006]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈架空〉揺さぶり監査で引き下げ。反復の一貫性は架空データのみで、現実で未検証。検証済み7… |
+| [[SELF-H-002]] | 学びが複数ツールに散在し集約されない | 6 | 🔄検証中 | 8 | ← [[SELF-H-001]] ・ → [[SELF-H-004]] [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈架空〉揺さぶり監査で引き下げ。8/10自認は架空データのみ。検証済み7は不成立、正直な… |
+| [[SELF-H-003]] | 仮説の更新は報告サイクルに駆動される | 5 | 🔄検証中 | 8 | ← [[SELF-H-001]] ・ → [[SELF-H-008]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-TEST-002]] [[SELF-TEST-006]] | 架空5名中4名が「報告前日にまとめて整理、普段は更新しない」と行動を報告。実データ未検証… |
 
 ## 課題仮説
 
 | ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |
 |---|---|---|---|---|---|---|
-| [[SELF-H-004]]★ | 記録が残らず散逸・属人化し過去の学びが忘れられる | 6 | 🔄検証中 | 8 | → [[SELF-H-008]] [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] | 〈架空〉揺さぶり監査で引き下げ。9/10自認・反証崩れずは全て架空で現実未検証。核心ゆえ… |
-| [[SELF-H-006]] | 好意的反応を購買意向と取り違え偽の確証で前進する | 6 | 🔄検証中 | 8 | → [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] | 〈架空〉揺さぶり監査で引き下げ。interest≠intent を架空intentで確証… |
-| [[SELF-H-008]] | 検証の根拠を経営層に説明できず合意形成が停滞する | 6 | 🔄検証中 | 8 | ← [[SELF-H-004]] ・ → [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] | 〈架空〉揺さぶり監査で引き下げ。9/10自認は架空。検証済み8は不成立、正直な天井は検証… |
+| [[SELF-H-004]]★ | 記録が残らず散逸・属人化し過去の学びが忘れられる | 6 | 🔄検証中 | 8 | → [[SELF-H-008]] [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈架空〉揺さぶり監査で引き下げ。9/10自認・反証崩れずは全て架空で現実未検証。核心ゆえ… |
+| [[SELF-H-006]] | 好意的反応を購買意向と取り違え偽の確証で前進する | 6 | 🔄検証中 | 8 | → [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈架空〉揺さぶり監査で引き下げ。interest≠intent を架空intentで確証… |
+| [[SELF-H-008]] | 検証の根拠を経営層に説明できず合意形成が停滞する | 6 | 🔄検証中 | 8 | ← [[SELF-H-004]] ・ → [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈架空〉揺さぶり監査で引き下げ。9/10自認は架空。検証済み8は不成立、正直な天井は検証… |
 | [[SELF-H-005]] | 確証バイアスで反証を軽視し過大評価する | 4 | 🔄検証中 | 8 | [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-TEST-002]] | 架空5名の**自認は5/5だが実コストは0/5**。課題として実在するが実践者は「買って… |
 | [[SELF-H-007]] | 反証不能な曖昧仮説を成功基準なしで検証する | 4 | 🔄検証中 | 8 | [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-TEST-002]] | 架空5名中、成功基準を決めていないは一致するが**自認3/5・実コスト0/5**と痛みの… |
 
