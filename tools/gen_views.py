@@ -709,10 +709,11 @@ def gen_index(project) -> str:
         date, rel = canvas
         L += ["## リーンキャンバス", "",
               f"![リーンキャンバス {date}]({rel})", "",
-              f"[原寸で開く]({rel}) ｜ {date} 時点 ｜ `/lean-canvas` の生成物（レコードではない）",
-              "", "## 仮説一覧", ""]
+              f"[原寸で開く]({rel}) ｜ {date} 時点 ｜ `/lean-canvas` の生成物（レコードではない）", ""]
 
-    L += ["| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]
+    # 見出しはキャンバスの有無によらず出す（プロジェクト間で節構成とアンカーを揃えるため）
+    L += ["## 仮説一覧", "",
+          "| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]
     for stem, fm, _, _ in sorted(hyps, key=lambda r: (-importance(r[1], stage),
                                                        int(r[1].get("confidence", "0") or 0))):
         L.append(f"| [[{stem}]] | {fm.get('title', '')} | {fm.get('confidence', '')} | "

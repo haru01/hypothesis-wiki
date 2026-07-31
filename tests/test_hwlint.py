@@ -418,7 +418,10 @@ class LeanCanvasEmbedTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = self._root(tmp)
             self.assertIsNone(gen_views.latest_canvas(Project(root)))
-            self.assertNotIn("## リーンキャンバス", gen_views.gen_index(Project(root)))
+            out = gen_views.gen_index(Project(root))
+            self.assertNotIn("## リーンキャンバス", out)
+            # 節構成はキャンバスの有無で変わらない（プロジェクト間でアンカーを揃える）
+            self.assertIn("## 仮説一覧", out)
 
     def test_empty_canvas_dir_yields_nothing(self):
         import gen_views
