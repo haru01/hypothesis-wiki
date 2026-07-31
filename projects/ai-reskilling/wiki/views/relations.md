@@ -54,7 +54,7 @@ flowchart LR
 
 （該当なし）
 
-### 検証対象（`hypotheses`: LEARN/TEST→H）
+### 検証対象（`hypotheses`: LEARN/SCRIPT/TEST→H）
 
 | 始点 | 関係 | 終点 |
 |---|---|---|
@@ -70,6 +70,10 @@ flowchart LR
 | [[AIRE-LEARN-002]] | 検証対象 → | [[AIRE-H-001]] |
 | [[AIRE-LEARN-002]] | 検証対象 → | [[AIRE-H-002]] |
 | [[AIRE-LEARN-002]] | 検証対象 → | [[AIRE-H-003]] |
+
+### 対象の実験計画（`script-for`: SCRIPT→TEST）
+
+（該当なし）
 
 ### 実験計画（`learns-from`: LEARN→TEST）
 

@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ontology import (  # noqa: E402
     ID_RE, STAGE_FOCUS, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
     ENTITY_INFIXES, RECORD_DIRS, PROVENANCE, FICTIONAL_MARKERS,
+    ATTACHMENTS, ATTACHMENT_SUFFIXES, ATTACHMENT_DIRS,
 )
 
 HISTORY_HEADER = "## 確信度履歴"
@@ -66,6 +67,32 @@ def entity_of(stem: str) -> str:
         if f"-{infix}-" in stem:
             return infix
     return ""
+
+
+def attachment_of(stem: str) -> str:
+    """付随物のステムから種別（SCRIPT 等）を返す。該当なしは空。
+
+    識別は suffix でおこなう（付随物は独自のID体系を持たないので ID_RE は使えない）。
+    種別・suffix の正本は ontology.yaml の attachments。"""
+    for suffix, name in ATTACHMENT_SUFFIXES.items():
+        if stem.endswith(suffix):
+            return name
+    return ""
+
+
+def attachment_parent(stem: str) -> str:
+    """付随物のステムから親レコードIDを返す（suffix を剥がす）。該当なしは空。"""
+    name = attachment_of(stem)
+    return ATTACHMENTS[name].parent_of(stem) if name else ""
+
+
+def node_kind(stem: str) -> str:
+    """ステムからノード種別（エンティティ または 付随物）を返す。該当なしは空。
+
+    **付随物を先に判定する順序が本質的**。`SELF-TEST-006-script` には `-TEST-` が含まれるため
+    entity_of は "TEST" という真値を返してしまい、逆順にすると付随物が実験計画として
+    検証され（date/stage/riskiest-assumption の欠落 error が湧く）、分離の意味が消える。"""
+    return attachment_of(stem) or entity_of(stem)
 
 
 def source_paths(fm: dict) -> list:
@@ -161,6 +188,11 @@ class Project:
         self.slug = root.name
         self.wiki = root / "wiki"
         self.records = {}
+        # 付随物（スクリプト等）。**records とは別に持つ**: ステム `<PREFIX>-TEST-NNN-script` には
+        # `-TEST-` が含まれるので、records に混ぜると entity_of が "TEST" を返し、
+        # `"-TEST-" in stem` で書かれた全箇所（board/list/index 生成・テストカード不変チェック）が
+        # 付随物を実験計画として飲み込む。分離しておけば射影側は無改修で済む。
+        self.attachments = {}
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
         for sub in RECORD_DIRS:            # 置き場の正本は ontology.yaml の entities.*.dir
@@ -169,13 +201,19 @@ class Project:
                 continue
             for p in sorted(d.glob("*.md")):
                 if not ID_RE.match(p.stem):
-                    if not p.stem.endswith("-script"):
+                    kind = attachment_of(p.stem)
+                    if kind and ATTACHMENT_DIRS[kind] == sub:
+                        text = p.read_text(encoding="utf-8")
+                        self.attachments[p.stem] = (p, parse_frontmatter(text), text)
+                    else:
                         self.stray.append(p)
                     continue
                 text = p.read_text(encoding="utf-8")
                 self.records[p.stem] = (p, parse_frontmatter(text), text)
                 if "-H-" in p.stem:
                     self.history[p.stem] = parse_history(text)
+        # レコード ∪ 付随物。**リンク系のチェックだけ**がこれを使う（射影・集計は records のみ）。
+        self.nodes = {**self.records, **self.attachments}
         log_path = self.wiki / "log.md"
         self.log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
 

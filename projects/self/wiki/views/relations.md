@@ -153,7 +153,7 @@ flowchart LR
 | [[SELF-H-009]] | 対応課題 → | [[SELF-H-006]] |
 | [[SELF-H-009]] | 対応課題 → | [[SELF-H-008]] |
 
-### 検証対象（`hypotheses`: LEARN/TEST→H）
+### 検証対象（`hypotheses`: LEARN/SCRIPT/TEST→H）
 
 | 始点 | 関係 | 終点 |
 |---|---|---|
@@ -210,6 +210,10 @@ flowchart LR
 | [[SELF-LEARN-006]] | 検証対象 → | [[SELF-H-008]] |
 | [[SELF-LEARN-006]] | 検証対象 → | [[SELF-H-009]] |
 | [[SELF-LEARN-006]] | 検証対象 → | [[SELF-H-010]] |
+
+### 対象の実験計画（`script-for`: SCRIPT→TEST）
+
+（該当なし）
 
 ### 実験計画（`learns-from`: LEARN→TEST）
 

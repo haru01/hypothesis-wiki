@@ -1,3 +1,12 @@
+---
+id: AIRE-TEST-002-script
+title: 発見型 問題インタビュー スクリプト（AIRE-TEST-002・CPF）
+type: problem-interview
+script-for: AIRE-TEST-002
+# hypotheses は持たない。発見型は既存仮説を相手に語らず、自発言及だけを拾う設計のため
+# （仮説を宣言すると台本の意図と食い違う。親 AIRE-TEST-002 側が検証対象を持つ）。
+---
+
 # 発見型 問題インタビュー スクリプト（AIRE-TEST-002・CPF）
 
 [[AIRE-TEST-002]] の**方法**を現場で使える会話スクリプトにしたもの。1インタビュー 45〜60分。

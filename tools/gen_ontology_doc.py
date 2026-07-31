@@ -66,6 +66,45 @@ def build() -> str:
                  f"{s.get('description', '—')} |")
     L.append("")
 
+    # 付随物（レコードではないが型付きリンクに参加するノード）
+    if ontology.ATTACHMENTS:
+        L += ["## 付随物（attachments）", "",
+              "付随物は**新しいレコード種別ではない**。親レコードに従属する成果物で、独自のID体系を持たず"
+              "（ファイル名 = 親レコードID + suffix）、置き場も親と同じディレクトリを使う。"
+              "それでいて**関係（型付きリンク）には参加する**ので、`hwlint.py` がリンク切れ・型違反を検出でき、"
+              "Obsidian のグラフにも本文 wikilink 経由で現れる。", "",
+              "レコード（エンティティ）と分けて持つのは正しさの要請である。ステム "
+              "`<PREFIX>-TEST-NNN-script` には `-TEST-` が含まれるため、レコードとして読み込むと "
+              "`records.py` の `entity_of` が `TEST` を返し、`\"-TEST-\" in stem` で書かれた箇所"
+              "（board/list/index 生成・テストカード不変チェック）が付随物を実験計画として飲み込む。"
+              "そのため読み取り層は `records` と `attachments` を別コレクションに保ち、"
+              "**付随物は board/list/index の集計に現れない**（生成ビューは records のみを射影する）。", "",
+              "| 付随物 | 名称 | 親 | ファイル名 | サブタイプ（frontmatter `type`） |", "|---|---|---|---|---|"]
+        for a in ontology.ATTACHMENTS.values():
+            L.append(f"| `{a.name}` | {a.label} | `{a.parent}` | "
+                     f"`wiki/{ontology.ATTACHMENT_DIRS[a.name]}/<親レコードID>{a.suffix}.md` | "
+                     f"{'・'.join(a.subtypes)} |")
+        L.append("")
+        for a in ontology.ATTACHMENTS.values():
+            if a.description:
+                L += [f"- **`{a.name}`（{a.label}）** — {a.description}", ""]
+            L += [f"**`{a.name}` の frontmatter フィールド**", "",
+                  "| フィールド | 必須 | kind | 語彙(enum-ref) |", "|---|---|---|---|"]
+            for f in a.fields:
+                L.append(f"| `{f.name}` | {'必須' if f.required else '省略可'} | {f.kind} | "
+                         f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} |")
+            L += ["", f"**`{a.name}` のサブタイプと雛形**", "",
+                  "| サブタイプ | 基にする雛形 | 説明 |", "|---|---|---|"]
+            for s in o["attachments"][a.name]["subtypes"]:
+                tmpl = s.get("template", "")
+                L.append(f"| {s['name']} | {f'[{tmpl}]({tmpl})' if tmpl else '—'} | "
+                         f"{s.get('description', '—')} |")
+            L.append("")
+        L += ["`hwlint.py` が検証すること: ファイル名と親レコードIDの対応（**error**）／`type` の語彙"
+              "（**error**）／親を指す関係がファイル名から導いた親と一致するか（**error**）／"
+              "親と共有する関係（`hypotheses` 等）が親の値の**部分集合**か（**error**）／"
+              "親から付随物への相対mdリンクの有無（到達可能性）。", ""]
+
     # 関係
     L += ["## 関係（型付きリンク）", "",
           "各関係は frontmatter 配列と本文 wikilink の**二重表現**を持つ"

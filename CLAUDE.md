@@ -23,7 +23,8 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 ## オントロジー（型・関係の正本）
 
-レコードの**型**（エンティティ H/TEST/LEARN/DEC とサブタイプ）、レコード間の**型付きリンク**（関係）、
+レコードの**型**（エンティティ H/TEST/LEARN/DEC とサブタイプ）、**付随物**（attachments。レコードではないが
+型付きリンクに参加する従属成果物。現在は SCRIPT のみ。下記「スクリプト（付随物）」）、レコード間の**型付きリンク**（関係）、
 検証の**状態機械**（ステージ・ステータス・確信度・証拠の階梯）、および**リーンキャンバスの仮説検証への写像**
 （9ブロック↔仮説role・block-status・stage-lens。`/lean-canvas` が使う。レコードでなくビュー）は、
 [ontology.yaml](ontology.yaml) が唯一の正本（SSoT）である。人間可読な要約は [ontology.md](ontology.md)
@@ -31,9 +32,10 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 `tools/ontology.py` 経由でここを読むため、**語彙(enum)・関係・重点タイプ等をコードや本CLAUDE.mdに再定義しない**
 （二重管理・ドリフト防止）。
 
-**関係（型付きリンク）** は6種。各々 domain（始点の型）→ range（終点の型）・cardinality・inverse（逆方向の呼称）を
+**関係（型付きリンク）** は7種。各々 domain（始点の型）→ range（終点の型）・cardinality・inverse（逆方向の呼称）を
 `ontology.yaml` の `relations` で宣言する。`derived-from`（H→H・派生元）／`leads-to`（H→H・因果先）／
-`addresses`（ソリューション仮説→課題仮説・対応課題）／`hypotheses`（TEST・LEARN→H・検証対象）／
+`addresses`（ソリューション仮説→課題仮説・対応課題）／`hypotheses`（TEST・LEARN・SCRIPT→H・検証対象）／
+`script-for`（SCRIPT→TEST・対象の実験計画）／
 `learns-from`（LEARN→TEST・実施した実験計画）／`based-on`（DEC→TEST・LEARN・根拠活動/学び）。関係は原則 frontmatter 配列と本文 wikilink の**二重表現**を持つ（`addresses` のみ `must-wikilink: false` で frontmatter のみ。下記「スキル共通規約」3）。
 `/lint` は各関係を宣言（domain/range/cardinality）に照らして検証し、ビュー生成（`tools/gen_views.py`）の `relations` ビューが全関係型をグラフ化する。
 
@@ -153,6 +155,33 @@ to-stage: CPF|FPF|PSF|SPF|PMF        # ステージを動かす判断（stage-tr
 
 本文: 確信度スナップショット（全重要仮説の当時の値）／選択肢と判断理由／巻き戻しポイント
 （この判断が誤りと判明したときどの仮説状態・どの問いに戻るか）／次の一手（前向きの戦略的現在地。board の「現在地」へ射影）。
+
+### スクリプト（付随物） `projects/<slug>/wiki/tests/<PREFIX>-TEST-NNN-script.md`
+
+`/planning` が interview/demo のテストカード（TEST）と対で作る現場用の会話台本。**レコードではなく
+付随物（attachments）**で、独自のID体系を持たない（ファイル名＝`<親テストカードID>-script.md`・置き場は親と同じ
+`wiki/tests/`）。それでいて**型付きリンクには参加する**ので `/lint` がリンク切れ・型違反を検出する。
+
+```yaml
+id: <PREFIX>-TEST-NNN-script          # ファイル名と一致（＝親テストカードID + -script）
+title: 短いタイトル
+type: problem-interview | solution-interview | demo   # 基にした雛形（templates/<type>-script.md）
+script-for: <PREFIX>-TEST-NNN         # 親テストカード（必須・単一）
+hypotheses: [<PREFIX>-H-NNN, ...]     # 省略可。台本が実際に当てる仮説（親の検証対象の部分集合）
+```
+
+`date`・`stage` は持たない（親テストカードから導ける＝二重管理を作らない）。`hypotheses` を省略可にしているのは、
+**発見型のスクリプトは既存仮説を相手に語らない**設計で、仮説を宣言すると台本の意図と食い違うため。
+本文で背景として別の仮説に言及するのは正当なので、逆向き（本文の wikilink をすべて宣言せよ）は課さない。
+
+付随物は**生成ビュー（board・list・index）の集計に現れない**（射影はレコードのみ）。したがって親テストカード本文から
+相対mdリンクで参照して到達可能にする（`スクリプト: [<PREFIX>-TEST-NNN-script.md](<PREFIX>-TEST-NNN-script.md)`）。
+仕様の正本は [ontology.yaml](ontology.yaml) の `attachments` 節（人間可読は [ontology.md](ontology.md)「付随物」）。
+
+> **なぜレコード（エンティティ）にしないか**: ステム `<PREFIX>-TEST-NNN-script` には `-TEST-` が含まれるため、
+> レコードとして読み込むと `tools/records.py` の `entity_of` が `TEST` を返し、`"-TEST-" in stem` で書かれた箇所
+> （board/list/index 生成・テストカード不変チェック）がスクリプトを実験計画として飲み込む。読み取り層は
+> `records` と `attachments` を別コレクションに保つ。種別の解決は `node_kind`（付随物を先に判定する）を使う。
 
 ### プロトタイプ生成物 `projects/<slug>/wiki/prototypes/<PREFIX>-TEST-NNN/index.html`
 

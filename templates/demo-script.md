@@ -1,3 +1,16 @@
+---
+id: <PREFIX>-TEST-NNN-script
+title: 〈親テストカードに揃えた短いタイトル〉
+type: demo
+script-for: <PREFIX>-TEST-NNN
+hypotheses: [<PREFIX>-H-NNN, <PREFIX>-H-NNN]
+---
+
+<!-- スクリプトは付随物（ontology.yaml の attachments.SCRIPT）。ファイル名は
+     <親テストカードID>-script.md、置き場は親と同じ wiki/tests/。frontmatter は必ず先頭に置く。
+     hypotheses は親テストカードの検証対象の**部分集合**にする。
+     frontmatter に書いた ID は本文にも wikilink で張る（二重表現規約）。 -->
+
 # デモ スクリプト雛形（PSF）
 
 `/planning` で作ったテストカード（実験計画・type: demo）の**方法**を、現場のデモ司会・観察スクリプトに落とすための雛形。

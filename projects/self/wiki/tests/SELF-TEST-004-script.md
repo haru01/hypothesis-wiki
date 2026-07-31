@@ -1,3 +1,11 @@
+---
+id: SELF-TEST-004-script
+title: LP提示インタビュー スクリプト（PSF/SPF・ソリューション/個別購買）
+type: solution-interview
+script-for: SELF-TEST-004
+hypotheses: [SELF-H-009, SELF-H-010]
+---
+
 # LP提示インタビュー スクリプト（PSF/SPF・ソリューション/個別購買）
 
 [[SELF-TEST-004]] のテストカードの**方法**を現場の会話に落としたスクリプト。1インタビュー 40〜50分。

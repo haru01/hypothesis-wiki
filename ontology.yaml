@@ -12,6 +12,8 @@
 #   relation = レコード間の型付きリンク。domain（始点の型）→ range（終点の型）、
 #              cardinality（one=単一 / many=配列）、inverse（逆方向の呼称）を宣言する。
 #   各 relation は frontmatter 配列 と 本文 wikilink の二重表現を持つ（must-wikilink: true）。
+#   attachment = レコードではないが型付きリンクを持つ「付随物」（下記 attachments 節）。
+#              親レコードに従属し、独自のID体系を持たない（ファイル名 = 親ID + suffix）。
 #   provenance = グラフの外（不変層 sources/）を指す出典属性。relation とは別概念（下記 provenance 節）。
 
 # スキーマ版。生成ビューのヘッダに ontology-version として刻まれる（どの版で射影した生成物かを追える）。
@@ -139,9 +141,47 @@ entities:
       - {name: rollback}
       - {name: kill}
 
+# ── 付随物（attachments） ───────────────────────────────────────────
+# 付随物は**新しいレコード種別ではない**。親レコードに従属する成果物で、独自のID体系を
+# 持たず（ファイル名 = 親レコードID + suffix）、置き場も親と同じディレクトリを使う。
+# それでいて型付きリンク（relations）には参加するので、lint がリンク切れ・型違反を検出でき、
+# Obsidian のグラフにも本文 wikilink 経由で現れる。
+#
+# **レコード(entities)と分ける理由は思想でなく正しさ**: ステム `SELF-TEST-006-script` には
+# `-TEST-` が含まれるため、レコードとして読み込むと records.py の entity_of が "TEST" を返し、
+# コード中の `"-TEST-" in stem` 系（board/list/index 生成・テストカード不変チェック）が
+# 付随物を実験計画として飲み込む。読み取り層は records と attachments を別コレクションに保つ。
+#
+# 種別の解決は suffix でおこなう（ID_RE は緩めない）。付随物を先に判定すること
+# （records.py の node_kind。entity_of を先に見ると上記の理由で必ず誤判定する）。
+attachments:
+  SCRIPT:
+    label: スクリプト
+    parent: TEST            # 親レコード種別。置き場(dir)は親から導出する（宣言しない＝ドリフト防止）
+    suffix: -script         # ファイル名 = <親レコードID><suffix>.md
+    description: interview/demo の実験計画(TEST)の「方法」を現場の会話に落とした台本。/planning がテストカードと対で生成する。事前登録した反証条件・記録シートを載せ、観測をそのまま受け止める器になる。確信度は動かさない（学びは LEARN に積む）。
+    fields:
+      - {name: id,         required: true,  kind: id}
+      - {name: title,      required: true,  kind: text}
+      - {name: type,       required: true,  kind: subtype}
+      - {name: script-for, required: true,  kind: relation}
+      - {name: hypotheses, required: false, kind: relation}
+    # サブタイプ = 基にした雛形（templates/）。/planning の雛形選択はこの語彙に対応する。
+    # date・stage は持たせない（親 TEST から導けるので二重管理になる）。
+    subtypes:
+      - name: problem-interview
+        template: templates/problem-interview-script.md
+        description: 課題の実在・自認・実コストを過去の事実で聞く（CPF/FPF）。ソリューションは見せない・語らない。
+      - name: solution-interview
+        template: templates/solution-interview-script.md
+        description: 提示物への反応・乗り換え・〈支払い〉を聞く（PSF/SPF）。
+      - name: demo
+        template: templates/demo-script.md
+        description: デモの司会・観察の台本（主に PSF）。作らずに価値の芯を当てる。
+
 # ── 関係（型付きリンク） ─────────────────────────────────────────────
 # field         = frontmatter キー
-# domain / range= 始点 / 終点のエンティティ種別。単一種別は文字列、複数種別を許すときは配列で書く（例 [TEST, LEARN]）
+# domain / range= 始点 / 終点のノード種別（エンティティ または 付随物）。単一種別は文字列、複数種別を許すときは配列で書く（例 [TEST, LEARN]）
 # *-subtypes    = 省略可。サブタイプまで制約する場合のみ
 # cardinality   = one（単一）| many（配列）
 # inverse       = 逆方向の呼称（バックリンク表示・ナビゲーションに使う）
@@ -184,14 +224,25 @@ relations:
 
   - name: hypotheses
     field: hypotheses
-    domain: [TEST, LEARN]       # 計画(TEST)は検証対象、学び(LEARN)は確信度を動かした仮説を指す
+    domain: [TEST, LEARN, SCRIPT]   # 計画(TEST)は検証対象、学び(LEARN)は確信度を動かした仮説、スクリプト(SCRIPT)は台本が実際に当てる仮説
     range: H
     cardinality: many
     inverse: validated-by
     must-wikilink: true
     label: 検証対象
     inverse-label: 検証活動
-    description: この実験計画(TEST)が狙う、または学び(LEARN)が確信度を動かした仮説（複数可）。TEST と LEARN の両方が始点になれ、同じ仮説群を指すことで「計画→結果」が1本に束なる。仮説側からは逆引き（検証活動）で「どの活動がこの仮説を検証したか」を辿れる。
+    description: この実験計画(TEST)が狙う、または学び(LEARN)が確信度を動かした仮説（複数可）。TEST と LEARN の両方が始点になれ、同じ仮説群を指すことで「計画→結果」が1本に束なる。仮説側からは逆引き（検証活動）で「どの活動がこの仮説を検証したか」を辿れる。付随物のスクリプト(SCRIPT)も始点になれるが、台本が実際に当てる仮説は親 TEST の検証対象の部分集合でなければならない（発見型スクリプトは仮説を伏せるので空でよい）。
+
+  - name: script-for
+    field: script-for
+    domain: SCRIPT
+    range: TEST
+    cardinality: one
+    inverse: script
+    must-wikilink: true
+    label: 対象の実験計画
+    inverse-label: スクリプト
+    description: このスクリプトが台本化した実験計画(TEST)。ファイル名（親ID + suffix）から導ける対応を frontmatter にも明示し、機械可読にする。付随物を始点とする唯一の関係で、親は必ず1つ。
 
   - name: learns-from
     field: learns-from
