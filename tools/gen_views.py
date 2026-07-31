@@ -32,6 +32,7 @@ from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
     STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
     STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, IMPORTANCE_OTHER, PROVENANCE,
+    LEAN_CANVAS_DIR,
     version as ontology_version,
 )
 
@@ -657,6 +658,27 @@ def graph_diagnostics(project) -> list:
 
 # ---- index ビュー（wiki/index.md。手編集をやめ再生成に一本化） ----
 
+CANVAS_RE = re.compile(r"-lean-canvas-(\d{4}-\d{2}-\d{2})\.svg$")
+
+
+def latest_canvas(project):
+    """最新のリーンキャンバスSVGを (日付, wiki からの相対パス) で返す。無ければ None。
+
+    最新はファイル名に埋まった YYYY-MM-DD の辞書順で決める（mtime を使うとチェックアウト順で
+    出力が変わり、ビューが決定論的な射影でなくなるため）。命名規約は
+    `<PREFIX>-lean-canvas-<YYYY-MM-DD>.svg`（.claude/skills/lean-canvas/）。
+    SVG は /lean-canvas の生成物で、ここでは**埋め込みリンクを作るだけ**（中身は作らない・触らない）。"""
+    d = project.wiki / LEAN_CANVAS_DIR
+    if not d.is_dir():
+        return None
+    dated = sorted((m.group(1), p.name) for p in d.glob("*.svg")
+                   if (m := CANVAS_RE.search(p.name)))
+    if not dated:
+        return None
+    date, name = dated[-1]
+    return date, f"{LEAN_CANVAS_DIR}/{name}"
+
+
 def gen_index(project) -> str:
     """wiki/index.md ＝ 全仮説の現在の確信度・ステータス一覧（レコードからの射影）。
 
@@ -679,6 +701,17 @@ def gen_index(project) -> str:
           f"- 仮説(H) {len(hyps)} ｜ 実験計画(TEST) {n('-TEST-')} ｜ 学び(LEARN) {n('-LEARN-')} "
           f"｜ 意思決定(DEC) {n('-DEC-')}",
           ""]
+
+    # リーンキャンバス（/lean-canvas の生成物）。仮説テーブルより上に置く＝開いた瞬間に絵が見える。
+    # 画像記法で埋め込む（wikilink 埋め込み ![[...svg]] は非 md を解決できず Pages ビルドが落ちる）。
+    canvas = latest_canvas(project)
+    if canvas:
+        date, rel = canvas
+        L += ["## リーンキャンバス", "",
+              f"![リーンキャンバス {date}]({rel})", "",
+              f"[原寸で開く]({rel}) ｜ {date} 時点 ｜ `/lean-canvas` の生成物（レコードではない）",
+              "", "## 仮説一覧", ""]
+
     L += ["| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]
     for stem, fm, _, _ in sorted(hyps, key=lambda r: (-importance(r[1], stage),
                                                        int(r[1].get("confidence", "0") or 0))):

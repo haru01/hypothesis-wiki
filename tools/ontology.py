@@ -221,6 +221,7 @@ LEAN_CANVAS_BLOCKS = list(_LC.get("blocks", []))                 # [{key,label,e
 LEAN_CANVAS_BLOCK_STATUS = list(_LC.get("block-status", []))     # [{name,from}]
 LEAN_CANVAS_STAGE_LENS = dict(_LC.get("stage-lens", {}))         # {block-key: {early,scale}}
 LEAN_CANVAS_VALIDATION_ORDER = _LC.get("validation-order", "")
+LEAN_CANVAS_DIR = _LC.get("artifact-dir", "lean-canvas")         # SVG 成果物の置き場（wiki/ からの相対）
 # role → H サブタイプ名（写像ドキュメント生成・整合チェック用）。role の正本は entities.H.subtypes.role。
 H_ROLES = {s.get("role") for s in load()["entities"]["H"]["subtypes"] if s.get("role")}
 

@@ -20,7 +20,7 @@ def newest_mtime(paths) -> float:
     return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
 
 
-def regen(root: Path, views, project_cls, record_dirs) -> None:
+def regen(root: Path, views, project_cls, record_dirs, canvas_dir) -> None:
     """1プロジェクト分。レコードがビューより新しいときだけ再生成する。"""
     wiki = root / "wiki"
     if not wiki.is_dir():
@@ -33,6 +33,14 @@ def regen(root: Path, views, project_cls, record_dirs) -> None:
     log = wiki / "log.md"
     if log.exists():
         records.append(log)
+    # キャンバスSVGも鮮度の入力にする。index が最新1枚を埋め込むので、SVG が増えただけでも
+    # 再生成しないとリンクが古い日付を指したままになる。ファイル群に加えディレクトリ自身も見るのは、
+    # 削除・改名を拾うため（残ったファイルの mtime は古いので、ファイルだけ見ると index が
+    # 消えたSVGを指し続け、Pages ビルドが壊れリンクで落ちる）。
+    canvas = wiki / canvas_dir
+    if canvas.is_dir():
+        records.append(canvas)
+        records.extend(canvas.glob("*.svg"))
 
     # 出力先は wiki/ からの相対パス（board/list/relations は views/ 配下、index は wiki 直下）
     existing = [wiki / relpath for relpath, _ in views.values() if (wiki / relpath).exists()]
@@ -60,14 +68,15 @@ def main() -> int:
     sys.path.insert(0, str(TOOLS))
     from gen_views import VIEWS  # noqa: E402
     from records import Project  # noqa: E402
-    from ontology import RECORD_DIRS  # noqa: E402  レコード置き場の正本は ontology.yaml
+    # 置き場の正本は ontology.yaml（レコード＝entities.*.dir、キャンバスSVG＝lean-canvas.artifact-dir）
+    from ontology import RECORD_DIRS, LEAN_CANVAS_DIR  # noqa: E402
 
     projects_dir = repo / "projects"
     if not projects_dir.is_dir():
         return 0
     for root in sorted(projects_dir.iterdir()):
         try:
-            regen(root, VIEWS, Project, RECORD_DIRS)
+            regen(root, VIEWS, Project, RECORD_DIRS, LEAN_CANVAS_DIR)
         except Exception as e:  # ビュー生成の失敗でターンを止めない
             print(f"gen_views 失敗（{root.name}）: {e}", file=sys.stderr)
     return 0

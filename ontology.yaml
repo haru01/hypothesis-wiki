@@ -330,6 +330,8 @@ state-machines:
 #   - ブロックの検証状態は、対応 role の H の status から導出する（block-status）。新レコードは作らない。
 # 心得(Why=本家準拠の方法論)は playbooks/lean-canvas.md、現場手順(How)は .claude/skills/lean-canvas/。
 lean-canvas:
+  # /lean-canvas がキャンバスSVGを書き出す先（wiki/ からの相対）。index ビューが最新1枚を埋め込む。
+  artifact-dir: lean-canvas
   # sketch-order = 本家推奨の記入順（網羅のための順。同値は一緒に描く）。
   # 検証の優先順は別（validation-order 参照）。
   blocks:
