@@ -136,8 +136,14 @@ plugins:
     order: 92
   - source: "@quartz-community/quartz-fonts"
     enabled: true
+  # 変更: obsidian テンプレートでは true（theme: default）だが切っている。
+  # このプラグインは**ビルド実行中に** npm install でテーマパッケージを取りに行く作りで、
+  # CI では入れた直後に読み込めず fatal error で落ちた
+  # （Theme "default" was installed but could not be loaded ... Cannot find module）。
+  # Quartz の既定設定では元々 enabled: false。配色は上の configuration.theme.colors で
+  # 指定しているので失うものは無く、ビルド中に npm install が走る不確実性も消える。
   - source: "@quartz-themes/core"
-    enabled: true
+    enabled: false
     options:
       theme: default
       mode: both
