@@ -1,0 +1,335 @@
+# Quartz v5 設定（このリポジトリ用）。
+#
+# 土台は Quartz の **obsidian テンプレート** `quartz/cli/templates/obsidian.yaml`
+# （site/QUARTZ_REF でピン止めした版）。`npx quartz create` は quartz.config.yaml を
+# 無条件に上書きするので、tools/build_site.sh は create の**後**にこれを置き、
+# `quartz plugin install --from-config` の**前**に置く。
+# テンプレートが要求するプラグイン集合とずれないよう、Quartz を上げるときは
+# QUARTZ_REF と一緒にこのファイルもテンプレート差分を取り込んで更新する。
+#
+# 素のテンプレートからの変更点は「変更:」コメントで示す。
+configuration:
+  pageTitle: 仮説検証Wiki                       # 変更: 既定 "Quartz 5"
+  pageTitleSuffix: ""
+  enableSPA: true
+  enablePopovers: true
+  analytics: null                              # 変更: 既定は plausible に送信する
+  locale: ja-JP                                # 変更: 既定 en-US
+  baseUrl: haru01.github.io/hypothesis-wiki    # 変更: プロジェクトページなのでサブパス込み
+  ignorePatterns:
+    # 変更: 既定に入っている `templates` を**外している**。Obsidian の雛形フォルダを
+    # 想定した既定値だが、このリポジトリの templates/ は公開したい schema 層。
+    - private
+    - .obsidian
+    - sources                                  # 変更: 生データ非公開の二重の防御線
+  theme:
+    fontOrigin: googleFonts
+    cdnCaching: true
+    typography:
+      header: Schibsted Grotesk
+      body: Source Sans Pro
+      code: IBM Plex Mono
+    colors:
+      lightMode:
+        light: "#faf8f8"
+        lightgray: "#e5e5e5"
+        gray: "#b8b8b8"
+        darkgray: "#4e4e4e"
+        dark: "#2b2b2b"
+        secondary: "#284b63"
+        tertiary: "#84a59d"
+        highlight: rgba(143, 159, 169, 0.15)
+        textHighlight: "#fff23688"
+      darkMode:
+        light: "#161618"
+        lightgray: "#393639"
+        gray: "#646464"
+        darkgray: "#d4d4d4"
+        dark: "#ebebec"
+        secondary: "#7b97aa"
+        tertiary: "#84a59d"
+        highlight: rgba(143, 159, 169, 0.15)
+        textHighlight: "#b3aa0288"
+plugins:
+  - source: "@quartz-community/created-modified-date"
+    enabled: true
+    options:
+      defaultDateType: modified
+      # 変更: git を外している。Quartz が見るのは .site/staged（git 管理外のコピー）なので
+      # git 参照は必ず失敗し、95 ファイル分の警告を出すだけになる。
+      # gen_site.py がオリジナルの mtime を引き継ぐので filesystem で正しい日付が取れる。
+      priority:
+        - frontmatter
+        - filesystem
+    order: 10
+  - source: "@quartz-community/syntax-highlighting"
+    enabled: true
+    options:
+      theme:
+        light: github-light
+        dark: github-dark
+      keepBackground: false
+    order: 20
+  - source: "@quartz-community/obsidian-flavored-markdown"
+    enabled: true
+    options:
+      comments: true
+      highlight: true
+      wikilinks: true
+      callouts: true
+      mermaid: true
+      # 変更: テンプレートでは true。この Wiki は Obsidian タグを使わず型付きリンクで繋ぐので
+      # 得るものが無く、日本語の本文中の `「### 不変ルール」` のような引用を
+      # タグと誤読して壊れリンクを作る（実際に作った）。
+      parseTags: false
+      parseArrows: true
+      parseBlockReferences: true
+      enableInHtmlEmbed: false
+      enableYouTubeEmbed: true
+      enableVideoEmbed: true
+      enableCheckbox: true
+    order: 30
+  - source: "@quartz-community/github-flavored-markdown"
+    enabled: true
+    order: 40
+  - source: "@quartz-community/table-of-contents"
+    enabled: true
+    order: 50
+    layout:
+      position: right
+      priority: 30
+  - source: "@quartz-community/crawl-links"
+    enabled: true
+    options:
+      # この設定ひとつが wikilink と通常の相対 md リンクの**両方**を支配する
+      # （プラグインごとに分けられない）。素の [[SELF-H-001]] は ID が全体一意なので
+      # shortest で確実に解決する。tools/gen_site.py が相対 md リンクも
+      # wikilink 形に寄せ、basename が重複する先だけパス修飾している。
+      markdownLinkResolution: shortest
+      # 変更: 解決できなかった内部リンクに broken クラスを付ける。
+      # 見た目のためでなく、壊れリンク 0 件を機械的に測るための計器
+      # （tools/build_site.sh --check と CI のゲートが数える）。
+      disableBrokenWikilinks: true
+    order: 60
+  - source: "@quartz-community/description"
+    enabled: true
+    order: 70
+  - source: "@quartz-community/latex"
+    enabled: true
+    options:
+      renderEngine: katex
+    order: 80
+  - source: "@quartz-community/citations"
+    enabled: false
+    order: 85
+  # 変更: テンプレートでは true。この Wiki の本文は一文一行で書かれているため
+  # true にすると全文に <br> が入り、Obsidian のリーディングビューでの見え方と食い違う。
+  # 「Obsidian で見ている体験をそのまま公開する」のが目的なので false にする。
+  - source: "@quartz-community/hard-line-breaks"
+    enabled: false
+    order: 90
+  - source: "@quartz-community/ox-hugo"
+    enabled: false
+    order: 91
+  - source: "@quartz-community/roam"
+    enabled: false
+    order: 92
+  - source: "@quartz-community/quartz-fonts"
+    enabled: true
+  - source: "@quartz-themes/core"
+    enabled: true
+    options:
+      theme: default
+      mode: both
+  - source: "@quartz-community/remove-draft"
+    enabled: true
+  - source: "@quartz-community/explicit-publish"
+    enabled: false
+  - source: "@quartz-community/unlisted-pages"
+    enabled: true
+    options: {}
+    order: 45
+  - source: "@quartz-community/encrypted-pages"
+    enabled: true
+    options:
+      iterations: 600000
+      passwordField: password
+      unlistWhenEncrypted: false
+      outputPath: static/encryptedContentIndex.json
+  - source: "@quartz-community/stacked-pages"
+    enabled: false
+    layout:
+      position: afterBody
+      priority: 50
+      display: all
+  - source: "@quartz-community/alias-redirects"
+    enabled: true
+  - source: "@quartz-community/content-index"
+    enabled: true
+    options:
+      enableSiteMap: true
+      enableRSS: true
+  - source: "@quartz-community/favicon"
+    enabled: true
+  - source: "@quartz-community/og-image"
+    enabled: true
+  - source: "@quartz-community/cname"
+    enabled: true
+  - source: "@quartz-community/canvas-page"
+    enabled: true
+  - source: "@quartz-community/content-page"
+    enabled: true
+  - source: "@quartz-community/folder-page"
+    enabled: true
+  - source: "@quartz-community/tag-page"
+    enabled: true
+  - source: "@quartz-community/explorer"
+    enabled: true
+    layout:
+      position: left
+      priority: 50
+  - source: "@quartz-community/graph"
+    enabled: true
+    layout:
+      position: right
+      priority: 10
+  - source: "@quartz-community/search"
+    enabled: true
+    layout:
+      position: left
+      priority: 20
+      group: toolbar
+      groupOptions:
+        grow: true
+  - source: "@quartz-community/backlinks"
+    enabled: true
+    layout:
+      position: right
+      priority: 50
+  - source: "@quartz-community/article-title"
+    enabled: true
+    layout:
+      position: beforeBody
+      priority: 10
+  - source: "@quartz-community/content-meta"
+    enabled: true
+    layout:
+      position: beforeBody
+      priority: 20
+  - source: "@quartz-community/tag-list"
+    enabled: false
+    layout:
+      position: beforeBody
+      priority: 30
+  - source: "@quartz-community/page-title"
+    enabled: true
+    layout:
+      position: left
+      priority: 10
+  - source: "@quartz-community/darkmode"
+    enabled: true
+    layout:
+      position: left
+      priority: 30
+      group: toolbar
+  - source: "@quartz-community/reader-mode"
+    enabled: true
+    layout:
+      position: left
+      priority: 35
+      group: toolbar
+  - source: "@quartz-community/breadcrumbs"
+    enabled: true
+    layout:
+      position: beforeBody
+      priority: 5
+      condition: not-index
+  - source: "@quartz-community/comments"
+    enabled: false
+    options:
+      provider: giscus
+      options: {}
+    layout:
+      position: afterBody
+      priority: 10
+  # 変更: 既定は Quartz 本体と Discord を指している
+  - source: "@quartz-community/footer"
+    enabled: true
+    options:
+      links:
+        リポジトリ: https://github.com/haru01/hypothesis-wiki
+    layout:
+      position: footer
+      priority: 50
+  - source: "@quartz-community/recent-notes"
+    enabled: false
+  - source: "@quartz-community/spacer"
+    enabled: true
+    options: {}
+    order: 25
+    layout:
+      position: left
+      priority: 25
+      display: mobile-only
+  - source: "@quartz-community/bases-page"
+    enabled: true
+    options: {}
+    order: 50
+  - source: "@quartz-community/note-properties"
+    enabled: true
+    options:
+      includeAll: false
+      # 変更: 仮説の型・ステータス・確信度・ステージ・重要度を出す。Quartz は frontmatter を
+      # 既定で隠すので、この Wiki で一番見たい値（確信度）が消えてしまう。
+      includedProperties:
+        - description
+        - tags
+        - aliases
+        - type
+        - status
+        - confidence
+        - stage
+        - importance
+        - outcome
+        - riskiest-assumption
+      excludedProperties: []
+      hidePropertiesView: false
+      delimiters: "---"
+      language: yaml
+    order: 5
+    layout:
+      position: beforeBody
+      priority: 15
+      display: all
+  - source: "@quartz-community/obsidian-plugin-excalidraw"
+    enabled: true
+    options:
+      enableInteraction: true
+      darkMode: auto
+      exportPadding: 20
+    order: 50
+layout:
+  groups:
+    toolbar:
+      priority: 35
+      direction: row
+      gap: 0.5rem
+  byPageType:
+    "404":
+      positions:
+        beforeBody: []
+        left: []
+        right: []
+    content: {}
+    folder:
+      exclude:
+        - reader-mode
+      positions:
+        right: []
+    tag:
+      exclude:
+        - reader-mode
+      positions:
+        right: []
+    canvas: {}
+    bases: {}

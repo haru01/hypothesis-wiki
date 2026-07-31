@@ -1,9 +1,16 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+# 一時リポジトリで git を叩くテスト用の環境。GIT_* を落として親の git 文脈から切り離す。
+# これが無いと、pre-commit フック（tools/ か tests/ を触ると本テストを走らせる）の中で
+# 動いたとき GIT_INDEX_FILE・GIT_DIR を継承し、cwd で指した一時リポジトリではなく
+# 外側のリポジトリを操作して commit が失敗する。
+GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 TOOLS = Path(__file__).resolve().parent.parent / "tools"
 sys.path.insert(0, str(TOOLS))
@@ -639,7 +646,8 @@ outcome: 反証
 
 class TestcardImmutableTest(unittest.TestCase):
     def _init_repo(self, repo: Path):
-        run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True, text=True)
+        run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True,
+                                       text=True, env=GIT_ENV)
         run("git", "init", "-b", "main")
         run("git", "config", "user.email", "t@example.com")
         run("git", "config", "user.name", "t")
@@ -648,7 +656,7 @@ class TestcardImmutableTest(unittest.TestCase):
     def _run_checker(self, repo: Path, *argv):
         return subprocess.run(
             [sys.executable, str(TOOLS / "check_testcard_immutable.py"), *argv],
-            cwd=repo, capture_output=True, text=True)
+            cwd=repo, capture_output=True, text=True, env=GIT_ENV)
 
     def test_rewrite_after_learning_detected(self):
         # TEST を learns-from で指す LEARN が在れば、TEST テストカードの変更は検出される。

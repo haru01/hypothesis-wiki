@@ -1,0 +1,90 @@
+name: Deploy site to GitHub Pages
+
+# 公開サイトは Quartz v5 で生成する（site/QUARTZ_REF でコミットをピン止め）。
+# Quartz はリポジトリに取り込まず、ビルド時に取ってくる。
+# 詳細は tools/build_site.sh と site/quartz.config.yaml を参照。
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 全履歴は要らない。Quartz が見るのは .site/staged（git 管理外のコピー）なので
+      # created-modified-date は git を見ず、gen_site.py が引き継いだ mtime を使う。
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Read pinned Quartz ref
+        id: quartz
+        run: echo "sha=$(grep -vE '^\s*(#|$)' site/QUARTZ_REF | head -1 | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ steps.quartz.outputs.sha }}
+          restore-keys: ${{ runner.os }}-npm-
+
+      - name: Cache Quartz plugins
+        uses: actions/cache@v4
+        with:
+          path: .site/quartz/.quartz/plugins
+          key: ${{ runner.os }}-quartz-plugins-${{ steps.quartz.outputs.sha }}
+          restore-keys: ${{ runner.os }}-quartz-plugins-
+
+      # 公開ツリーの組み立て → Quartz 取得 → ビルド → 壊れリンクのゲート。
+      # --strict: gen_site.py の想定外の未解決リンクで落とす。
+      # --check:  解決できなかった内部リンクが 1 件でもあれば落とす。
+      #           sources/ への参照は設計どおりリンクを外すので broken にはならない。
+      - name: Stage publishable tree
+        run: python3 tools/gen_site.py --out .site/staged --strict
+
+      - name: Build and check links
+        run: bash tools/build_site.sh --check
+
+      # 生データ（projects/*/sources/）が出力に混ざっていないことを確かめる。
+      # Quartz はフィルタプラグインに関わらず非 Markdown ファイルを全部出力するため、
+      # ステージング時点で入れないことが唯一の防御線。ここはその二重確認。
+      # パターンは厳密に。`*sources*` だと templates/project/sources/（雛形の説明）や
+      # docs/migrations/2026-07-provenance-sources.html（名前に sources を含む文書）に誤爆する。
+      - name: Assert raw sources are not published
+        run: |
+          leaked="$(find .site/quartz/public/projects -path '*/sources/*' 2>/dev/null || true)"
+          if [ -n "$leaked" ]; then
+            echo "生データが公開出力に混ざっている" >&2
+            echo "$leaked" >&2
+            exit 1
+          fi
+          echo "生データの混入なし"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .site/quartz/public
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

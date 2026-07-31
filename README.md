@@ -193,6 +193,32 @@ hypothesis-wiki/
 - frontmatter は Dataview の動的テーブル（確信度一覧など）にもそのまま使える。
 - `.obsidian/` は `.gitignore` 済み。
 
+## Web で公開する（GitHub Pages）
+
+公開サイト: **https://haru01.github.io/hypothesis-wiki/**
+
+Obsidian の wikilink（`[[SELF-H-004]]`）は GitHub の Markdown レンダラーでは素の文字列のままなので、
+[Quartz](https://quartz.jzhao.xyz/) v5 でサイトに変換して公開する。バックリンク・グラフビュー・
+全文検索が付き、Obsidian で見ている体験がほぼそのまま外から読める。
+
+`main` への push で [.github/workflows/pages.yml](https://github.com/haru01/hypothesis-wiki/blob/main/.github/workflows/pages.yml) が走る。手元で確かめるなら:
+
+```bash
+bash tools/build_site.sh --serve    # http://localhost:8080
+bash tools/build_site.sh --check    # 壊れた内部リンクが 0 件かを機械的に検査
+```
+
+仕組みと約束事:
+
+- **Quartz はリポジトリに取り込まない**。[site/QUARTZ_REF](https://github.com/haru01/hypothesis-wiki/blob/main/site/QUARTZ_REF) でコミットをピン止めし、
+  ビルド時に `.site/quartz` へ取ってくる。Node はこのスクリプトと CI の中にしか存在しない。
+- **オリジナルは書き換えない**。[tools/gen_site.py](https://github.com/haru01/hypothesis-wiki/blob/main/tools/gen_site.py) が公開ツリーを `.site/staged`
+  に組み立て、**コピー側だけで**リンクを Quartz が解決できる形（wikilink）に正規化する。
+  本文の wikilink は Obsidian のグラフと `/lint` の二重表現チェックが依存しているので触らない。
+- **生データ（`projects/*/sources/`）は公開しない**。そのため確信度の根拠鎖
+  `確信度履歴 → 学び(LEARN) → 生データ` の末端はサイト上では辿れない（学びの `sources` に記録は残る）。
+- `.site/` は生成物。手で直さずレコード側を直して再生成する。
+
 ## 仕組み（3層・5ステージ・確信度）
 
 **3層アーキテクチャ** — 生データ・生成物・規約を分けて管理する。

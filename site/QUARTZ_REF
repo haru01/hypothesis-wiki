@@ -1,0 +1,6 @@
+# ビルドに使う Quartz のコミット（jackyzha0/quartz の v5 ブランチ）。
+# v5 にはリリースタグが無い（最新タグは 2023 年の v4.0.8）ので SHA で固定する。
+# 上げるときは site/quartz.config.yaml も obsidian テンプレートの差分を取り込んで更新する
+# （quartz/cli/templates/obsidian.yaml のプラグイン集合とずれると
+#  `quartz plugin install --from-config` が別物を入れることになる）。
+74b3fc9efd0caafea3dbcd846ddf1f06855b6d2a

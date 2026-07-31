@@ -12,3 +12,7 @@ __pycache__/
 
 # 現在アクティブなプロジェクトの選択（各自ローカル・共有しない）。書式は .env.example
 .env
+
+# 公開サイトのビルド作業ツリー（生成物）。tools/build_site.sh が作る。
+# staged/ は公開ツリーのコピー、quartz/ は取ってきた Quartz 本体と public/ 出力。
+.site/
