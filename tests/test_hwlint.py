@@ -401,6 +401,66 @@ class ProvenanceTest(unittest.TestCase):
             self.assertEqual(gen_views.fictional_records(Project(root)), ["DEMO-LEARN-001"])
 
 
+class LeanCanvasEmbedTest(unittest.TestCase):
+    """index ビューが /lean-canvas の最新SVGを埋め込むこと（到達経路をコード側で作る）。"""
+
+    def _root(self, tmp, svgs=(), make_dir=False):
+        root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp()})
+        if make_dir:
+            (root / "wiki" / "lean-canvas").mkdir(parents=True, exist_ok=True)
+        for name in svgs:
+            write(root, f"wiki/lean-canvas/{name}", '<svg width="1200" height="720"></svg>')
+        return root
+
+    def test_no_canvas_dir_yields_nothing(self):
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp)
+            self.assertIsNone(gen_views.latest_canvas(Project(root)))
+            out = gen_views.gen_index(Project(root))
+            self.assertNotIn("## リーンキャンバス", out)
+            # 節構成はキャンバスの有無で変わらない（プロジェクト間でアンカーを揃える）
+            self.assertIn("## 仮説一覧", out)
+
+    def test_empty_canvas_dir_yields_nothing(self):
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, make_dir=True)
+            self.assertIsNone(gen_views.latest_canvas(Project(root)))
+
+    def test_picks_the_latest_date_not_the_filesystem_order(self):
+        # 「最新」はファイル名の日付で決める（mtime だとチェックアウト順で出力が変わる）。
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, ["DEMO-lean-canvas-2026-07-28.svg",
+                                    "DEMO-lean-canvas-2026-07-24.svg"])
+            self.assertEqual(gen_views.latest_canvas(Project(root)),
+                             ("2026-07-28", "lean-canvas/DEMO-lean-canvas-2026-07-28.svg"))
+
+    def test_index_embeds_the_image_inline(self):
+        # 画像記法（クリックせず見える）。wikilink 埋め込みは非 md を解決できず Pages ビルドが落ちる。
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, ["DEMO-lean-canvas-2026-07-28.svg"])
+            out = gen_views.gen_index(Project(root))
+            self.assertIn("![リーンキャンバス 2026-07-28]"
+                          "(lean-canvas/DEMO-lean-canvas-2026-07-28.svg)", out)
+            self.assertNotIn("![[", out)
+            # 仮説テーブルより上（開いた瞬間に絵が見える）
+            self.assertLess(out.index("## リーンキャンバス"), out.index("| 仮説 |"))
+
+    def test_unconventional_filename_is_ignored(self):
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, ["canvas.svg"])
+            self.assertIsNone(gen_views.latest_canvas(Project(root)))
+
+
 class HistoryConsistencyTest(unittest.TestCase):
     def test_frontmatter_history_mismatch_detected(self):
         rows = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
