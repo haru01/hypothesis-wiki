@@ -7,6 +7,7 @@
 #   bash tools/build_site.sh            … ビルドして .site/quartz/public に出す
 #   bash tools/build_site.sh --serve    … ローカルプレビュー（http://localhost:8080）
 #   bash tools/build_site.sh --check    … ビルド後に壊れリンクを数え、0 でなければ非ゼロ終了
+#   bash tools/build_site.sh --strict   … 直すべきリンクが1件でもあれば組み立て段階で止める
 #   bash tools/build_site.sh --fresh    … Quartz を取り直してから実行する
 #
 # 出力（.site/）は生成物。手で直さず、レコード側を直して再生成する。
@@ -19,12 +20,13 @@ QUARTZ="$WORK/quartz"
 QUARTZ_URL="https://github.com/jackyzha0/quartz.git"
 BASE_URL="haru01.github.io/hypothesis-wiki"
 
-SERVE=0 CHECK=0 FRESH=0
+SERVE=0 CHECK=0 FRESH=0 STRICT=0
 for arg in "$@"; do
   case "$arg" in
     --serve) SERVE=1 ;;
     --check) CHECK=1 ;;
     --fresh) FRESH=1 ;;
+    --strict) STRICT=1 ;;
     *) echo "不明な引数: $arg" >&2; exit 2 ;;
   esac
 done
@@ -49,7 +51,9 @@ fi
 
 # ---- 1. 公開ツリーを組み立てる ------------------------------------------------
 echo "==> 公開ツリーを組み立てる"
-python3 "$REPO/tools/gen_site.py" --out "$STAGED"
+GEN_ARGS=(--out "$STAGED")
+if [ "$STRICT" = 1 ]; then GEN_ARGS+=(--strict); fi
+python3 "$REPO/tools/gen_site.py" "${GEN_ARGS[@]}"
 
 # ---- 2. Quartz を用意する（ピン止めした SHA。既にあれば再利用）--------------------
 if [ "$FRESH" = 1 ]; then

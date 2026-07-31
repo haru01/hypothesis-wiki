@@ -47,7 +47,9 @@ SKILL_DEST_PREFIX = "skill-"
 # サイトトップ（<out>/index.md として書き出す）
 SITE_INDEX_SRC = "site/index.md"
 
-EXCLUDE_DIR_NAMES = {".obsidian", "__pycache__", ".git", ".claude", "node_modules"}
+# `.site` は自分自身の出力先。いまは走査対象がリポジトリ直下ではないので実害は無いが、
+# 走査範囲を広げた瞬間に前回のビルド出力を再帰的に取り込み始めるので先に閉じておく。
+EXCLUDE_DIR_NAMES = {".obsidian", "__pycache__", ".git", ".claude", "node_modules", ".site"}
 NON_PUBLIC_RE = re.compile(r"^projects/[^/]+/sources/")
 
 # プレースホルダらしさ（未解決でも警告しない）。
@@ -218,8 +220,10 @@ WIKILINK_RE = re.compile(r"\[\[([^\[\]|#]+)(#[^\[\]|]*)?(?:\|([^\[\]]*))?\]\]")
 MDLINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
 
 
-def rewrite(text: str, src_repo_rel: str, resolver: Resolver, warn) -> str:
-    """1ファイル分の本文を書き換える。src_repo_rel は**元の**位置（相対リンクの基準）。"""
+def rewrite(text: str, src_repo_rel: str, resolver: Resolver, warn, note) -> str:
+    """1ファイル分の本文を書き換える。src_repo_rel は**元の**位置（相対リンクの基準）。
+
+    `warn` は直すべき不具合（--strict で落とす）、`note` は設計どおりの報告に使う。"""
     body, slots = _protect(text)
     src_dir = posixpath.dirname(src_repo_rel)
 
@@ -271,7 +275,9 @@ def rewrite(text: str, src_repo_rel: str, resolver: Resolver, warn) -> str:
             return label                       # 雛形の断片（コピー先を基準に書かれた深さ）
         dest = resolver.resolve_by_stem(path)
         if dest is not None:
-            warn(f"{src_repo_rel}: リンク先 {path} はパスとして辿れないので basename で解決した"
+            # 救済できているのでサイトは壊れない。オリジナル側の直すべき点の報告に留める
+            # （Obsidian も shortest 解決で辿れてしまうため、誤ったパスが温存されがち）。
+            note(f"{src_repo_rel}: リンク先 {path} はパスとして辿れないので basename で解決した"
                  f"（オリジナル側のリンク切れ → {dest}）")
             return f"[[{resolver.canonical(dest)}{suffix}|{label}]]"
         if not PLACEHOLDER_RE.search(path):
@@ -294,7 +300,7 @@ def build(out: Path, strict: bool) -> int:
         print(f"warning: {SITE_INDEX_SRC} が無いのでサイトトップを作らない", file=sys.stderr)
 
     resolver = Resolver(source_to_staged_map(pairs))
-    warnings = []
+    warnings, notes = [], []   # warnings=直すべき不具合（--strict で落とす）／notes=設計どおりの報告
 
     if out.exists():
         shutil.rmtree(out)
@@ -308,7 +314,9 @@ def build(out: Path, strict: bool) -> int:
             continue
         src_repo_rel = src.relative_to(REPO).as_posix()
         text = src.read_text(encoding="utf-8")
-        target.write_text(rewrite(text, src_repo_rel, resolver, warnings.append), encoding="utf-8")
+        target.write_text(
+            rewrite(text, src_repo_rel, resolver, warnings.append, notes.append),
+            encoding="utf-8")
         # 更新日時を引き継ぐ。staged は git 管理外なので Quartz は日付を
         # ファイルシステムから取る（コピー時刻だと全ページが「今」になる）。
         st = src.stat()
@@ -316,10 +324,14 @@ def build(out: Path, strict: bool) -> int:
 
     md = sum(1 for _, d in pairs if d.endswith(".md"))
     print(f"staged: {len(pairs)} files ({md} markdown) → {out}")
+    for n in notes:
+        print(f"note: {n}", file=sys.stderr)
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
+    if notes:
+        print(f"note: 計 {len(notes)} 件（救済済み・サイトは壊れない）", file=sys.stderr)
     if warnings:
-        print(f"warning: 計 {len(warnings)} 件", file=sys.stderr)
+        print(f"warning: 計 {len(warnings)} 件（直すべきリンク）", file=sys.stderr)
         if strict:
             return 1
     return 0
@@ -328,7 +340,9 @@ def build(out: Path, strict: bool) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description="GitHub Pages 公開用の content ツリーを組み立てる")
     ap.add_argument("--out", default=".site/staged", help="出力先（既定 .site/staged）")
-    ap.add_argument("--strict", action="store_true", help="想定外の未解決リンクで非ゼロ終了する")
+    ap.add_argument("--strict", action="store_true",
+                    help="直すべきリンク（warning）があれば非ゼロ終了する。"
+                         "救済済みの報告（note）では落ちない")
     args = ap.parse_args()
     out = Path(args.out)
     if not out.is_absolute():

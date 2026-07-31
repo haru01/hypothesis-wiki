@@ -49,15 +49,14 @@ jobs:
           key: ${{ runner.os }}-quartz-plugins-${{ steps.quartz.outputs.sha }}
           restore-keys: ${{ runner.os }}-quartz-plugins-
 
-      # 公開ツリーの組み立て → Quartz 取得 → ビルド → 壊れリンクのゲート。
-      # --strict: gen_site.py の想定外の未解決リンクで落とす。
-      # --check:  解決できなかった内部リンクが 1 件でもあれば落とす。
+      # 公開ツリーの組み立て → Quartz 取得 → ビルド → 検査。build_site.sh が組み立ても
+      # 担うので、ここで gen_site.py を別に呼ばない（呼ぶと直後に上書きされて無意味になる）。
+      # --strict: 直すべきリンク（公開ツリーに無い先を指している等）が1件でもあれば止める。
+      #           basename で救済済みの報告（note）では落ちない。
+      # --check:  解決できなかった内部リンクが1件でもあれば落とす。
       #           sources/ への参照は設計どおりリンクを外すので broken にはならない。
-      - name: Stage publishable tree
-        run: python3 tools/gen_site.py --out .site/staged --strict
-
       - name: Build and check links
-        run: bash tools/build_site.sh --check
+        run: bash tools/build_site.sh --strict --check
 
       # 生データ（projects/*/sources/）が出力に混ざっていないことを確かめる。
       # Quartz はフィルタプラグインに関わらず非 Markdown ファイルを全部出力するため、
