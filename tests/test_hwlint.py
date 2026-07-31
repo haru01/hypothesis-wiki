@@ -1991,9 +1991,12 @@ class AttachmentTest(unittest.TestCase):
                               if p.level == "error" or p.check.startswith("attachment")], [])
 
     def test_id_mismatch_detected(self):
+        # id==ファイル名 は種別を問わない規約なので check_id_matches_filename が見る
+        # （付随物側で再実装しない）。付随物固有の同一性は test_missing_parent_detected。
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, self._base(id="DEMO-TEST-999-script"))
-            self.assertTrue(any(p.check == "attachment-id" for p in self._checks(root)))
+            self.assertTrue(any(p.check == "id-filename" and p.where == "DEMO-TEST-001-script"
+                                for p in hwlint.lint_project(root)))
 
     def test_missing_parent_detected(self):
         with tempfile.TemporaryDirectory() as tmp:

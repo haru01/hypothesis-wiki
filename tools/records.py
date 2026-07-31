@@ -182,11 +182,7 @@ class Project:
         self.slug = root.name
         self.wiki = root / "wiki"
         self.records = {}
-        # 付随物（スクリプト等）。**records とは別に持つ**: ステム `<PREFIX>-TEST-NNN-script` には
-        # `-TEST-` が含まれるので、records に混ぜると entity_of が "TEST" を返し、
-        # `"-TEST-" in stem` で書かれた全箇所（board/list/index 生成・テストカード不変チェック）が
-        # 付随物を実験計画として飲み込む。分離しておけば射影側は無改修で済む。
-        self.attachments = {}
+        self.attachments = {}    # 付随物。records と分ける理由は node_kind の docstring を見よ
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
         for sub in RECORD_DIRS:            # 置き場の正本は ontology.yaml の entities.*.dir

@@ -46,9 +46,12 @@ class Problem:
 
 
 def check_id_matches_filename(project) -> list:
-    """frontmatter id はファイル名と完全一致（接頭辞つき）。規約外ファイル名も報告。"""
+    """frontmatter id はファイル名と完全一致（接頭辞つき）。規約外ファイル名も報告。
+
+    付随物（スクリプト等）も同じ規約に従うので `nodes` を回す。付随物固有の同一性
+    （ファイル名が親レコードID + suffix になっているか）は check_attachment_id が見る。"""
     problems = []
-    for stem, (path, fm, _) in project.records.items():
+    for stem, (path, fm, _) in project.nodes.items():
         fid = fm.get("id", "")
         if fid != stem:
             problems.append(Problem("error", stem, "id-filename",
@@ -80,8 +83,7 @@ def check_fields(project) -> list:
         declared = NODE_FIELDS_BY_NAME.get(ent)
         if not declared:
             continue
-        for name in declared:
-            f = declared[name]
+        for name, f in declared.items():
             if f.required and not fm.get(name, "").strip():
                 problems.append(Problem("error", stem, "fields",
                     f"必須フィールド {name}（{f.kind}）が未指定/空"))
@@ -296,17 +298,14 @@ def check_relative_links(project) -> list:
 
 
 def check_attachment_id(project) -> list:
-    """付随物の同一性: ファイル名 = 親レコードID + suffix、frontmatter id = ファイル名。
+    """付随物とその親の対応: ファイル名 = 親レコードID + suffix。
 
     suffix を剥がした基底が ID_RE を満たし・その ID のレコードが実在し・宣言された親種別である、
     の3点を1つのチェックで担保する（ID_RE を再定義せず流用する＝レコードID規約の正本は1箇所）。
-    付随物は独自のID体系を持たないので、この対応が壊れると親から切り離された孤児になる。"""
+    付随物は独自のID体系を持たないので、この対応が壊れると親から切り離された孤児になる。
+    frontmatter id とファイル名の一致は種別を問わない規約なので check_id_matches_filename が見る。"""
     problems = []
-    for stem, fm, _, a, base in project.iter_attachments():
-        fid = fm.get("id", "")
-        if fid != stem:
-            problems.append(Problem("error", stem, "attachment-id",
-                f"frontmatter id '{fid}' がファイル名 '{stem}' と一致しない"))
+    for stem, _, _, a, base in project.iter_attachments():
         if not ID_RE.match(base):
             problems.append(Problem("error", stem, "attachment-id",
                 f"'{a.suffix}' を除いた '{base}' がレコードID規約に合わない"

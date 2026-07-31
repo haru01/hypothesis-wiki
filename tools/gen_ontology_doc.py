@@ -82,7 +82,11 @@ def build() -> str:
               "`records.py` の `entity_of` が `TEST` を返し、`\"-TEST-\" in stem` で書かれた箇所"
               "（board/list/index 生成・テストカード不変チェック）が付随物を実験計画として飲み込む。"
               "そのため読み取り層は `records` と `attachments` を別コレクションに保ち、"
-              "**付随物は board/list/index の集計に現れない**（生成ビューは records のみを射影する）。", "",
+              "**付随物は生成ビューに現れない**（board・list・index・relations のいずれも "
+              "records だけを射影する）。関係インデックスも、始点・終点がレコードでない関係は"
+              "恒久的に0件になるので節を出さない（「（該当なし）」と刻むと"
+              "「そんな付随物は存在しない」という誤情報になる）。関係型の一覧そのものは"
+              "スキーマの話なのでこのドキュメントが持つ。", "",
               "| 付随物 | 名称 | 親 | ファイル名 | サブタイプ（frontmatter `type`） |", "|---|---|---|---|---|"]
         for a in ontology.ATTACHMENTS.values():
             L.append(f"| `{a.name}` | {a.label} | `{a.parent}` | "

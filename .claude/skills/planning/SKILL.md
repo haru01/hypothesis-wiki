@@ -22,13 +22,15 @@ description: 次に検証すべき仮説を抽出し、検証のテストカー�
 5. **テストカード付き TEST 草稿を作る** — 選ばれた仮説ごとに `wiki/tests/` の既存最大+1で `TEST-NNN` を採番し、`templates/testcard.md`（テストカードのみのレコード）の `### 目的`／`### 方法`／`### 指標`／`### 成功基準` を記入して作成。**frontmatter の `riskiest-assumption` に「最もリスクの高い前提」（この実験で崩れたら全体が崩れる一点）を一文で必ず記入する**（board の背骨。成功基準と同じく検証前に確定し後から書き換えない）。frontmatter の `id` は**ファイル名と同じ接頭辞つき**にする（例 `id: SELF-TEST-001`）。検証後の学びは別レコード **LEARN** として `/learning` が新規作成する（この TEST には学習カードを持たせない・以後書き換えない）。本文に対象仮説 `[[H-NNN]]` を書く。ディレクトリに `.gitkeep` が残っていれば削除してよい。
    - **interview/demo 系はスクリプト草稿も併せて作る** — まず `AskUserQuestion` で**目的モード（反証型／発見型／ハイブリッド）を選ぶ**（心得の正典は `playbooks/interviewing.md`）。**TESTの `type` とステージに応じて基にする雛形を選び**、対象仮説を差し込んだ現場用スクリプト草稿を `wiki/tests/<PREFIX>-TEST-NNN-script.md` として作成し、TEST本文から相対mdリンクで参照する（`スクリプト: [<PREFIX>-TEST-NNN-script.md](<PREFIX>-TEST-NNN-script.md)`。付随物はビューに集計されないので、親から辿れないと到達不能になる）。
 
-     **スクリプトは付随物（attachments.SCRIPT）なので frontmatter を必ず書く**（スキーマの正本は `ontology.yaml` の `attachments`・規約は [CLAUDE.md](../../../CLAUDE.md) の「スクリプト（付随物）」）。`id` はファイル名＝`<親TEST ID>-script`、`script-for` に親テストカード、`hypotheses` は**親の検証対象の部分集合**（発見型は仮説を伏せるので省略する）。下表の雛形選択が `type` の語彙にそのまま対応する。
+     **スクリプトは付随物（attachments.SCRIPT）なので frontmatter を必ず書く**（スキーマの正本は `ontology.yaml` の `attachments`・規約は [CLAUDE.md](../../../CLAUDE.md) の「スクリプト（付随物）」）。`id` はファイル名＝`<親TEST ID>-script`、`script-for` に親テストカード、`hypotheses` は**親の検証対象の部分集合**（発見型は仮説を伏せるので省略する）。
 
-     | TEST `type` × ステージ | 基にする雛形 | スクリプトの `type` | ねらい |
-     |---|---|---|---|
-     | `interview` × CPF/FPF | `templates/problem-interview-script.md` | `problem-interview` | 課題の実在・自覚・実コスト（**ソリューションを見せない**） |
-     | `interview` × PSF/SPF | `templates/solution-interview-script.md` | `solution-interview` | 提示物への反応・乗り換え・〈支払い〉（ソリューションを**見せる**） |
-     | `demo`（主に PSF） | `templates/demo-script.md` | `demo` | デモの司会・観察。詰まりどころとデモ後の行動を観る |
+     下表は「TEST の `type` × ステージ → スクリプトの `type`」のルーティング（オントロジーに無いスキル固有の判断）。**基にする雛形のパスはここに書かない** — サブタイプ→雛形の対応は [ontology.md](../../../ontology.md) の「付随物」の『サブタイプと雛形』表が正本（`ontology.yaml` の `template` から生成。実在は `_selfcheck` が検証する）。
+
+     | TEST `type` × ステージ | スクリプトの `type` | ねらい |
+     |---|---|---|
+     | `interview` × CPF/FPF | `problem-interview` | 課題の実在・自覚・実コスト（**ソリューションを見せない**） |
+     | `interview` × PSF/SPF | `solution-interview` | 提示物への反応・乗り換え・〈支払い〉（ソリューションを**見せる**） |
+     | `demo`（主に PSF） | `demo` | デモの司会・観察。詰まりどころとデモ後の行動を観る |
 
      - **反証型**: 対象仮説それぞれに**反証質問（何が観測されれば反証か）を必ず含め**、支持と反証を対で聞く。反証条件はテストカードの成功基準に事前登録する。
      - **発見型**: **すでに確証済みの前提・行動仮説・課題仮説にとらわれず**視野を広げる。既存仮説は相手に語らず伏せ、自発言及だけを listen-for として記録する。

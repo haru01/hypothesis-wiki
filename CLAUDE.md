@@ -174,7 +174,7 @@ hypotheses: [<PREFIX>-H-NNN, ...]     # 省略可。台本が実際に当てる�
 **発見型のスクリプトは既存仮説を相手に語らない**設計で、仮説を宣言すると台本の意図と食い違うため。
 本文で背景として別の仮説に言及するのは正当なので、逆向き（本文の wikilink をすべて宣言せよ）は課さない。
 
-付随物は**生成ビュー（board・list・index）の集計に現れない**（射影はレコードのみ）。したがって親テストカード本文から
+付随物は**生成ビューに現れない**（board・list・index・relations のいずれもレコードだけを射影する）。したがって親テストカード本文から
 相対mdリンクで参照して到達可能にする（`スクリプト: [<PREFIX>-TEST-NNN-script.md](<PREFIX>-TEST-NNN-script.md)`）。
 仕様の正本は [ontology.yaml](ontology.yaml) の `attachments` 節（人間可読は [ontology.md](ontology.md)「付随物」）。
 

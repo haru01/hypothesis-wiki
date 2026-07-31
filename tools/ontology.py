@@ -303,8 +303,10 @@ def _selfcheck() -> int:
         assert r.domains <= set(NODE_NAMES) and r.ranges <= set(NODE_NAMES), \
             f"{r.name} の domain/range 不正"
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
-    # フィールド宣言（スキーマ＝契約）の整合
-    for ent, fields in FIELDS.items():
+    # フィールド宣言（スキーマ＝契約）の整合。エンティティと付随物は同じ契約に従うので
+    # 1つのループで見る（種別ごとに書き分けると、付随物側だけ検査が1つ欠ける等の穴が空く）。
+    declared_fields = list(FIELDS.items()) + [(a.name, a.fields) for a in ATTACHMENTS.values()]
+    for ent, fields in declared_fields:
         assert fields, f"{ent} に fields 宣言が無い"
         names = [f.name for f in fields]
         assert len(names) == len(set(names)), f"{ent} の fields に重複キー"
@@ -328,14 +330,12 @@ def _selfcheck() -> int:
         assert a.parent in ENTITY_INFIXES, f"付随物 {a.name} の parent '{a.parent}' が未知のエンティティ"
         assert a.suffix.startswith("-") and len(a.suffix) > 1, f"付随物 {a.name} の suffix 不正"
         assert a.subtypes, f"付随物 {a.name} に subtypes が無い"
-        names = [f.name for f in a.fields]
-        assert names and len(names) == len(set(names)), f"付随物 {a.name} の fields に重複キー"
-        assert "id" in names, f"付随物 {a.name} の fields に id が無い"
-        for f in a.fields:
-            if f.kind == "relation":
-                assert f.name in RELATIONS_BY_FIELD, f"{a.name}.{f.name} は relations に宣言が無い"
-            if f.kind == "enum":
-                assert f.enum_ref in ENUM_REFS, f"{a.name}.{f.name} の enum-ref '{f.enum_ref}' が未知"
+        # 宣言した雛形が実在すること。この検証があってはじめて `template:` が「正本」を名乗れる
+        # （雛形をリネームしても誰も気づかない、という状態を作らない）。
+        for subtype, tmpl in a.templates.items():
+            assert tmpl, f"{a.name}.{subtype} に template の宣言が無い"
+            assert (ONTOLOGY_PATH.parent / tmpl).is_file(), \
+                f"{a.name}.{subtype} の template '{tmpl}' が存在しない"
         # 付随物のステムがレコードIDとして解釈されないこと（records/attachments の分離の前提）
         assert not ID_RE.match(f"PREFIX-{a.parent}-001{a.suffix}"), \
             f"付随物 {a.name} の suffix がレコードID(ID_RE)と衝突する"
