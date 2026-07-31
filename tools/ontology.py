@@ -83,6 +83,36 @@ class Field:
         self.enum_ref = d.get("enum-ref", "")
 
 
+class Attachment:
+    """付随物1種。親レコードに従属し、独自のID体系を持たない成果物の宣言。
+
+    ファイル名は `<親レコードID><suffix>.md`、置き場は親エンティティの dir（宣言せず導出する）。
+    レコード(entities)ではないので board/list/index の集計には現れないが、relations には参加する。
+    種別の解決は suffix でおこなう（ID_RE は緩めない）。
+
+    `parent_relation` は「親を指す関係」（domain=自身・range=親種別・cardinality one）を
+    relations から解決したもの。RELATIONS の構築後に束ねる（下記 _bind_parent_relations）。
+    フィールド名をコードに書かずに済ませつつ、候補が1本に定まることは _selfcheck が担保する。"""
+    __slots__ = ("name", "label", "parent", "suffix", "description", "fields", "subtypes",
+                 "templates", "parent_relation")
+
+    def __init__(self, name: str, d: dict):
+        self.name = name
+        self.label = d.get("label", name)
+        self.parent = d["parent"]
+        self.suffix = d["suffix"]
+        self.description = d.get("description", "")
+        self.fields = [Field(f) for f in d.get("fields", [])]
+        self.subtypes = [s["name"] for s in d.get("subtypes", [])]
+        # サブタイプ → 基にした雛形パス（/planning の雛形選択の正本）
+        self.templates = {s["name"]: s.get("template", "") for s in d.get("subtypes", [])}
+        self.parent_relation = None         # RELATIONS 構築後に _bind_parent_relations が入れる
+
+    def parent_of(self, stem: str) -> str:
+        """付随物のステムから親レコードIDを返す（suffix を剥がす）。"""
+        return stem[: -len(self.suffix)] if stem.endswith(self.suffix) else ""
+
+
 class Provenance:
     """出典（不変層 sources/ への参照）の宣言。relation ではなくレコードの属性。
 
@@ -128,6 +158,20 @@ RECORD_DIRS = tuple(ENTITY_DIRS.values())                  # ("hypotheses","test
 FIELDS = {ent: [Field(f) for f in e.get("fields", [])] for ent, e in load()["entities"].items()}
 FIELDS_BY_NAME = {ent: {f.name: f for f in fs} for ent, fs in FIELDS.items()}
 REQUIRED_FIELDS = {ent: [f.name for f in fs if f.required] for ent, fs in FIELDS.items()}
+
+# ── 付随物（レコードではないが型付きリンクに参加するノード） ──────────
+# FIELDS を entities 限定のまま保つのは意図的（gen_ontology_doc がキーで entities を引くため）。
+# 両者を束ねた NODE_* を別に用意し、種別非依存の検証はそちらを引く。
+ATTACHMENTS = {name: Attachment(name, d) for name, d in (load().get("attachments") or {}).items()}
+ATTACHMENT_NAMES = list(ATTACHMENTS)                       # ["SCRIPT"]
+ATTACHMENT_SUFFIXES = {a.suffix: a.name for a in ATTACHMENTS.values()}
+# 付随物 → 置き場（親エンティティの dir を導出。宣言しない＝ドリフト防止）
+ATTACHMENT_DIRS = {a.name: ENTITY_DIRS[a.parent] for a in ATTACHMENTS.values()}
+
+# ノード種別 = エンティティ ∪ 付随物（関係の domain/range に書ける種別）
+NODE_NAMES = ENTITY_INFIXES + ATTACHMENT_NAMES
+NODE_FIELDS_BY_NAME = {**FIELDS_BY_NAME,
+                       **{a.name: {f.name: f for f in a.fields} for a in ATTACHMENTS.values()}}
 
 # ── H サブタイプの価値連鎖上の役割 ──────────────────────────────────
 CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
@@ -211,6 +255,22 @@ EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 RELATIONS = [Relation(d) for d in load()["relations"]]
 RELATIONS_BY_FIELD = {r.field: r for r in RELATIONS}
 
+
+def _parent_relation_candidates(a: Attachment) -> list:
+    """付随物 a の「親を指す関係」候補（domain=自身のみ・range=親種別のみ・cardinality one）。"""
+    return [r for r in RELATIONS
+            if r.domains == {a.name} and r.ranges == {a.parent} and r.is_single]
+
+
+def _bind_parent_relations() -> None:
+    """付随物に親を指す関係を束ねる（RELATIONS 構築後に1回）。候補が1本かは _selfcheck が検証する。"""
+    for a in ATTACHMENTS.values():
+        candidates = _parent_relation_candidates(a)
+        a.parent_relation = candidates[0] if len(candidates) == 1 else None
+
+
+_bind_parent_relations()
+
 # ── プロヴェナンス（出典）────────────────────────────────────────────
 PROVENANCE = Provenance(load().get("provenance", {}))
 
@@ -240,11 +300,13 @@ def _selfcheck() -> int:
     assert len(LIST_GROUPS) == len(H_TYPES), "LIST_GROUPS の件数不一致"
     assert OUTCOMES, "outcomes 定義が空"
     for r in RELATIONS:
-        assert r.domains <= set(ENTITY_INFIXES) and r.ranges <= set(ENTITY_INFIXES), \
+        assert r.domains <= set(NODE_NAMES) and r.ranges <= set(NODE_NAMES), \
             f"{r.name} の domain/range 不正"
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
-    # フィールド宣言（スキーマ＝契約）の整合
-    for ent, fields in FIELDS.items():
+    # フィールド宣言（スキーマ＝契約）の整合。エンティティと付随物は同じ契約に従うので
+    # 1つのループで見る（種別ごとに書き分けると、付随物側だけ検査が1つ欠ける等の穴が空く）。
+    declared_fields = list(FIELDS.items()) + [(a.name, a.fields) for a in ATTACHMENTS.values()]
+    for ent, fields in declared_fields:
         assert fields, f"{ent} に fields 宣言が無い"
         names = [f.name for f in fields]
         assert len(names) == len(set(names)), f"{ent} の fields に重複キー"
@@ -259,8 +321,30 @@ def _selfcheck() -> int:
     # 関係は必ずどこかの fields に現れる（宣言したのに frontmatter キーとして未登録＝死んだ関係を防ぐ）
     for r in RELATIONS:
         for ent in r.domains:
-            assert r.field in FIELDS_BY_NAME.get(ent, {}), \
+            assert r.field in NODE_FIELDS_BY_NAME.get(ent, {}), \
                 f"関係 {r.name} の field '{r.field}' が {ent} の fields に無い"
+    # 付随物: 親が実在エンティティか／suffix が正しい形か／ID_RE と衝突しないか
+    assert not (set(ATTACHMENT_NAMES) & set(ENTITY_INFIXES)), "付随物名がエンティティ種別と衝突"
+    assert len(ATTACHMENT_SUFFIXES) == len(ATTACHMENT_NAMES), "付随物の suffix が重複"
+    for a in ATTACHMENTS.values():
+        assert a.parent in ENTITY_INFIXES, f"付随物 {a.name} の parent '{a.parent}' が未知のエンティティ"
+        assert a.suffix.startswith("-") and len(a.suffix) > 1, f"付随物 {a.name} の suffix 不正"
+        assert a.subtypes, f"付随物 {a.name} に subtypes が無い"
+        # 宣言した雛形が実在すること。この検証があってはじめて `template:` が「正本」を名乗れる
+        # （雛形をリネームしても誰も気づかない、という状態を作らない）。
+        for subtype, tmpl in a.templates.items():
+            assert tmpl, f"{a.name}.{subtype} に template の宣言が無い"
+            assert (ONTOLOGY_PATH.parent / tmpl).is_file(), \
+                f"{a.name}.{subtype} の template '{tmpl}' が存在しない"
+        # 付随物のステムがレコードIDとして解釈されないこと（records/attachments の分離の前提）
+        assert not ID_RE.match(f"PREFIX-{a.parent}-001{a.suffix}"), \
+            f"付随物 {a.name} の suffix がレコードID(ID_RE)と衝突する"
+        # 「親を指す関係」が一意に定まること。lint はフィールド名を書かずこの導出に頼るので、
+        # 候補が0本（親への関係の宣言漏れ）でも2本以上（どちらが親ポインタか曖昧）でも壊れる。
+        candidates = _parent_relation_candidates(a)
+        assert len(candidates) == 1, \
+            (f"付随物 {a.name} の親を指す関係（{a.name}→{a.parent}・cardinality one）が"
+             f"{len(candidates)}本ある（1本に定める）")
     # プロヴェナンス
     assert PROVENANCE.domains <= set(ENTITY_INFIXES), "provenance の domain 不正"
     for ent in PROVENANCE.domains:
@@ -274,6 +358,7 @@ def _selfcheck() -> int:
     for bk in LEAN_CANVAS_STAGE_LENS:
         assert bk in {b["key"] for b in LEAN_CANVAS_BLOCKS}, f"stage-lens の未知ブロック {bk}"
     print(f"ontology.yaml OK (version={load().get('version')}): entities={list(load()['entities'])} "
+          f"attachments={ATTACHMENT_NAMES} "
           f"relations={[r.name for r in RELATIONS]} provenance={PROVENANCE.field} "
           f"stages={STAGE_ORDER} statuses={STATUS_ORDER} outcomes={OUTCOME_ORDER} "
           f"lean-canvas-blocks={[b['key'] for b in LEAN_CANVAS_BLOCKS]}")

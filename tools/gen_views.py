@@ -32,7 +32,7 @@ from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
     STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
     STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, IMPORTANCE_OTHER, PROVENANCE,
-    LEAN_CANVAS_DIR,
+    LEAN_CANVAS_DIR, ENTITY_INFIXES,
     version as ontology_version,
 )
 
@@ -542,11 +542,21 @@ def gen_relations(project):
         L.append(f"    {mermaid_id(s)} -->|{rel.label}| {mermaid_id(t)}")
     L += ["```", ""]
 
-    # 関係インデックス（forward・全関係型を必ず節として出す。0件でも「該当なし」で存在を示す）
+    # 関係インデックス（forward・全関係型を必ず節として出す。0件でも「該当なし」で存在を示す）。
+    # ただしこのビューはレコードだけを射影する（graph.edges が project.records を走査）ので、
+    # 始点も終点もレコードでない関係は**恒久的に**0件になる。それを「（該当なし）」と刻むと
+    # 「そんな付随物は存在しない」という誤情報になるため、節ごと出さない。domain/range の表示も
+    # 射影対象に絞る（見出しだけが射影されない種別を名乗るのを防ぐ）。関係型の一覧そのものは
+    # スキーマの話なので ontology.md が持つ。
     L += ["## 関係インデックス", ""]
+    projected = set(ENTITY_INFIXES)
     for rel in RELATIONS:
+        domains, ranges = rel.domains & projected, rel.ranges & projected
+        if not domains or not ranges:
+            continue
         rel_edges = [(s, t) for r, s, t in edges if r.name == rel.name]
-        L += [f"### {rel.label}（`{rel.field}`: {rel.domain}→{rel.range}）", ""]
+        L += [f"### {rel.label}（`{rel.field}`: "
+              f"{'/'.join(sorted(domains))}→{'/'.join(sorted(ranges))}）", ""]
         if not rel_edges:
             L += ["（該当なし）", ""]
             continue

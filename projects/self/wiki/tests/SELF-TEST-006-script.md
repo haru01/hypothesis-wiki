@@ -1,3 +1,11 @@
+---
+id: SELF-TEST-006-script
+title: 実データ問題インタビュー スクリプト（CPF・ハイブリッド＝反証枠＋発見枠）
+type: problem-interview
+script-for: SELF-TEST-006
+hypotheses: [SELF-H-001, SELF-H-002, SELF-H-003, SELF-H-004, SELF-H-006, SELF-H-008]
+---
+
 # 実データ問題インタビュー スクリプト（CPF・ハイブリッド＝反証枠＋発見枠）
 
 [[SELF-TEST-006]] のテストカードの**方法**を現場の会話に落としたスクリプト。1インタビュー 45〜60分。

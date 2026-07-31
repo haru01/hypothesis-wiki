@@ -21,6 +21,7 @@ from ontology import (  # noqa: E402
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
     IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
     STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
+    ID_RE, NODE_FIELDS_BY_NAME,
 )
 # レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
 # ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
@@ -28,6 +29,7 @@ from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
     importance, source_paths, fictional_activities, Project,
+    node_kind,
 )
 from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の算出）
@@ -44,16 +46,20 @@ class Problem:
 
 
 def check_id_matches_filename(project) -> list:
-    """frontmatter id はファイル名と完全一致（接頭辞つき）。規約外ファイル名も報告。"""
+    """frontmatter id はファイル名と完全一致（接頭辞つき）。規約外ファイル名も報告。
+
+    付随物（スクリプト等）も同じ規約に従うので `nodes` を回す。付随物固有の同一性
+    （ファイル名が親レコードID + suffix になっているか）は check_attachment_id が見る。"""
     problems = []
-    for stem, (path, fm, _) in project.records.items():
+    for stem, (path, fm, _) in project.nodes.items():
         fid = fm.get("id", "")
         if fid != stem:
             problems.append(Problem("error", stem, "id-filename",
                                     f"frontmatter id '{fid}' がファイル名 '{stem}' と一致しない"))
     for p in project.stray:
         problems.append(Problem("warning", str(p), "id-filename",
-                                "レコード名が ID 規約（<PREFIX>-H/TEST/DEC-NNN）に合わない"))
+                                "レコード名が ID 規約（<PREFIX>-H/TEST/DEC-NNN）にも"
+                                "付随物の命名（<親レコードID>-script.md 等）にも合わない"))
     return problems
 
 
@@ -67,15 +73,17 @@ def check_fields(project) -> list:
     - required なフィールドの欠落／空 → error（例: date 欠落は Project.stage のソートを静かに壊す）
     - 宣言に無いキー → warning（タイポ・旧スキーマの残骸）
     - kind: date が YYYY-MM-DD でない → error
+
+    付随物（スクリプト等）も対象にする。種別の解決は node_kind（付随物優先）で、
+    entity_of を先に見ると `-TEST-` を含むステムが実験計画の契約で検証されてしまう。
     """
     problems = []
-    for stem, (_, fm, _) in project.records.items():
-        ent = entity_of(stem)
-        declared = FIELDS_BY_NAME.get(ent)
+    for stem, (_, fm, _) in project.nodes.items():
+        ent = node_kind(stem)
+        declared = NODE_FIELDS_BY_NAME.get(ent)
         if not declared:
             continue
-        for name in FIELDS_BY_NAME[ent]:
-            f = declared[name]
+        for name, f in declared.items():
             if f.required and not fm.get(name, "").strip():
                 problems.append(Problem("error", stem, "fields",
                     f"必須フィールド {name}（{f.kind}）が未指定/空"))
@@ -178,13 +186,14 @@ def check_frontmatter_refs(project) -> list:
     """frontmatter の関係リンクを ontology.yaml の宣言で検証する。
 
     各関係（derived-from / leads-to / addresses / hypotheses / based-on）について、
-    その関係の domain 種別を持つレコードの frontmatter 参照を、接頭辞つき・実在・
+    その関係の domain 種別を持つノード（レコード＋付随物）の frontmatter 参照を、接頭辞つき・実在・
     range 種別・（サブタイプ制約があればサブタイプ）・（単一関係の）cardinality で検証する。
+    付随物固有の制約（親との一致・親の検証対象の部分集合）は check_attachment_refs が見る。
     """
     problems = []
     prefix = project.prefix
-    for stem, (_, fm, _) in project.records.items():
-        ent = entity_of(stem)
+    for stem, (_, fm, _) in project.nodes.items():
+        ent = node_kind(stem)
         for rel in RELATIONS:
             if not rel.in_domain(ent):
                 continue
@@ -209,12 +218,12 @@ def check_frontmatter_refs(project) -> list:
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' のレコードが存在しない"))
                     continue
-                # range 種別（例: hypotheses は H を、learns-from は TEST を指す）
+                # range 種別（例: hypotheses は H を、learns-from/script-for は TEST を指す）
                 target_fm = project.records[rid][1]
-                if not rel.in_range(entity_of(rid)):
+                if not rel.in_range(node_kind(rid)):
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' は {rel.range} を指すべき"
-                        f"（{entity_of(rid)} を指している）"))
+                        f"（{node_kind(rid)} を指している）"))
                 elif rel.range_subtypes and target_fm.get("type") not in rel.range_subtypes:
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' は {'・'.join(sorted(rel.range_subtypes))} を指すべき"
@@ -229,8 +238,8 @@ def check_relation_wikilinks(project) -> list:
     新規約のため warning 運用（検出のみ）。"""
     problems = []
     prefix = project.prefix
-    for stem, (_, fm, body) in project.records.items():
-        ent = entity_of(stem)
+    for stem, (_, fm, body) in project.nodes.items():
+        ent = node_kind(stem)
         body_links = {t.strip() for t in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body)))}
         for rel in RELATIONS:
             if not rel.in_domain(ent) or not rel.must_wikilink:
@@ -251,7 +260,7 @@ def check_wikilinks(project) -> list:
     リンクが解決してしまいリンク切れ検出がプロジェクト境界を越えて緩くなるため（共通規約1: lint は現在プロジェクトのみ対象）。"""
     problems = []
     all_names = {p.stem for p in project.root.glob("wiki/**/*.md")}
-    for stem, (_, _, body) in project.records.items():
+    for stem, (_, _, body) in project.nodes.items():
         for target in WIKILINK_RE.findall(strip_comments(strip_frontmatter(body))):
             target = target.strip()
             if "/" in target:
@@ -274,7 +283,7 @@ def check_relative_links(project) -> list:
     参照元ファイルのディレクトリを基準に解決してリポジトリ内に収まっているかも併せて見る。"""
     problems = []
     repo = project.root.parent.parent      # projects/<slug> → repo root
-    for stem, (path, _, body) in project.records.items():
+    for stem, (path, _, body) in project.nodes.items():
         for target in _md_link_targets(body):
             if not target or target.startswith("/"):
                 continue                   # 絶対パスは規約外だが誤検出を避けて素通し（相対で書く規約）
@@ -285,6 +294,92 @@ def check_relative_links(project) -> list:
             elif repo.resolve() not in resolved.parents:
                 problems.append(Problem("warning", stem, "relative-link",
                     f"相対リンク '{target}' がリポジトリ外を指している"))
+    return problems
+
+
+def check_attachment_id(project) -> list:
+    """付随物とその親の対応: ファイル名 = 親レコードID + suffix。
+
+    suffix を剥がした基底が ID_RE を満たし・その ID のレコードが実在し・宣言された親種別である、
+    の3点を1つのチェックで担保する（ID_RE を再定義せず流用する＝レコードID規約の正本は1箇所）。
+    付随物は独自のID体系を持たないので、この対応が壊れると親から切り離された孤児になる。
+    frontmatter id とファイル名の一致は種別を問わない規約なので check_id_matches_filename が見る。"""
+    problems = []
+    for stem, _, _, a, base in project.iter_attachments():
+        if not ID_RE.match(base):
+            problems.append(Problem("error", stem, "attachment-id",
+                f"'{a.suffix}' を除いた '{base}' がレコードID規約に合わない"
+                f"（{a.label}のファイル名は <親レコードID>{a.suffix}.md）"))
+        elif base not in project.records:
+            problems.append(Problem("error", stem, "attachment-id",
+                f"親レコード '{base}' が存在しない（{a.label}は親レコードに従属する）"))
+        elif entity_of(base) != a.parent:
+            problems.append(Problem("error", stem, "attachment-id",
+                f"親 '{base}' は {entity_of(base)} だが、{a.label}の親は {a.parent} でなければならない"))
+    return problems
+
+
+def check_attachment_vocabulary(project) -> list:
+    """付随物の type がサブタイプ語彙（＝基にした雛形）に収まること。
+
+    check_vocabulary はエンティティ種別ごとの分岐で書かれており付随物を見ないので、
+    ここが無いと type は「空でないか」しか検証されない（check_fields の required 判定のみ）。"""
+    problems = []
+    for stem, fm, _, a, _ in project.iter_attachments():
+        value = fm.get("type", "").strip()
+        if value and value not in a.subtypes:
+            problems.append(Problem("error", stem, "attachment-vocab",
+                f"type '{value}' は {a.name} の語彙にない（{'・'.join(a.subtypes)}）"))
+    return problems
+
+
+def check_attachment_refs(project) -> list:
+    """付随物固有の参照制約。型・実在・cardinality の一般検証は check_frontmatter_refs が済ませている。
+
+    制約はオントロジーから導出する（フィールド名をここに書かない＝二重管理を作らない）:
+    - **親を指す関係**（domain=付随物・range=親種別・cardinality one）の値が、ファイル名から
+      導いた親と一致すること。名前と宣言という二重表現が食い違ったまま残るのを防ぐ。
+    - **親と共有する関係**（両者の domain に現れる関係。例 hypotheses）の値が、親の値の
+      **部分集合**であること。台本が親の計画に無い仮説を当てるのは計画と実施の乖離。
+      逆向き（本文で言及した仮説をすべて宣言せよ）は課さない — 背景として別の仮説に
+      言及するのは正当だから。
+    """
+    problems = []
+    for stem, fm, _, a, base in project.iter_attachments():
+        if base not in project.records:
+            continue                        # 親不在は check_attachment_id が error で報告済み
+        parent_fm = project.records[base][1]
+        for rel in RELATIONS:
+            if not rel.in_domain(a.name):
+                continue
+            values = parse_id_array(fm.get(rel.field, ""))
+            if rel is a.parent_relation:
+                if values and values[0] != base:
+                    problems.append(Problem("error", stem, "attachment-refs",
+                        f"{rel.field}（{rel.label}）'{values[0]}' がファイル名から導いた親 '{base}' と違う"))
+            elif rel.in_domain(a.parent):
+                parent_values = parse_id_array(parent_fm.get(rel.field, ""))
+                extra = [v for v in values if v not in parent_values]
+                if extra:
+                    problems.append(Problem("error", stem, "attachment-refs",
+                        f"{rel.field}（{rel.label}）{extra} が親 {base} の {rel.field} に無い"
+                        f"（{a.label}は親の{rel.label}の部分集合でなければならない）"))
+    return problems
+
+
+def check_attachment_backlink(project) -> list:
+    """親レコードの本文から付随物への相対mdリンクがあること（warning）。
+
+    付随物は生成ビュー（board/list/index）に集計されないので、親から辿れなければ
+    Wiki 上で事実上到達不能になる（ファイル名の規則を知っている人しか開けない）。"""
+    problems = []
+    for stem, _, _, a, base in project.iter_attachments():
+        if base not in project.records:
+            continue                        # 親不在は check_attachment_id が error で報告済み
+        body = project.records[base][2]
+        if not any(Path(t).name == f"{stem}.md" for t in _md_link_targets(body)):
+            problems.append(Problem("warning", base, "attachment-backlink",
+                f"本文に{a.label} '{stem}.md' への相対mdリンクが無い（親から辿れず到達不能になる）"))
     return problems
 
 
@@ -826,7 +921,9 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,
           check_isolated_hypothesis, check_stale_confidence, check_stale_test,
-          check_relation_cycles]
+          check_relation_cycles,
+          check_attachment_id, check_attachment_vocabulary, check_attachment_refs,
+          check_attachment_backlink]
 
 
 def lint_project(root: Path) -> list:

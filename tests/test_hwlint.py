@@ -881,9 +881,12 @@ class OntologyLoaderTest(unittest.TestCase):
         self.assertIn("課題仮説", ontology.PROBLEM_TYPES)
         self.assertEqual(ontology.SOLUTION_TYPES, ontology.VALUE_TYPES | ontology.WILLING_TYPES)
         self.assertEqual({r.field for r in ontology.RELATIONS},
-                         {"derived-from", "leads-to", "addresses", "hypotheses", "learns-from", "based-on"})
-        # hypotheses は TEST/LEARN 両方を domain に、based-on は TEST/LEARN 両方を range に取る（多種別）
-        self.assertEqual(ontology.RELATIONS_BY_FIELD["hypotheses"].domains, {"TEST", "LEARN"})
+                         {"derived-from", "leads-to", "addresses", "hypotheses", "learns-from",
+                          "based-on", "script-for"})
+        # hypotheses は TEST/LEARN と付随物 SCRIPT を domain に、based-on は TEST/LEARN 両方を range に取る（多種別）
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["hypotheses"].domains, {"TEST", "LEARN", "SCRIPT"})
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["script-for"].domains, {"SCRIPT"})
+        self.assertEqual(ontology.RELATIONS_BY_FIELD["script-for"].ranges, {"TEST"})
         self.assertEqual(ontology.RELATIONS_BY_FIELD["based-on"].ranges, {"TEST", "LEARN"})
         self.assertEqual(ontology.RELATIONS_BY_FIELD["learns-from"].domains, {"LEARN"})
         self.assertTrue(ontology.ID_RE.match("SELF-LEARN-001"))
@@ -1450,11 +1453,24 @@ class OntologyDerivationTest(unittest.TestCase):
         self.assertIs(records.ENTITY_INFIXES, ontology.ENTITY_INFIXES)
 
     def test_fields_declare_every_relation_field(self):
-        # 宣言した関係の frontmatter キーが、必ず domain 側 entity の fields に現れる（死んだ関係を防ぐ）。
+        # 宣言した関係の frontmatter キーが、必ず domain 側ノード（エンティティ or 付随物）の
+        # fields に現れる（死んだ関係を防ぐ）。
         for r in ontology.RELATIONS:
             for ent in r.domains:
-                self.assertIn(r.field, ontology.FIELDS_BY_NAME[ent],
+                self.assertIn(r.field, ontology.NODE_FIELDS_BY_NAME[ent],
                               f"関係 {r.name} の field が {ent}.fields に無い")
+
+    def test_attachment_constants_derived_from_yaml(self):
+        # 付随物はエンティティと別枠。FIELDS は entities 限定のまま（gen_ontology_doc が keys で引く）。
+        self.assertEqual(ontology.ATTACHMENT_NAMES, ["SCRIPT"])
+        self.assertNotIn("SCRIPT", ontology.FIELDS)
+        self.assertIn("SCRIPT", ontology.NODE_FIELDS_BY_NAME)
+        self.assertEqual(ontology.NODE_NAMES, ontology.ENTITY_INFIXES + ["SCRIPT"])
+        a = ontology.ATTACHMENTS["SCRIPT"]
+        # 置き場は親エンティティの dir から導出する（宣言しない＝ドリフト防止）
+        self.assertEqual(ontology.ATTACHMENT_DIRS["SCRIPT"], ontology.ENTITY_DIRS[a.parent])
+        # 付随物のステムはレコードID規約に一致しない（records/attachments 分離の前提）
+        self.assertFalse(ontology.ID_RE.match(f"DEMO-{a.parent}-001{a.suffix}"))
 
     def test_provenance_declared_in_learn_fields(self):
         self.assertEqual(ontology.PROVENANCE.domains, {"LEARN"})
@@ -1909,6 +1925,136 @@ class PrefixDerivationTest(unittest.TestCase):
                                  {"wiki/stage.md": "current-stage: CPF\nprefix: AGP\n",
                                   "wiki/hypotheses/OLD-H-001.md": hyp(id="OLD-H-001")})
             self.assertEqual(proj.prefix, "AGP")
+
+
+def script(id="DEMO-TEST-001-script", type="problem-interview", script_for="DEMO-TEST-001",
+           hypotheses="[DEMO-H-001]", body=None):
+    """付随物（attachments.SCRIPT）のテスト用スクリプト。"""
+    hyp_line = f"hypotheses: {hypotheses}\n" if hypotheses else ""
+    # 二重表現規約（frontmatter の ID は本文 wikilink にも張る）を満たす本文を組む。
+    # 配列の解析は records.parse_id_array が正本（テスト側で文字列を切り直さない）。
+    hyp_links = " ".join(f"[[{h}]]" for h in records.parse_id_array(hypotheses or ""))
+    body = body if body is not None else f"[[{script_for}]] のスクリプト。対象仮説: {hyp_links}"
+    return f"""---
+id: {id}
+title: テストスクリプト
+type: {type}
+script-for: {script_for}
+{hyp_line}---
+
+# テストスクリプト
+
+{body}
+"""
+
+
+def act_with_script(script_stem="DEMO-TEST-001-script", **kw):
+    """親テストカード。付随物への相対mdリンクを本文に持つ（到達可能性の規約）。"""
+    body = kw.pop("body", "対象仮説: [[DEMO-H-001]]")
+    return act(body=f"{body}\n\nスクリプト: [{script_stem}.md]({script_stem}.md)", **kw)
+
+
+class AttachmentTest(unittest.TestCase):
+    """付随物（スクリプト）の収集・同一性・参照制約（check_attachment_*）。"""
+
+    def _base(self, **script_kw):
+        return {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(),
+            "wiki/tests/DEMO-TEST-001.md": act_with_script(),
+            "wiki/tests/DEMO-TEST-001-script.md": script(**script_kw),
+        }
+
+    def _checks(self, root, prefix="attachment"):
+        return [p for p in hwlint.lint_project(root) if p.check.startswith(prefix)]
+
+    def test_node_kind_prefers_attachment_over_entity(self):
+        # 付随物を先に判定する順序が本質: ステムに -TEST- を含むので entity_of は "TEST" を返す
+        self.assertEqual(records.node_kind("DEMO-TEST-001-script"), "SCRIPT")
+        self.assertEqual(records.entity_of("DEMO-TEST-001-script"), "TEST")
+        self.assertEqual(records.node_kind("DEMO-TEST-001"), "TEST")
+        self.assertEqual(ontology.ATTACHMENTS["SCRIPT"].parent_of("DEMO-TEST-001-script"),
+                         "DEMO-TEST-001")
+
+    def test_collected_separately_from_records(self):
+        # records に混ざるとビュー生成・テストカード不変チェックが付随物を TEST として飲み込む
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = records.Project(make_project(tmp, self._base()))
+            self.assertIn("DEMO-TEST-001-script", proj.attachments)
+            self.assertNotIn("DEMO-TEST-001-script", proj.records)
+            self.assertIn("DEMO-TEST-001-script", proj.nodes)
+            self.assertEqual(proj.stray, [])
+
+    def test_valid_script_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, self._base())
+            self.assertEqual([p for p in hwlint.lint_project(root)
+                              if p.level == "error" or p.check.startswith("attachment")], [])
+
+    def test_id_mismatch_detected(self):
+        # id==ファイル名 は種別を問わない規約なので check_id_matches_filename が見る
+        # （付随物側で再実装しない）。付随物固有の同一性は test_missing_parent_detected。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, self._base(id="DEMO-TEST-999-script"))
+            self.assertTrue(any(p.check == "id-filename" and p.where == "DEMO-TEST-001-script"
+                                for p in hwlint.lint_project(root)))
+
+    def test_missing_parent_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/DEMO-TEST-002-script.md": script(
+                    id="DEMO-TEST-002-script", script_for="DEMO-TEST-002", hypotheses=""),
+            })
+            self.assertTrue(any(p.check == "attachment-id" and "親レコード" in p.message
+                                for p in self._checks(root)))
+
+    def test_unknown_type_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, self._base(type="interview"))   # TEST の語彙であって SCRIPT の語彙でない
+            self.assertTrue(any(p.check == "attachment-vocab" for p in self._checks(root)))
+
+    def test_script_for_disagreeing_with_filename_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            files = self._base()
+            files["wiki/tests/DEMO-TEST-002.md"] = act(id="DEMO-TEST-002")
+            files["wiki/tests/DEMO-TEST-001-script.md"] = script(script_for="DEMO-TEST-002")
+            root = make_project(tmp, files)
+            self.assertTrue(any(p.check == "attachment-refs" and "親" in p.message
+                                for p in self._checks(root)))
+
+    def test_hypotheses_not_subset_of_parent_detected(self):
+        # 台本が親の計画に無い仮説を当てている＝計画と実施の乖離
+        with tempfile.TemporaryDirectory() as tmp:
+            files = self._base(hypotheses="[DEMO-H-001, DEMO-H-002]")
+            files["wiki/hypotheses/DEMO-H-002.md"] = hyp(id="DEMO-H-002")
+            root = make_project(tmp, files)
+            self.assertTrue(any(p.check == "attachment-refs" and "DEMO-H-002" in p.message
+                                for p in self._checks(root)))
+
+    def test_broken_wikilink_in_script_detected(self):
+        # 従来スクリプトは lint 対象外で、仮説IDを改名してもリンク切れが検出されなかった
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, self._base(
+                hypotheses="", body="対象仮説: [[DEMO-H-999]]"))
+            self.assertTrue(any(p.check == "wikilink" and "DEMO-H-999" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_missing_backlink_from_parent_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            files = self._base()
+            files["wiki/tests/DEMO-TEST-001.md"] = act()      # スクリプトへの相対リンクを持たない
+            root = make_project(tmp, files)
+            self.assertTrue(any(p.check == "attachment-backlink" for p in self._checks(root)))
+
+    def test_unknown_md_still_reported_as_stray(self):
+        # -script を騙る親なしファイルの無検査投入を許さない（旧実装は endswith で黙殺していた）
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/tests/memo.md": "# ただのメモ\n",
+            })
+            self.assertTrue(any(p.check == "id-filename" and "memo" in p.where
+                                for p in hwlint.lint_project(root)))
 
 
 if __name__ == "__main__":

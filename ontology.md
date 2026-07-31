@@ -89,6 +89,38 @@
 | 市場スケール仮説 | market | 市場スケール | チャネル・収益・コスト・主要指標が成立し反復可能にスケールするか。PMF の中心。個別購買（対価・WTP）は型にせず、ソリューション仮説を〈支払い〉証拠で検証する観点として扱う。 |
 | 自分たち仮説 | team | 自分たち | なぜ自分たちがこの課題に取り組むのか、模倣困難な圧倒的優位性（Unfair Advantage）。FPF の一角。 |
 
+## 付随物（attachments）
+
+付随物は**新しいレコード種別ではない**。親レコードに従属する成果物で、独自のID体系を持たず（ファイル名 = 親レコードID + suffix）、置き場も親と同じディレクトリを使う。それでいて**関係（型付きリンク）には参加する**ので、`hwlint.py` がリンク切れ・型違反を検出でき、Obsidian のグラフにも本文 wikilink 経由で現れる。
+
+レコード（エンティティ）と分けて持つのは正しさの要請である。ステム `<PREFIX>-TEST-NNN-script` には `-TEST-` が含まれるため、レコードとして読み込むと `records.py` の `entity_of` が `TEST` を返し、`"-TEST-" in stem` で書かれた箇所（board/list/index 生成・テストカード不変チェック）が付随物を実験計画として飲み込む。そのため読み取り層は `records` と `attachments` を別コレクションに保ち、**付随物は生成ビューに現れない**（board・list・index・relations のいずれも records だけを射影する）。関係インデックスも、始点・終点がレコードでない関係は恒久的に0件になるので節を出さない（「（該当なし）」と刻むと「そんな付随物は存在しない」という誤情報になる）。関係型の一覧そのものはスキーマの話なのでこのドキュメントが持つ。
+
+| 付随物 | 名称 | 親 | ファイル名 | サブタイプ（frontmatter `type`） |
+|---|---|---|---|---|
+| `SCRIPT` | スクリプト | `TEST` | `wiki/tests/<親レコードID>-script.md` | problem-interview・solution-interview・demo |
+
+- **`SCRIPT`（スクリプト）** — interview/demo の実験計画(TEST)の「方法」を現場の会話に落とした台本。/planning がテストカードと対で生成する。事前登録した反証条件・記録シートを載せ、観測をそのまま受け止める器になる。確信度は動かさない（学びは LEARN に積む）。
+
+**`SCRIPT` の frontmatter フィールド**
+
+| フィールド | 必須 | kind | 語彙(enum-ref) |
+|---|---|---|---|
+| `id` | 必須 | id | — |
+| `title` | 必須 | text | — |
+| `type` | 必須 | subtype | — |
+| `script-for` | 必須 | relation | — |
+| `hypotheses` | 省略可 | relation | — |
+
+**`SCRIPT` のサブタイプと雛形**
+
+| サブタイプ | 基にする雛形 | 説明 |
+|---|---|---|
+| problem-interview | [templates/problem-interview-script.md](templates/problem-interview-script.md) | 課題の実在・自認・実コストを過去の事実で聞く（CPF/FPF）。ソリューションは見せない・語らない。 |
+| solution-interview | [templates/solution-interview-script.md](templates/solution-interview-script.md) | 提示物への反応・乗り換え・〈支払い〉を聞く（PSF/SPF）。 |
+| demo | [templates/demo-script.md](templates/demo-script.md) | デモの司会・観察の台本（主に PSF）。作らずに価値の芯を当てる。 |
+
+`hwlint.py` が検証すること: ファイル名と親レコードIDの対応（**error**）／`type` の語彙（**error**）／親を指す関係がファイル名から導いた親と一致するか（**error**）／親と共有する関係（`hypotheses` 等）が親の値の**部分集合**か（**error**）／親から付随物への相対mdリンクの有無（到達可能性）。
+
 ## 関係（型付きリンク）
 
 各関係は frontmatter 配列と本文 wikilink の**二重表現**を持つ（`must-wikilink: true` のものは本文にも `[[…]]` を張る＝Obsidian グラフに辺を出すため）。
@@ -98,7 +130,8 @@
 | **派生元** | `derived-from` | H → H | 単一(one) | derives（派生先） | 必須 | この仮説が枝分かれした元の仮説（親は1つ）。ピボットや巻き戻しの再出発点を系譜として残し、なぜこの仮説に至ったかの履歴を辿れるようにする。過去向きのリンク。 |
 | **因果先** | `leads-to` | H → H | 配列(many) | led-from（因果元） | 必須 | この仮説が成り立つと次に導かれる仮説（複数可）。状況→課題→ソリューション→市場という価値連鎖を前向きにつなぎ、list ビューの mermaid バリューチェーン矢印になる。derived-from が過去向きなのに対しこちらは前向き。 |
 | **対応課題** | `addresses` | H（ソリューション仮説） → H（課題仮説） | 配列(many) | addressed-by（対応する価値） | 任意 | このソリューション仮説が解こうとする課題仮説（複数可）。打ち手と痛みの対応＝バリュープロポジションのフィットを表し、relations ビューのフィット表になる。始点と終点の型が限定される唯一の関係。フィット表は frontmatter から射影するため本文 wikilink は必須にしない。 |
-| **検証対象** | `hypotheses` | LEARN/TEST → H | 配列(many) | validated-by（検証活動） | 必須 | この実験計画(TEST)が狙う、または学び(LEARN)が確信度を動かした仮説（複数可）。TEST と LEARN の両方が始点になれ、同じ仮説群を指すことで「計画→結果」が1本に束なる。仮説側からは逆引き（検証活動）で「どの活動がこの仮説を検証したか」を辿れる。 |
+| **検証対象** | `hypotheses` | LEARN/SCRIPT/TEST → H | 配列(many) | validated-by（検証活動） | 必須 | この実験計画(TEST)が狙う、または学び(LEARN)が確信度を動かした仮説（複数可）。TEST と LEARN の両方が始点になれ、同じ仮説群を指すことで「計画→結果」が1本に束なる。仮説側からは逆引き（検証活動）で「どの活動がこの仮説を検証したか」を辿れる。付随物のスクリプト(SCRIPT)も始点になれるが、台本が実際に当てる仮説は親 TEST の検証対象の部分集合でなければならない（発見型スクリプトは仮説を伏せるので空でよい）。 |
+| **対象の実験計画** | `script-for` | SCRIPT → TEST | 単一(one) | script（スクリプト） | 必須 | このスクリプトが台本化した実験計画(TEST)。ファイル名（親ID + suffix）から導ける対応を frontmatter にも明示し、機械可読にする。付随物を始点とする唯一の関係で、親は必ず1つ。 |
 | **実験計画** | `learns-from` | LEARN → TEST | 単一(one) | learnings（学び） | 必須 | この学びが実施した実験計画（テストカード）を1つ指す。計画(TEST)と結果(LEARN)を1対1で束ね、board ビューが「1実験＝計画＋学び」を1行にまとめる。回顧型（desk-research/self-reflection 等）は計画を立てず学びだけ作るため持たない。 |
 | **根拠活動** | `based-on` | DEC → LEARN/TEST | 配列(many) | informs（導いた判断） | 必須 | この意思決定が根拠にした学び(LEARN)・実験計画(TEST)（複数可）。判定を持つ LEARN を優先する。判断がどの証拠に基づいたかを追跡でき、活動側からは逆引き（導いた判断）でその活動がどの決定を導いたかを辿れる。 |
 

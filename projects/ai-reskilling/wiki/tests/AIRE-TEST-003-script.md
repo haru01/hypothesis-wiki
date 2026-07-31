@@ -1,3 +1,11 @@
+---
+id: AIRE-TEST-003-script
+title: 反証型 問題インタビュー スクリプト（AIRE-TEST-003・CPF）
+type: problem-interview
+script-for: AIRE-TEST-003
+hypotheses: [AIRE-H-001, AIRE-H-002, AIRE-H-003]
+---
+
 # 反証型 問題インタビュー スクリプト（AIRE-TEST-003・CPF）
 
 [[AIRE-TEST-003]] の**方法**を現場で使える会話スクリプトにしたもの。1インタビュー 45〜60分。
