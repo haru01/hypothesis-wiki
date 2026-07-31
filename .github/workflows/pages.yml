@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - main
+  # PR でも走らせる。壊れリンク 0 件のゲートはマージ前に効いてこそ意味がある
+  # （deploy は下の if で main のときだけに絞る）。
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -16,8 +19,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  # main のデプロイは ref ごとに直列化する（同時デプロイを避ける）。
+  # PR は積み替えたら古いビルドを打ち切ってよい。
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -74,11 +79,14 @@ jobs:
           echo "生データの混入なし"
 
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
         with:
           path: .site/quartz/public
 
+  # 公開は main のときだけ。PR では build ジョブ（ビルド＋ゲート）までで止める。
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

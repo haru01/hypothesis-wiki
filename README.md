@@ -201,7 +201,14 @@ Obsidian の wikilink（`[[SELF-H-004]]`）は GitHub の Markdown レンダラ�
 [Quartz](https://quartz.jzhao.xyz/) v5 でサイトに変換して公開する。バックリンク・グラフビュー・
 全文検索が付き、Obsidian で見ている体験がほぼそのまま外から読める。
 
-`main` への push で [.github/workflows/pages.yml](https://github.com/haru01/hypothesis-wiki/blob/main/.github/workflows/pages.yml) が走る。手元で確かめるなら:
+`main` への push で [.github/workflows/pages.yml](https://github.com/haru01/hypothesis-wiki/blob/main/.github/workflows/pages.yml) が
+走ってデプロイされる。PR では同じワークフローがビルドと壊れリンク検査までを走らせる（デプロイはしない）。
+
+> **初回だけ手動の設定が要る**: リポジトリ設定 → Pages → Source を **GitHub Actions** にする。
+> これをせずに main へマージすると、ビルドは通るのに deploy ジョブだけが
+> 「Pages が有効化されていない」で失敗する。
+
+手元で確かめるなら:
 
 ```bash
 bash tools/build_site.sh --serve    # http://localhost:8080
