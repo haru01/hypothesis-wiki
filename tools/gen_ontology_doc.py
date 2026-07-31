@@ -15,6 +15,15 @@ import ontology  # noqa: E402
 OUT = Path(__file__).resolve().parent.parent / "ontology.md"
 
 
+def _fields_table(fields) -> list:
+    """frontmatter フィールド表の行（エンティティと付随物で同じ形なので共有する）。"""
+    lines = ["| フィールド | 必須 | kind | 語彙(enum-ref) |", "|---|---|---|---|"]
+    for f in fields:
+        lines.append(f"| `{f.name}` | {'必須' if f.required else '省略可'} | {f.kind} | "
+                     f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} |")
+    return lines
+
+
 def build() -> str:
     o = ontology.load()
     L = ["<!-- 生成物: gen_ontology_doc.py による ontology.yaml からの機械生成。手編集禁止。",
@@ -51,12 +60,7 @@ def build() -> str:
     for key, fields in ontology.FIELDS.items():
         if not fields:
             continue
-        L += [f"**`{key}`（{o['entities'][key]['label']}）**", "",
-              "| フィールド | 必須 | kind | 語彙(enum-ref) |", "|---|---|---|---|"]
-        for f in fields:
-            L.append(f"| `{f.name}` | {'必須' if f.required else '省略可'} | {f.kind} | "
-                     f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} |")
-        L.append("")
+        L += [f"**`{key}`（{o['entities'][key]['label']}）**", ""] + _fields_table(fields) + [""]
 
     # H の価値連鎖上の役割
     L += ["### 仮説（H）サブタイプの価値連鎖上の役割", "",
@@ -88,11 +92,7 @@ def build() -> str:
         for a in ontology.ATTACHMENTS.values():
             if a.description:
                 L += [f"- **`{a.name}`（{a.label}）** — {a.description}", ""]
-            L += [f"**`{a.name}` の frontmatter フィールド**", "",
-                  "| フィールド | 必須 | kind | 語彙(enum-ref) |", "|---|---|---|---|"]
-            for f in a.fields:
-                L.append(f"| `{f.name}` | {'必須' if f.required else '省略可'} | {f.kind} | "
-                         f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} |")
+            L += ([f"**`{a.name}` の frontmatter フィールド**", ""] + _fields_table(a.fields))
             L += ["", f"**`{a.name}` のサブタイプと雛形**", "",
                   "| サブタイプ | 基にする雛形 | 説明 |", "|---|---|---|"]
             for s in o["attachments"][a.name]["subtypes"]:

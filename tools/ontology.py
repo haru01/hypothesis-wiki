@@ -88,8 +88,13 @@ class Attachment:
 
     ファイル名は `<親レコードID><suffix>.md`、置き場は親エンティティの dir（宣言せず導出する）。
     レコード(entities)ではないので board/list/index の集計には現れないが、relations には参加する。
-    種別の解決は suffix でおこなう（ID_RE は緩めない）。"""
-    __slots__ = ("name", "label", "parent", "suffix", "description", "fields", "subtypes", "templates")
+    種別の解決は suffix でおこなう（ID_RE は緩めない）。
+
+    `parent_relation` は「親を指す関係」（domain=自身・range=親種別・cardinality one）を
+    relations から解決したもの。RELATIONS の構築後に束ねる（下記 _bind_parent_relations）。
+    フィールド名をコードに書かずに済ませつつ、候補が1本に定まることは _selfcheck が担保する。"""
+    __slots__ = ("name", "label", "parent", "suffix", "description", "fields", "subtypes",
+                 "templates", "parent_relation")
 
     def __init__(self, name: str, d: dict):
         self.name = name
@@ -101,6 +106,7 @@ class Attachment:
         self.subtypes = [s["name"] for s in d.get("subtypes", [])]
         # サブタイプ → 基にした雛形パス（/planning の雛形選択の正本）
         self.templates = {s["name"]: s.get("template", "") for s in d.get("subtypes", [])}
+        self.parent_relation = None         # RELATIONS 構築後に _bind_parent_relations が入れる
 
     def parent_of(self, stem: str) -> str:
         """付随物のステムから親レコードIDを返す（suffix を剥がす）。"""
@@ -161,13 +167,11 @@ ATTACHMENT_NAMES = list(ATTACHMENTS)                       # ["SCRIPT"]
 ATTACHMENT_SUFFIXES = {a.suffix: a.name for a in ATTACHMENTS.values()}
 # 付随物 → 置き場（親エンティティの dir を導出。宣言しない＝ドリフト防止）
 ATTACHMENT_DIRS = {a.name: ENTITY_DIRS[a.parent] for a in ATTACHMENTS.values()}
-ATTACHMENT_TYPES = {a.name: set(a.subtypes) for a in ATTACHMENTS.values()}
-ATTACHMENT_FIELDS = {a.name: a.fields for a in ATTACHMENTS.values()}
-ATTACHMENT_FIELDS_BY_NAME = {n: {f.name: f for f in fs} for n, fs in ATTACHMENT_FIELDS.items()}
 
 # ノード種別 = エンティティ ∪ 付随物（関係の domain/range に書ける種別）
 NODE_NAMES = ENTITY_INFIXES + ATTACHMENT_NAMES
-NODE_FIELDS_BY_NAME = {**FIELDS_BY_NAME, **ATTACHMENT_FIELDS_BY_NAME}
+NODE_FIELDS_BY_NAME = {**FIELDS_BY_NAME,
+                       **{a.name: {f.name: f for f in a.fields} for a in ATTACHMENTS.values()}}
 
 # ── H サブタイプの価値連鎖上の役割 ──────────────────────────────────
 CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
@@ -251,6 +255,22 @@ EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 RELATIONS = [Relation(d) for d in load()["relations"]]
 RELATIONS_BY_FIELD = {r.field: r for r in RELATIONS}
 
+
+def _parent_relation_candidates(a: Attachment) -> list:
+    """付随物 a の「親を指す関係」候補（domain=自身のみ・range=親種別のみ・cardinality one）。"""
+    return [r for r in RELATIONS
+            if r.domains == {a.name} and r.ranges == {a.parent} and r.is_single]
+
+
+def _bind_parent_relations() -> None:
+    """付随物に親を指す関係を束ねる（RELATIONS 構築後に1回）。候補が1本かは _selfcheck が検証する。"""
+    for a in ATTACHMENTS.values():
+        candidates = _parent_relation_candidates(a)
+        a.parent_relation = candidates[0] if len(candidates) == 1 else None
+
+
+_bind_parent_relations()
+
 # ── プロヴェナンス（出典）────────────────────────────────────────────
 PROVENANCE = Provenance(load().get("provenance", {}))
 
@@ -319,6 +339,12 @@ def _selfcheck() -> int:
         # 付随物のステムがレコードIDとして解釈されないこと（records/attachments の分離の前提）
         assert not ID_RE.match(f"PREFIX-{a.parent}-001{a.suffix}"), \
             f"付随物 {a.name} の suffix がレコードID(ID_RE)と衝突する"
+        # 「親を指す関係」が一意に定まること。lint はフィールド名を書かずこの導出に頼るので、
+        # 候補が0本（親への関係の宣言漏れ）でも2本以上（どちらが親ポインタか曖昧）でも壊れる。
+        candidates = _parent_relation_candidates(a)
+        assert len(candidates) == 1, \
+            (f"付随物 {a.name} の親を指す関係（{a.name}→{a.parent}・cardinality one）が"
+             f"{len(candidates)}本ある（1本に定める）")
     # プロヴェナンス
     assert PROVENANCE.domains <= set(ENTITY_INFIXES), "provenance の domain 不正"
     for ent in PROVENANCE.domains:

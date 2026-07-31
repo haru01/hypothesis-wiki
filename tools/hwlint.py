@@ -21,7 +21,7 @@ from ontology import (  # noqa: E402
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
     IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
     STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
-    ID_RE, ATTACHMENTS, ATTACHMENT_TYPES, NODE_FIELDS_BY_NAME,
+    ID_RE, NODE_FIELDS_BY_NAME,
 )
 # レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
 # ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
@@ -29,7 +29,7 @@ from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
     importance, source_paths, fictional_activities, Project,
-    node_kind, attachment_of, attachment_parent,
+    node_kind,
 )
 from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の算出）
@@ -302,13 +302,11 @@ def check_attachment_id(project) -> list:
     の3点を1つのチェックで担保する（ID_RE を再定義せず流用する＝レコードID規約の正本は1箇所）。
     付随物は独自のID体系を持たないので、この対応が壊れると親から切り離された孤児になる。"""
     problems = []
-    for stem, (_, fm, _) in project.attachments.items():
-        a = ATTACHMENTS[attachment_of(stem)]
+    for stem, fm, _, a, base in project.iter_attachments():
         fid = fm.get("id", "")
         if fid != stem:
             problems.append(Problem("error", stem, "attachment-id",
                 f"frontmatter id '{fid}' がファイル名 '{stem}' と一致しない"))
-        base = attachment_parent(stem)
         if not ID_RE.match(base):
             problems.append(Problem("error", stem, "attachment-id",
                 f"'{a.suffix}' を除いた '{base}' がレコードID規約に合わない"
@@ -328,13 +326,11 @@ def check_attachment_vocabulary(project) -> list:
     check_vocabulary はエンティティ種別ごとの分岐で書かれており付随物を見ないので、
     ここが無いと type は「空でないか」しか検証されない（check_fields の required 判定のみ）。"""
     problems = []
-    for stem, (_, fm, _) in project.attachments.items():
-        kind = attachment_of(stem)
-        allowed = ATTACHMENT_TYPES[kind]
+    for stem, fm, _, a, _ in project.iter_attachments():
         value = fm.get("type", "").strip()
-        if value and value not in allowed:
+        if value and value not in a.subtypes:
             problems.append(Problem("error", stem, "attachment-vocab",
-                f"type '{value}' は {kind} の語彙にない（{'・'.join(sorted(allowed))}）"))
+                f"type '{value}' は {a.name} の語彙にない（{'・'.join(a.subtypes)}）"))
     return problems
 
 
@@ -350,23 +346,21 @@ def check_attachment_refs(project) -> list:
       言及するのは正当だから。
     """
     problems = []
-    for stem, (_, fm, _) in project.attachments.items():
-        kind = attachment_of(stem)
-        a = ATTACHMENTS[kind]
-        base = attachment_parent(stem)
+    for stem, fm, _, a, base in project.iter_attachments():
         if base not in project.records:
             continue                        # 親不在は check_attachment_id が error で報告済み
         parent_fm = project.records[base][1]
         for rel in RELATIONS:
-            if not rel.in_domain(kind):
+            if not rel.in_domain(a.name):
                 continue
             values = parse_id_array(fm.get(rel.field, ""))
-            if rel.ranges == {a.parent} and rel.is_single:
+            if rel is a.parent_relation:
                 if values and values[0] != base:
                     problems.append(Problem("error", stem, "attachment-refs",
                         f"{rel.field}（{rel.label}）'{values[0]}' がファイル名から導いた親 '{base}' と違う"))
             elif rel.in_domain(a.parent):
-                extra = [v for v in values if v not in parse_id_array(parent_fm.get(rel.field, ""))]
+                parent_values = parse_id_array(parent_fm.get(rel.field, ""))
+                extra = [v for v in values if v not in parent_values]
                 if extra:
                     problems.append(Problem("error", stem, "attachment-refs",
                         f"{rel.field}（{rel.label}）{extra} が親 {base} の {rel.field} に無い"
@@ -380,14 +374,13 @@ def check_attachment_backlink(project) -> list:
     付随物は生成ビュー（board/list/index）に集計されないので、親から辿れなければ
     Wiki 上で事実上到達不能になる（ファイル名の規則を知っている人しか開けない）。"""
     problems = []
-    for stem in project.attachments:
-        base = attachment_parent(stem)
+    for stem, _, _, a, base in project.iter_attachments():
         if base not in project.records:
             continue                        # 親不在は check_attachment_id が error で報告済み
         body = project.records[base][2]
         if not any(Path(t).name == f"{stem}.md" for t in _md_link_targets(body)):
             problems.append(Problem("warning", base, "attachment-backlink",
-                f"本文に付随物 '{stem}.md' への相対mdリンクが無い（親から辿れず到達不能になる）"))
+                f"本文に{a.label} '{stem}.md' への相対mdリンクが無い（親から辿れず到達不能になる）"))
     return problems
 
 

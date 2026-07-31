@@ -1931,8 +1931,9 @@ def script(id="DEMO-TEST-001-script", type="problem-interview", script_for="DEMO
            hypotheses="[DEMO-H-001]", body=None):
     """付随物（attachments.SCRIPT）のテスト用スクリプト。"""
     hyp_line = f"hypotheses: {hypotheses}\n" if hypotheses else ""
-    hyp_links = " ".join(f"[[{h}]]" for h in
-                         (hypotheses or "").strip("[]").split(", ") if h) if hypotheses else ""
+    # 二重表現規約（frontmatter の ID は本文 wikilink にも張る）を満たす本文を組む。
+    # 配列の解析は records.parse_id_array が正本（テスト側で文字列を切り直さない）。
+    hyp_links = " ".join(f"[[{h}]]" for h in records.parse_id_array(hypotheses or ""))
     body = body if body is not None else f"[[{script_for}]] のスクリプト。対象仮説: {hyp_links}"
     return f"""---
 id: {id}
@@ -1971,7 +1972,8 @@ class AttachmentTest(unittest.TestCase):
         self.assertEqual(records.node_kind("DEMO-TEST-001-script"), "SCRIPT")
         self.assertEqual(records.entity_of("DEMO-TEST-001-script"), "TEST")
         self.assertEqual(records.node_kind("DEMO-TEST-001"), "TEST")
-        self.assertEqual(records.attachment_parent("DEMO-TEST-001-script"), "DEMO-TEST-001")
+        self.assertEqual(ontology.ATTACHMENTS["SCRIPT"].parent_of("DEMO-TEST-001-script"),
+                         "DEMO-TEST-001")
 
     def test_collected_separately_from_records(self):
         # records に混ざるとビュー生成・テストカード不変チェックが付随物を TEST として飲み込む

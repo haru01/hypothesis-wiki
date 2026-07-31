@@ -80,12 +80,6 @@ def attachment_of(stem: str) -> str:
     return ""
 
 
-def attachment_parent(stem: str) -> str:
-    """付随物のステムから親レコードIDを返す（suffix を剥がす）。該当なしは空。"""
-    name = attachment_of(stem)
-    return ATTACHMENTS[name].parent_of(stem) if name else ""
-
-
 def node_kind(stem: str) -> str:
     """ステムからノード種別（エンティティ または 付随物）を返す。該当なしは空。
 
@@ -291,3 +285,13 @@ class Project:
         for stem, (_, fm, body) in self.records.items():
             if "-H-" in stem:
                 yield stem, fm, body, self.history[stem]
+
+    def iter_attachments(self):
+        """付随物を (stem, fm, body, 種別宣言, 親レコードID) で列挙する。
+
+        付随物の解決（suffix → 種別 → 親ID）は付随物を見る全チェックが冒頭で必ず行うので、
+        hyp_records と同じくここに1回だけ書く。親レコード自体は用途がまちまち（frontmatter が
+        要る／本文が要る／存在の有無だけ要る）なので、呼び手が `project.records` を引く。"""
+        for stem, (_, fm, body) in self.attachments.items():
+            a = ATTACHMENTS[attachment_of(stem)]
+            yield stem, fm, body, a, a.parent_of(stem)
