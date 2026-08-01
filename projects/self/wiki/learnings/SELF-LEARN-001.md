@@ -7,6 +7,7 @@ stage: CPF
 hypotheses: [SELF-H-001, SELF-H-002, SELF-H-003, SELF-H-004, SELF-H-005, SELF-H-006, SELF-H-007, SELF-H-008]
 outcome: 起票
 sources: [2026-07-16-desk-research-corporate-hypothesis-testing.md]
+data: real  # 実観測に由来する
 ---
 
 

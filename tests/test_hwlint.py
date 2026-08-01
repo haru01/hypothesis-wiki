@@ -68,7 +68,8 @@ importance: auto
 
 
 def act(id="DEMO-TEST-001", type="interview", hypotheses="[DEMO-H-001]", body="対象仮説: [[DEMO-H-001]]",
-        date="2026-07-01", riskiest="対象者が課題を自認していること"):
+        date="2026-07-01", riskiest="対象者が課題を自認していること", data=None):
+    kind = f"data: {data}\n" if data else ""
     return f"""---
 id: {id}
 title: テスト活動
@@ -77,7 +78,7 @@ date: {date}
 stage: CPF
 hypotheses: {hypotheses}
 riskiest-assumption: {riskiest}
----
+{kind}---
 
 # テスト活動
 
@@ -86,10 +87,11 @@ riskiest-assumption: {riskiest}
 
 
 def learn(id="DEMO-LEARN-001", learns_from="DEMO-TEST-001", hypotheses="[DEMO-H-001]",
-          outcome="支持", body=None, type="interview", sources=None, body_link=True):
+          outcome="支持", body=None, type="interview", sources=None, body_link=True, data=None):
     lf = f"learns-from: {learns_from}\n" if learns_from else ""
     lf_link = f"実験計画: [[{learns_from}]]\n" if learns_from else ""
     src = f"sources: [{', '.join(sources)}]\n" if sources else ""
+    src += f"data: {data}\n" if data else ""
     src_link = ("生データ: " + " ".join(f"[{s}](../../sources/{s})" for s in sources) + "\n"
                 if sources and body_link else "")
     body = body if body is not None else f"対象仮説: [[DEMO-H-001]]\n{lf_link}{src_link}"
@@ -658,6 +660,99 @@ class FictionalCapTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = self._project(tmp, 8)
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "fictional-cap"], [])
+
+
+class DataProvenanceTest(unittest.TestCase):
+    """旧 AR-12: 架空判定の正本は frontmatter `data`。本文マーカー語は最後のフォールバック。
+
+    フォールバックは「そのレコードが何のデータで作られたか」でなく「何について書いてあるか」を
+    拾うので、架空データを**論じた**是正・監査レコードや、経緯を説明した実データの実験計画を
+    架空に誤分類していた（ビューが逆の事実を表示し、実観測の確信度に上限8の蓋がかかる）。"""
+
+    ROWS = ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |",
+            "| 2026-07-05 | 9 | 検証済み | 〈行動〉実在の利用を確認 | [[DEMO-TEST-001]] |"]
+    SRC = "2026-07-01-interview.md"
+
+    def _project(self, tmp, test_md, learn_md=None, source_text=None):
+        files = {"wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence="9", rows=self.ROWS),
+                 "wiki/tests/DEMO-TEST-001.md": test_md}
+        if learn_md:
+            files["wiki/learnings/DEMO-LEARN-001.md"] = learn_md
+        root = make_project(tmp, files)
+        if source_text:
+            write(root, f"sources/{self.SRC}", source_text)
+        return root
+
+    def _checks(self, root, name):
+        return [p for p in hwlint.lint_project(root) if p.check == name]
+
+    def test_declared_simulated_caps_without_marker_words(self):
+        """宣言だけで蓋が働く（本文にマーカー語を書き写す必要がない）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="simulated"))
+            self.assertTrue(self._checks(root, "fictional-cap"))
+
+    def test_declared_real_beats_marker_words_in_body(self):
+        """AR-12 の回帰: 実データの実験計画が、経緯として架空に言及しただけで誤分類されない。"""
+        body = ("対象仮説: [[DEMO-H-001]]\n\n"
+                "先行ラウンドは架空・シミュレーションデータだったので、本実験は実在の相手に当てる。")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="real", body=body))
+            self.assertEqual(self._checks(root, "fictional-cap"), [])
+            self.assertEqual(self._checks(root, "data-provenance"), [])
+
+    def test_real_source_beats_marker_words_in_body(self):
+        """出典を持つレコードでは本文マーカー語を見ない（宣言が無くても出典が優先）。"""
+        learn_md = learn(sources=[self.SRC],
+                         body=("対象仮説: [[DEMO-H-001]]\n実験計画: [[DEMO-TEST-001]]\n"
+                               f"生データ: [{self.SRC}](../../sources/{self.SRC})\n\n"
+                               "架空データで確信度を上げていた過去の記録を突き合わせた。"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="real"), learn_md,
+                                 source_text="# 実インタビュー\n\n実在の顧客5名。\n")
+            self.assertEqual(self._checks(root, "fictional-cap"), [])
+
+    def test_declared_real_overrides_fictional_source_with_warning(self):
+        """宣言は出典冒頭の宣言も上書きする（不変層は直せないので上書き経路が要る）。
+
+        ただし「架空の生データを取り込んで real と書いた」も同じ形なので、黙って通さず warning。"""
+        learn_md = learn(sources=[self.SRC], data="real")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="real"), learn_md,
+                                 source_text="# 【架空・シミュレーション】インタビュー\n")
+            from records import Project, fictional_activities
+            self.assertEqual(fictional_activities(Project(root)), set())
+            warns = self._checks(root, "data-provenance")
+            self.assertEqual([p.level for p in warns], ["warning"])
+            self.assertIn("DEMO-LEARN-001", warns[0].where)
+
+    def test_marker_only_classification_warns(self):
+        """宣言も出典も無く本文マーカー語だけで架空にしている＝明示を促す。"""
+        body = "対象仮説: [[DEMO-H-001]]\n\n> ⚠️ 架空のシミュレーションデータ。"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(body=body))
+            self.assertTrue(self._checks(root, "fictional-cap"))   # 従来どおり蓋は働く
+            warns = self._checks(root, "data-provenance")
+            self.assertEqual([p.level for p in warns], ["warning"])
+            self.assertIn("DEMO-TEST-001", warns[0].where)
+
+    def test_unknown_data_value_is_rejected(self):
+        """語彙外の値は黙って「未宣言」に落ちる（＝推論に戻る）ので error で弾く。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="fake"))
+            self.assertTrue(any(p.check == "vocab" and "data" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_views_share_the_declared_derivation(self):
+        """ビューの架空バナーも同じ導出を使う（lint とビューで判定が割れない）。"""
+        import gen_views
+        from records import Project
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="simulated"))
+            self.assertEqual(gen_views.fictional_records(Project(root)), ["DEMO-TEST-001"])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act(data="real", body="対象仮説: [[DEMO-H-001]]\n\n架空の話をする。"))
+            self.assertEqual(gen_views.fictional_records(Project(root)), [])
 
 
 BASE_TEST_FOR_GIT = """---
@@ -1436,6 +1531,17 @@ class OntologyDerivationTest(unittest.TestCase):
     def test_fictional_markers_from_ontology(self):
         self.assertIn("架空", ontology.FICTIONAL_MARKERS)
         self.assertIn("シミュレーション", ontology.FICTIONAL_MARKERS)
+
+    def test_data_kinds_from_ontology(self):
+        # 架空判定の正本となるデータ種別の語彙が SSoT から読め、コード側の定数と一致する。
+        self.assertEqual(ontology.DATA_KINDS, {ontology.DATA_REAL, ontology.DATA_SIMULATED})
+        self.assertIs(ontology.ENUM_REFS["data-kinds"], ontology.DATA_KINDS)
+        for name in ontology.DATA_KIND_ORDER:
+            self.assertTrue(ontology.DATA_KIND_DESC.get(name), f"{name} に説明が無い")
+        # TEST/LEARN の fields に data が宣言されている（enum-ref 経由で語彙検証が乗る）
+        for ent in ("TEST", "LEARN"):
+            field = ontology.FIELDS_BY_NAME[ent][ontology.DATA_FIELD]
+            self.assertEqual((field.kind, field.enum_ref, field.required), ("enum", "data-kinds", False))
 
     def test_hwlint_uses_ontology_vocab(self):
         # hwlint はローカル再定義でなく ontology の定数を参照する。

@@ -20,6 +20,7 @@ from ontology import (  # noqa: E402
     ID_RE, STAGE_FOCUS, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
     ENTITY_INFIXES, RECORD_DIRS, PROVENANCE, FICTIONAL_MARKERS,
     ATTACHMENTS, ATTACHMENT_SUFFIXES, ATTACHMENT_DIRS,
+    DATA_FIELD, DATA_SIMULATED,
 )
 
 HISTORY_HEADER = "## 確信度履歴"
@@ -142,29 +143,49 @@ def referenced_ids(project, field, infix=None, where=None) -> set:
     return out
 
 
+def fictional_source(project, fm) -> str:
+    """出典のうち、冒頭に架空マーカーを宣言している最初の生データの相対パス（無ければ空）。
+
+    `sources/README.md` は生データ冒頭への架空宣言を要求している。その宣言を実際に読む
+    （不変層の一次情報なので、レコード側の宣言では上書きさせない）。"""
+    for rel in source_paths(fm):
+        if any(m in project.source_header(rel) for m in FICTIONAL_MARKERS):
+            return rel
+    return ""
+
+
+def fictional_reason(project, stem) -> str:
+    """TEST/LEARN 1件が架空/シミュレーション由来と判定される**理由**を返す。該当なしは空。
+
+    強い順に3経路。返り値は "declared"（frontmatter data の宣言）／"source"（出典冒頭の宣言）／
+    "marker"（本文マーカー語のフォールバック）:
+
+    1. `data` の宣言 — **宣言が正本**。「そのレコードが何のデータで作られたか」を著者が明示する。
+       `simulated` なら架空、`real` なら**以降の推論を見ない**。
+    2. 出典（provenance）冒頭の架空宣言 — 不変層の一次情報。宣言が無いときの推論。
+    3. 本文マーカー語 — **`data` 未宣言 かつ 出典を1件も持たない**レコードだけに効く後方互換の
+       フォールバック。
+
+    2 も 3 も語の出現を見る推論なので、「何のデータで作られたか」でなく「何について書いてあるか」を
+    拾ってしまう（旧 AR-12）。3 は本文が、2 は生データ冒頭が、他レコードの架空性に言及しただけで
+    当たる（例: 架空データを論じた揺さぶり監査メモ）。**不変層は書き換えられない**（不変ルール3）ので
+    2 の誤検出は出典側では直せない。だから `data: real` は 2 も打ち消せる必要がある。
+    宣言と出典が食い違うときは lint の data-provenance が warning で鳴らし、上書きを不可視にしない。"""
+    _, fm, body = project.records[stem]
+    declared = fm.get(DATA_FIELD, "").strip()
+    if declared:
+        return "declared" if declared == DATA_SIMULATED else ""
+    if fictional_source(project, fm):
+        return "source"
+    return "marker" if not source_paths(fm) and any(m in body for m in FICTIONAL_MARKERS) else ""
+
+
 def fictional_activities(project) -> set:
     """架空/シミュレーション由来と判定される TEST/LEARN の stem 集合（lint とビューで共有）。
 
-    判定は2経路で、**出典（provenance）が一次情報**:
-    (a) 学び(LEARN)の `sources` が指す生データの**冒頭**に架空マーカーがある
-        — `sources/README.md` は生データ冒頭への架空宣言を要求している。その宣言を実際に読む。
-    (b) TEST/LEARN 本文に架空マーカーがある — 出典を持たないレコード向けの後方互換フォールバック。
-
-    (a) が無いと連鎖が最初の一歩で切れる: 生データ側の宣言を誰も読まないので、
-    著者が偶然 LEARN 本文にも「架空」と書き写しているときだけ蓋（fictional-cap）が働く、
-    という状態になる（＝規約が実質機能しない）。"""
-    out = set()
-    for stem, (_, fm, body) in project.records.items():
-        if not ("-TEST-" in stem or "-LEARN-" in stem):
-            continue
-        if any(m in body for m in FICTIONAL_MARKERS):
-            out.add(stem)
-            continue
-        for rel in source_paths(fm):
-            if any(m in project.source_header(rel) for m in FICTIONAL_MARKERS):
-                out.add(stem)
-                break
-    return out
+    判定の正本は fictional_reason（宣言 → 出典 → 本文マーカーの順）。ここはそれを畳むだけ。"""
+    return {stem for stem in project.records
+            if ("-TEST-" in stem or "-LEARN-" in stem) and fictional_reason(project, stem)}
 
 
 def importance(fm, stage) -> int:

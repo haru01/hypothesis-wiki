@@ -7,6 +7,7 @@ stage: CPF
 hypotheses: [SELF-H-004, SELF-H-008, SELF-H-009, SELF-H-010]
 outcome: 是正
 sources: [2026-07-17-problem-interviews-sim.md, 2026-07-18-followup-interviews-sim.md, 2026-07-18-lp-interviews-sim.md]
+data: simulated  # 架空/シミュレーション由来（確信度は fictional-cap で頭打ち）
 ---
 
 

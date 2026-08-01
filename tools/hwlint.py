@@ -20,6 +20,7 @@ from ontology import (  # noqa: E402
     EVIDENCE_FLOOR_MIN_CONFIDENCE, EVIDENCE_AUX,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
     IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
+    DATA_FIELD, DATA_REAL, DATA_KINDS,
     STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
     ID_RE, NODE_FIELDS_BY_NAME,
 )
@@ -28,7 +29,7 @@ from ontology import (  # noqa: E402
 from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
-    importance, source_paths, fictional_activities, Project,
+    importance, source_paths, fictional_activities, fictional_reason, fictional_source, Project,
     node_kind,
 )
 from project import resolve_current_project  # noqa: E402
@@ -127,6 +128,12 @@ def check_vocabulary(project) -> list:
         if "-LEARN-" in stem and fm.get("outcome") and fm.get("outcome") not in OUTCOMES:
             problems.append(Problem("error", stem, "vocab",
                 f"outcome '{fm.get('outcome')}' は規約外（{'・'.join(sorted(OUTCOMES))}）"))
+        # TEST/LEARN のデータ種別（省略可・書くなら語彙内）。架空判定の正本なので誤記は黙って
+        # 「未宣言」に落ちる＝推論に戻る。それを防ぐために弾く
+        data = fm.get(DATA_FIELD, "").strip()
+        if ("-TEST-" in stem or "-LEARN-" in stem) and data and data not in DATA_KINDS:
+            problems.append(Problem("error", stem, "vocab",
+                f"{DATA_FIELD} '{data}' は規約外（{'・'.join(sorted(DATA_KINDS))}）"))
         if "-DEC-" in stem and fm.get("type") not in DEC_TYPES:
             problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
         # DEC の to-stage（記入されていれば）は正規のステージ名。現在ステージ導出の正本なので誤記を弾く
@@ -511,6 +518,38 @@ def check_index_sync(project) -> list:
             problems.append(Problem("error", "index.md", "index-sync",
                 f"[[{rid}]] index表（確信度{conf}/{status}）とレコード"
                 f"（確信度{fm.get('confidence')}/{fm.get('status')}）が不一致"))
+    return problems
+
+
+def check_data_provenance(project) -> list:
+    """データ種別（frontmatter `data`）の宣言と、実際の証拠の食い違いを検出する。
+
+    架空判定の正本は宣言（`data`）に移したが、宣言は人が書くので2つの穴が残る:
+
+    - **宣言が出典の冒頭宣言を上書きしている**（warning）— `data: real` なのに出典の冒頭が
+      架空宣言。上書き自体は正当でありうる（架空データを**論じた**監査メモを出典にすると、
+      その冒頭は他レコードの架空性に言及するので当たる。不変層は書き換えられないから
+      出典側では直せない）。だが「架空の生データを取り込んだのに real と書いた」も同じ形になり、
+      そちらは確信度の上限（fictional-cap）が黙って外れる。**上書きを不可視にしない**ために鳴らす。
+    - **本文マーカー語だけで架空と判定している**（warning）— 宣言も出典も無く、後方互換の
+      フォールバックに頼っている状態。フォールバックは「何について書いてあるか」を拾うため
+      誤分類しうる（旧 AR-12）ので、`data` の明示を促す。
+    """
+    problems = []
+    for stem, (_, fm, _) in project.records.items():
+        if not ("-TEST-" in stem or "-LEARN-" in stem):
+            continue
+        declared = fm.get(DATA_FIELD, "").strip()
+        src = fictional_source(project, fm)
+        if declared == DATA_REAL and src:
+            problems.append(Problem("warning", stem, "data-provenance",
+                f"{DATA_FIELD}: {DATA_REAL} の宣言が、出典 '{src}' 冒頭の架空/シミュレーション宣言を"
+                f"上書きしている。出典が他レコードの架空性に言及しているだけなら正当だが、"
+                f"架空の生データなら上限{FICTIONAL_CAP}が外れる（宣言を見直す）"))
+        elif fictional_reason(project, stem) == "marker":
+            problems.append(Problem("warning", stem, "data-provenance",
+                f"本文マーカー語だけで架空と判定している（後方互換のフォールバック）。"
+                f"{DATA_FIELD}: {'|'.join(sorted(DATA_KINDS))} を明示する"))
     return problems
 
 
@@ -917,7 +956,8 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_provenance_paths, check_provenance_presence, check_provenance_body_link,
           check_provenance_chain, check_orphan_sources,
           check_relative_links, check_source_links, check_stage_doc,
-          check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
+          check_id_sequence, check_log_sync, check_index_sync,
+          check_data_provenance, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,
           check_isolated_hypothesis, check_stale_confidence, check_stale_test,

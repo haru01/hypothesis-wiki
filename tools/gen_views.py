@@ -47,8 +47,8 @@ def read_stage(project) -> str:
 def fictional_records(project) -> list:
     """架空/シミュレーション由来の TEST/LEARN の stem を並べる（ビューの警告バナー用）。
 
-    判定は records.fictional_activities が正本（出典＝生データ冒頭の架空宣言を一次情報とし、
-    本文マーカーは後方互換のフォールバック）。lint の fictional-cap と同じ導出を共有する。"""
+    判定は records.fictional_activities が正本（frontmatter `data` の宣言 → 出典＝生データ冒頭の
+    架空宣言 → 本文マーカーの後方互換フォールバック、の順）。lint の fictional-cap と同じ導出を共有する。"""
     return sorted(fictional_activities(project))
 
 

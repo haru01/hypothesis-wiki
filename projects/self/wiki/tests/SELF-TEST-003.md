@@ -6,6 +6,7 @@ date: 2026-07-18
 stage: CPF
 hypotheses: [SELF-H-004, SELF-H-002, SELF-H-006, SELF-H-008, SELF-H-001]
 riskiest-assumption: 核心クラスタは反証を意図的に探しても崩れず、CPF移行基準（確信度7以上）を満たす
+data: simulated  # 架空/シミュレーション由来（確信度は fictional-cap で頭打ち）
 ---
 
 
