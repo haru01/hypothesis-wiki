@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """一度きりの移行: レコード種別 ACT を TEST に改名し、ディレクトリ activities を tests に移す。
-（docs/migrations/2026-07-act-to-test-rename.md 参照）
+（適用済み。移行手順書 docs/migrations/2026-07-act-to-test-rename.md は git 履歴にある）
 
 日本語ラベルは「活動」→「実験計画」に統一済み（本文名は テストカード のまま）。ID接頭辞と
 ディレクトリ名だけが構造的に変わる。
@@ -15,12 +15,12 @@
 加えてパス表記 `wiki/activities/` → `wiki/tests/`。
 
 最大クリーン方針: 各 projects/<slug>/ 配下の全 *.md / *.html（wiki・sources 観測データ・
-skill-improvements を含む）を対象にする。純粋な機械リネームで確信度・ステータス・出来事の
+当時の docs/skill-improvements.md を含む）を対象にする。純粋な機械リネームで確信度・ステータス・出来事の
 意味は変えない（識別子の付け替えのみ）。この一度きりの移行に限り、不変ルール2（log 追記専用）・
 3（sources 改変禁止）を機械リネームの範囲で全テキストに例外適用する。
 
-除外（歴史として凍結）: docs/migrations/** ・ docs/superpowers/** ・ tools/migrate_act_learn.py
-（本スクリプトは projects/ と templates/ のみ対象なので自然に除外される）。
+除外（歴史として凍結）: 当時の docs/migrations/** ・ docs/superpowers/**（現在はいずれも git 履歴）
+・ tools/migrate_act_learn.py（本スクリプトは projects/ と templates/ のみ対象なので自然に除外される）。
 冪等ではない（1回だけ実行）。実行後は hwlint とビュー再生成で検証すること。
 """
 import re
