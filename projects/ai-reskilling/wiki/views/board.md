@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-07-31（ステージ CPF） / ontology-version: 1 -->
+<!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-08-01（ステージ CPF） / ontology-version: 1 -->
 
 # ジャベリン実験ボード（ai-reskilling）
 
