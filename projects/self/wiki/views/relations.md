@@ -1,5 +1,5 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-31（ステージ CPF） / ontology-version: 1 -->
-<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-08-01（ステージ CPF） / ontology-version: 1 -->
+<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # 関係グラフ（self）
 
@@ -10,14 +10,14 @@
 ```mermaid
 flowchart LR
     subgraph H["仮説 H"]
-      SELF_H_001["H-001 検証を反復<br/>確信度6 🔄検証中"]
-      SELF_H_002["H-002 学びが散在<br/>確信度6 🔄検証中"]
-      SELF_H_003["H-003 報告駆動更新<br/>確信度5 🔄検証中"]
-      SELF_H_004["H-004★ 記録が残らない<br/>確信度6 🔄検証中"]
+      SELF_H_001["H-001 検証を反復<br/>確信度4 🔄検証中"]
+      SELF_H_002["H-002 学びが散在<br/>確信度4 🔄検証中"]
+      SELF_H_003["H-003 報告駆動更新<br/>確信度3 🔄検証中"]
+      SELF_H_004["H-004★ 記録が残らない<br/>確信度4 🔄検証中"]
       SELF_H_005["H-005 確証バイアス<br/>確信度4 🔄検証中"]
-      SELF_H_006["H-006 偽の確証<br/>確信度6 🔄検証中"]
+      SELF_H_006["H-006 偽の確証<br/>確信度4 🔄検証中"]
       SELF_H_007["H-007 反証不能な仮説<br/>確信度4 🔄検証中"]
-      SELF_H_008["H-008 説明できず停滞<br/>確信度6 🔄検証中"]
+      SELF_H_008["H-008 説明できず停滞<br/>確信度4 🔄検証中"]
       SELF_H_009["H-009 AI支援+記録+レポート<br/>確信度2 ❌反証"]
       SELF_H_010["H-010 対価/乗り換え<br/>確信度2 ❌反証"]
     end
@@ -34,6 +34,7 @@ flowchart LR
       SELF_LEARN_004["LEARN-004 確信度WikiのLP提示インタビュー（シ…"]
       SELF_LEARN_005["LEARN-005 核心クラスタと移行判断への揺さぶり監査（…"]
       SELF_LEARN_006["LEARN-006 出典突き合わせによる記録の是正（表層形の…"]
+      SELF_LEARN_007["LEARN-007 引き下げ後に残った「6」への揺さぶり監査…"]
     end
     subgraph DEC["意思決定 DEC"]
       SELF_DEC_001["DEC-001 CPF→FPF ステージ移行"]
@@ -113,6 +114,12 @@ flowchart LR
     SELF_LEARN_006 -->|検証対象| SELF_H_008
     SELF_LEARN_006 -->|検証対象| SELF_H_009
     SELF_LEARN_006 -->|検証対象| SELF_H_010
+    SELF_LEARN_007 -->|検証対象| SELF_H_001
+    SELF_LEARN_007 -->|検証対象| SELF_H_002
+    SELF_LEARN_007 -->|検証対象| SELF_H_003
+    SELF_LEARN_007 -->|検証対象| SELF_H_004
+    SELF_LEARN_007 -->|検証対象| SELF_H_006
+    SELF_LEARN_007 -->|検証対象| SELF_H_008
     SELF_DEC_001 -->|根拠活動| SELF_LEARN_002
     SELF_DEC_001 -->|根拠活動| SELF_LEARN_003
     SELF_DEC_002 -->|根拠活動| SELF_LEARN_005
@@ -210,6 +217,12 @@ flowchart LR
 | [[SELF-LEARN-006]] | 検証対象 → | [[SELF-H-008]] |
 | [[SELF-LEARN-006]] | 検証対象 → | [[SELF-H-009]] |
 | [[SELF-LEARN-006]] | 検証対象 → | [[SELF-H-010]] |
+| [[SELF-LEARN-007]] | 検証対象 → | [[SELF-H-001]] |
+| [[SELF-LEARN-007]] | 検証対象 → | [[SELF-H-002]] |
+| [[SELF-LEARN-007]] | 検証対象 → | [[SELF-H-003]] |
+| [[SELF-LEARN-007]] | 検証対象 → | [[SELF-H-004]] |
+| [[SELF-LEARN-007]] | 検証対象 → | [[SELF-H-006]] |
+| [[SELF-LEARN-007]] | 検証対象 → | [[SELF-H-008]] |
 
 ### 実験計画（`learns-from`: LEARN→TEST）
 
@@ -229,14 +242,14 @@ flowchart LR
 
 ## バックリンク索引（誰から・どの関係で参照されているか）
 
-- [[SELF-H-001]] ← 派生先: [[SELF-H-002]] [[SELF-H-003]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-002]] ← 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
-- [[SELF-H-003]] ← 検証活動: [[SELF-TEST-002]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
-- [[SELF-H-004]] ← 因果元: [[SELF-H-001]] [[SELF-H-002]] ／ 派生先: [[SELF-H-008]] [[SELF-H-009]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]]
+- [[SELF-H-001]] ← 派生先: [[SELF-H-002]] [[SELF-H-003]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-007]]
+- [[SELF-H-002]] ← 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-007]]
+- [[SELF-H-003]] ← 検証活動: [[SELF-TEST-002]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-007]]
+- [[SELF-H-004]] ← 因果元: [[SELF-H-001]] [[SELF-H-002]] ／ 派生先: [[SELF-H-008]] [[SELF-H-009]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-LEARN-007]]
 - [[SELF-H-005]] ← 検証活動: [[SELF-TEST-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
-- [[SELF-H-006]] ← 因果元: [[SELF-H-001]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]]
+- [[SELF-H-006]] ← 因果元: [[SELF-H-001]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-007]]
 - [[SELF-H-007]] ← 検証活動: [[SELF-TEST-002]] [[SELF-LEARN-001]] [[SELF-LEARN-002]]
-- [[SELF-H-008]] ← 因果元: [[SELF-H-003]] [[SELF-H-004]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]]
+- [[SELF-H-008]] ← 因果元: [[SELF-H-003]] [[SELF-H-004]] ／ 対応する価値: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-LEARN-007]]
 - [[SELF-H-009]] ← 因果元: [[SELF-H-002]] [[SELF-H-004]] [[SELF-H-006]] [[SELF-H-008]] ／ 派生先: [[SELF-H-010]] ／ 検証活動: [[SELF-TEST-004]] [[SELF-LEARN-004]] [[SELF-LEARN-006]]
 - [[SELF-H-010]] ← 因果元: [[SELF-H-009]] ／ 検証活動: [[SELF-TEST-004]] [[SELF-LEARN-004]] [[SELF-LEARN-006]]
 - [[SELF-LEARN-002]] ← 導いた判断: [[SELF-DEC-001]]
@@ -266,9 +279,9 @@ flowchart LR
 
 グラフ全体の欠落・偏りを機械算出する（個別の辺の型検証は `/lint` の担当）。
 
-- **規模**: ノード 22 ／ 辺 77 ／ **辺÷ノード = 3.50**（密（richly connected））
-- **連結成分**: 1（最大成分 22 ノード）。単一成分＝全レコードが関係で繋がっている
+- **規模**: ノード 23 ／ 辺 83 ／ **辺÷ノード = 3.61**（密（richly connected））
+- **連結成分**: 1（最大成分 23 ノード）。単一成分＝全レコードが関係で繋がっている
 - **孤立仮説**（どの関係も持たない）: なし
-- **ハブ**（次数上位＝コーパスを束ねているレコード）: [[SELF-H-004]](12) [[SELF-H-001]](11) [[SELF-H-008]](11) [[SELF-H-002]](10) [[SELF-LEARN-002]](10)
+- **ハブ**（次数上位＝コーパスを束ねているレコード）: [[SELF-H-004]](13) [[SELF-H-001]](12) [[SELF-H-008]](12) [[SELF-H-002]](11) [[SELF-H-006]](10)
 - **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: [[SELF-H-001]](5) [[SELF-H-002]](4) [[SELF-H-003]](3) [[SELF-H-004]](3) [[SELF-H-006]](2)
 - **未取り込みの生データ**（どの学びの `sources` からも参照されていない）: なし
