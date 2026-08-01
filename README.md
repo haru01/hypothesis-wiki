@@ -136,7 +136,7 @@ flowchart LR
   `SELF-DEC-002` で **FPF→CPF に巻き戻した**（現在 CPF）。実データでの再検証が最優先タスク。
 
 俯瞰ビューは `projects/self/wiki/views/`（`board.md`・`hypotheses-list.md`）にある（Stop フックが自動生成）。
-運用で得た改善は `docs/skill-improvements.md`（SI-NNN）に蓄積し、スキル定義へ反映している。
+運用で得た改善は [docs/backlog.md](docs/backlog.md) に集約し、スキル定義・ツール・スキーマへ反映している。
 
 > ⚠️ self は**架空データによるデモ**。新しい案件で使うときは下記「新しいプロジェクトの追加」で、実データに置き換えること。
 
@@ -157,13 +157,9 @@ hypothesis-wiki/
 ├── templates/              # 雛形（hypothesis/activity/learning/decision/problem-interview-script/solution-interview-script/demo-script/building-lp.html/building-mockup.html/project・共有）
 ├── playbooks/              # ステージプレイブック（cpf/fpf/psf/spf/pmf）＋インタビュー心得（interviewing・共有）
 ├── docs/
-│   ├── skill-improvements.md        # スキル改善バックログ（SI-NNN）
-│   ├── ontology-improvements.md     # オントロジー改善バックログ（OI-NNN）
-│   ├── architecture-improvements.md # アーキテクチャ改善バックログ（AR-NNN）
-│   ├── kg-improvements.md           # ナレッジグラフとしての規律のバックログ（KG-NNN）
-│   ├── competitive-analysis.md      # 競合調査メモ
-│   ├── migrations/                  # スキーマ移行手順
-│   └── superpowers/{specs,plans}/   # 設計・計画ドキュメント
+│   ├── README.md                    # docs の索引（消えた記録の辿り方つき）
+│   ├── backlog.md                   # 改善バックログ（実害あり／保留／方針確定・不採用）
+│   └── competitive-analysis.md      # 競合調査メモ
 └── projects/               # 案件単位の仮説検証（各案件が sources と wiki を持つ）
     └── <slug>/             # 例: self（このツール自体のドッグフーディング。接頭辞 SELF）
         ├── sources/        # 生データ（読み取り専用）

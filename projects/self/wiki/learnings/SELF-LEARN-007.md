@@ -148,4 +148,4 @@ sources: [2026-08-01-chabudai-evidence-floor.md]
 2. **未カバー課題2件の意味** — [[SELF-H-005]] [[SELF-H-007]] の「自認は高いが実コストゼロ」は、
    **課題として弱い**のか**解けると思われていない**のかで打ち手が変わる。後者なら大きな機会（→ `/formulating`）。
 3. **自己批判の非対称を仕組みで拾う** — 「架空由来の反証ステータス」を `/lint` に検出させられないか
-   （→ [docs/kg-improvements.md](../../../../docs/kg-improvements.md) の設計課題）。
+   （→ [docs/backlog.md](../../../../docs/backlog.md) の設計課題）。

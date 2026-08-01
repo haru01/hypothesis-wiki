@@ -6,8 +6,8 @@
 **診断に必要な分だけ**をこのモジュールに閉じる。
 
 意図的に作らないもの: ランタイムのグラフ検索ツール（k ホップ照会・部分グラフ直列化）。
-現規模（1案件十数〜数十レコード）では Claude が `wiki/` を直接読む方式より劣化する、と
-docs/ontology-improvements.md「H. あえて採らない」で既に判断済み。ここは**射影のための計算**であって
+現規模（1案件十数〜数十レコード）では Claude が `wiki/` を直接読む方式より劣化するので採らない、と
+判断済み（docs/backlog.md「方針確定・不採用」）。ここは**射影のための計算**であって
 検索エンジンではない。
 
 型・関係の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
@@ -81,8 +81,8 @@ def components(project) -> list:
 def descendants(project, stem: str, field: str) -> set:
     """`field`（例 "leads-to"）を辿った推移閉包（自身は含まない）。
 
-    leads-to の下流被参照数＝「崩れると波及が大きい背骨」。docs/ontology-improvements.md の
-    OI-D4 が「未カバー」と自認した依存度シグナルにあたる。"""
+    leads-to の下流被参照数＝「崩れると波及が大きい背骨」。OI-D4 が「未カバー」と
+    自認していた依存度シグナルにあたる。"""
     out, stack = set(), [stem]
     while stack:
         n = stack.pop()

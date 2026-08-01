@@ -80,7 +80,7 @@ sources: [2026-07-17-problem-interviews-sim.md, 2026-07-18-followup-interviews-s
 - **③は同一実体が別ノードに割れる問題そのもの**（対象者A / 対象A / A が同じ人か機械には分からない）。
   このリポジトリは H/TEST/LEARN/DEC しかノードにしていないので、インタビュイーとセグメントは散文の表層形として
   野放しになる。**規約で名前を1つに固定するのが最小の対処**で、型（ノード）の導入は別途設計を要する
-  （[docs/kg-improvements.md](../../../../docs/kg-improvements.md) に起票）。
+  （[docs/backlog.md](../../../../docs/backlog.md) に起票）。
 
 ### 驚き・想定外
 
@@ -120,4 +120,4 @@ sources: [2026-07-17-problem-interviews-sim.md, 2026-07-18-followup-interviews-s
   3. 対象者ラベルを上の名寄せ規約で統一し、**全員に一意な名前を振る**（人数と命名数を一致させる）。
 - **`/lint` の無作為サンプル点検を毎回回す**（今回の3件はこの点検で出た。機械チェックでは出ない）。
 - セグメント・インタビュイーを第一級ノードにするか否かの設計判断は
-  [docs/kg-improvements.md](../../../../docs/kg-improvements.md) の KG 項目で扱う（本 LEARN では規約止まり）。
+  [docs/backlog.md](../../../../docs/backlog.md) の KG 項目で扱う（本 LEARN では規約止まり）。

@@ -743,7 +743,7 @@ def check_untested_focus(project) -> list:
 
     重点＝現ステージの重点タイプ（stage-focus）か、手動 importance>=IMPORTANCE_FOCUS のH。
     「重要なのに検証実験が1本も紐づいていない」を構造事実（入次数0）で拾う。トポロジー由来の
-    探索域ギャップ検出（docs/ontology-improvements.md OI-F1）。status が検証中/検証済みなら、
+    探索域ギャップ検出（OI-F1）。status が検証中/検証済みなら、
     検証したと主張しているのに TEST からの逆リンクが無い二重表現の破れ（食い違い）でもある。"""
     problems = []
     tested = (referenced_ids(project, "hypotheses", infix="-TEST-")
@@ -766,7 +766,7 @@ def check_addresses_gaps(project) -> list:
     """OI-F2: 課題↔解決の構造ギャップを検出する（warning）。
 
     addresses（ソリューション仮説→課題仮説）のグラフ欠落を2方向で拾う（トポロジー由来の
-    探索域ギャップ検出。docs/ontology-improvements.md OI-F2）:
+    探索域ギャップ検出。OI-F2）:
     - 課題なき解決: addresses を持てる型（ソリューション仮説）なのに addresses が空。
       solution in search of problem／PSF の危険信号。反証は対象外。
     - 未対応の課題: 検証済みの課題仮説を addresses するソリューション仮説（反証を除く）が
