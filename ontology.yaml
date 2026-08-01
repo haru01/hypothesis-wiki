@@ -17,7 +17,7 @@
 #   provenance = グラフの外（不変層 sources/）を指す出典属性。relation とは別概念（下記 provenance 節）。
 
 # スキーマ版。生成ビューのヘッダに ontology-version として刻まれる（どの版で射影した生成物かを追える）。
-version: 1
+version: 2
 
 # ── フィールドの kind（値の種別）の意味 ─────────────────────────────
 # id          … ファイル名と一致する接頭辞つきID（check_id_matches_filename が検証）
@@ -91,6 +91,7 @@ entities:
       - {name: stage,                required: true, kind: enum, enum-ref: stages}
       - {name: hypotheses,           required: true, kind: relation}
       - {name: riskiest-assumption,  required: true, kind: text}
+      - {name: data,                 required: false, kind: enum, enum-ref: data-kinds}
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -113,6 +114,7 @@ entities:
       - {name: hypotheses,  required: true,  kind: relation}
       - {name: outcome,     required: true,  kind: enum, enum-ref: outcomes}
       - {name: sources,     required: false, kind: provenance}
+      - {name: data,        required: false, kind: enum, enum-ref: data-kinds}
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -328,6 +330,13 @@ state-machines:
     - {name: 判断保留, description: 実験したが結論が出ず証拠が足りない（確信度は原則上げない）}
     - {name: 是正,     description: 記録・運用の誤りを正した（仮説の真偽判定ではないので確信度は動かさない）}
 
+  # 実験計画(TEST)・学び(LEARN)の**データ種別**（frontmatter data）。fictional-cap 判定の正本。
+  # 「そのレコードが何のデータで作られたか」であって「何について書いてあるか」ではない
+  # （架空データを**論じた**是正・監査レコードは real。混同すると実データの実験が架空に誤分類される）。
+  data-kinds:
+    - {name: real,      description: 実観測（実在の相手・実際の計測）に由来する}
+    - {name: simulated, description: 架空/シミュレーション由来（生成データ。確信度は fictional-cap で頭打ち）}
+
   # 確信度（1-10）
   confidence:
     min: 1
@@ -341,7 +350,12 @@ state-machines:
       - {range: "9",    meaning: 反証を試みても崩れなかった}
       - {range: "10",   meaning: 事実（観測された確定事項）}
     fictional-cap: 8          # 架空/シミュレーションデータ由来の確信度は上限8
-    fictional-markers: [架空, シミュレーション]   # 架空データを示す本文マーカー語彙（fictional-cap 判定に使う）
+    # 架空データを示すマーカー語彙。用途は2つで、**強さが違う**:
+    #   (1) 生データ(sources/)冒頭 N 行の宣言を読む一次情報（provenance.fictional-header-scan-lines）
+    #   (2) TEST/LEARN 本文の後方互換フォールバック — **data 未宣言 かつ 出典を1件も持たない**
+    #       レコードにだけ効く。本文の語は「何のデータで作られたか」でなく「何について書いてあるか」を
+    #       拾ってしまうので、判定の正本は data-kinds の宣言側に置く（旧 AR-12）。
+    fictional-markers: [架空, シミュレーション]
     # status × 確信度の許容域（外れたら warning）。検証の2軸の食い違い（矛盾）を検出する。
     status-bounds:
       検証済み: {min: 5}      # 検証済みなのに確信度が低い

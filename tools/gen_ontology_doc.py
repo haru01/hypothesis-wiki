@@ -167,11 +167,24 @@ def build() -> str:
             L.append(f"| {name} | {ontology.OUTCOME_DESC.get(name) or '—'} |")
         L.append("")
 
+    # データ種別（TEST/LEARN の data）。架空判定（fictional-cap）の正本。
+    if ontology.DATA_KIND_ORDER:
+        L += [f"### データ種別（実験計画・学びの `{ontology.DATA_FIELD}`）", "",
+              "そのレコードが**何のデータで作られたか**（何について書いてあるか、ではない）。"
+              "架空判定の正本で、確信度の上限（fictional-cap）が掛かるかを決める。省略可だが、"
+              "省くと出典冒頭の宣言・本文マーカー語による推論に戻る。", "",
+              "| 種別 | 意味 |", "|---|---|"]
+        for name in ontology.DATA_KIND_ORDER:
+            L.append(f"| `{name}` | {ontology.DATA_KIND_DESC.get(name) or '—'} |")
+        L.append("")
+
     L += ["### 確信度", "",
           f"- 範囲: **{ontology.CONFIDENCE_MIN}–{ontology.CONFIDENCE_MAX}**（証拠の強さの目安）。"
           "確信度（証拠の強さ）とステータス（検証の進捗）は別軸で管理する。",
-          f"- 架空/シミュレーションデータ由来の確信度は上限 **{ontology.FICTIONAL_CAP}**"
-          f"（本文マーカー: {'・'.join(ontology.FICTIONAL_MARKERS)}）。9-10 は実観測に限る。",
+          f"- 架空/シミュレーションデータ由来の確信度は上限 **{ontology.FICTIONAL_CAP}**。"
+          f"9-10 は実観測に限る。由来の判定は上記 `{ontology.DATA_FIELD}` の宣言が正本で、"
+          f"未宣言なら 出典冒頭の宣言 → 本文マーカー語"
+          f"（{'・'.join(ontology.FICTIONAL_MARKERS)}。**未宣言かつ出典なし**のときだけ）の順に推論する。",
           ""]
 
     # 確信度の帯

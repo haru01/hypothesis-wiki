@@ -206,8 +206,20 @@ OUTCOMES = {o["name"] for o in _OUTCOME_LIST}
 OUTCOME_ORDER = [o["name"] for o in _OUTCOME_LIST]
 OUTCOME_DESC = {o["name"]: o.get("description", "") for o in _OUTCOME_LIST}
 
+# TEST/LEARN のデータ種別（frontmatter data）。架空判定の正本。
+_DATA_KIND_LIST = _SM.get("data-kinds", [])
+DATA_KINDS = {d["name"] for d in _DATA_KIND_LIST}
+DATA_KIND_ORDER = [d["name"] for d in _DATA_KIND_LIST]
+DATA_KIND_DESC = {d["name"]: d.get("description", "") for d in _DATA_KIND_LIST}
+# 判定コードが生文字列を撒かないための定数（語彙自体の正本は上の data-kinds）
+DATA_REAL = "real"
+DATA_SIMULATED = "simulated"
+# データ種別を宣言できるレコード種別（fields 宣言から導出＝二重管理を作らない）
+DATA_FIELD = "data"
+
 # enum フィールドの enum-ref → 語彙集合（check_fields が引く）
-ENUM_REFS = {"stages": STAGES, "statuses": STATUSES, "outcomes": OUTCOMES}
+ENUM_REFS = {"stages": STAGES, "statuses": STATUSES, "outcomes": OUTCOMES,
+             "data-kinds": DATA_KINDS}
 
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
@@ -299,6 +311,9 @@ def _selfcheck() -> int:
     assert STAGE_FOCUS.keys() == STAGES, "stage-focus と stages が不一致"
     assert len(LIST_GROUPS) == len(H_TYPES), "LIST_GROUPS の件数不一致"
     assert OUTCOMES, "outcomes 定義が空"
+    # データ種別（架空判定の正本）。コード側の定数が語彙から外れていないこと
+    assert DATA_KINDS, "data-kinds 定義が空"
+    assert {DATA_REAL, DATA_SIMULATED} <= DATA_KINDS, "DATA_REAL/DATA_SIMULATED が data-kinds に無い"
     for r in RELATIONS:
         assert r.domains <= set(NODE_NAMES) and r.ranges <= set(NODE_NAMES), \
             f"{r.name} の domain/range 不正"
