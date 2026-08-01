@@ -8,6 +8,7 @@ learns-from: SELF-TEST-004
 hypotheses: [SELF-H-009, SELF-H-010]
 outcome: 反証
 sources: [2026-07-18-lp-interviews-sim.md]
+data: simulated  # 架空/シミュレーション由来（確信度は fictional-cap で頭打ち）
 ---
 
 

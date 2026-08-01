@@ -7,6 +7,7 @@ stage: CPF
 hypotheses: [SELF-H-001, SELF-H-002, SELF-H-003, SELF-H-004, SELF-H-006, SELF-H-008]
 outcome: 是正
 sources: [2026-08-01-chabudai-evidence-floor.md]
+data: real  # 実観測に由来する
 ---
 
 

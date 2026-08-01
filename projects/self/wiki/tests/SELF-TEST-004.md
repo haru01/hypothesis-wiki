@@ -6,6 +6,7 @@ date: 2026-07-18
 stage: SPF
 hypotheses: [SELF-H-009, SELF-H-010]
 riskiest-assumption: ①AI支援が「自分で考えるより深い」と感じられ、②実践者がMiro/Notionから単独Wikiに乗り換える
+data: simulated  # 架空/シミュレーション由来（確信度は fictional-cap で頭打ち）
 ---
 
 

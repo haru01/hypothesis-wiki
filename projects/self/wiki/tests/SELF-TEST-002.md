@@ -6,6 +6,7 @@ date: 2026-07-17
 stage: CPF
 hypotheses: [SELF-H-001, SELF-H-002, SELF-H-003, SELF-H-004, SELF-H-005, SELF-H-006, SELF-H-007, SELF-H-008]
 riskiest-assumption: 実践者は核心課題に実コストを払っており、自認だけでなく行動が伴う
+data: simulated  # 架空/シミュレーション由来（確信度は fictional-cap で頭打ち）
 ---
 
 
