@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-07-25（ステージ CPF） -->
+<!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-08-01（ステージ CPF） / ontology-version: 2 -->
 
 # ai-reskilling — 仮説インデックス
 
@@ -6,6 +6,14 @@
 
 - ステージ: **CPF** Customer Problem Fit
 - 仮説(H) 3 ｜ 実験計画(TEST) 2 ｜ 学び(LEARN) 2 ｜ 意思決定(DEC) 0
+
+## リーンキャンバス
+
+![リーンキャンバス 2026-07-24](lean-canvas/AIRE-lean-canvas-2026-07-24.svg)
+
+[原寸で開く](lean-canvas/AIRE-lean-canvas-2026-07-24.svg) ｜ 2026-07-24 時点 ｜ `/lean-canvas` の生成物（レコードではない）
+
+## 仮説一覧
 
 | 仮説 | タイトル | 確信度 | ステータス | 重要度 |
 |---|---|---|---|---|

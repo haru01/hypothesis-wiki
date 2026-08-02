@@ -6,6 +6,8 @@ date: 2026-07-19
 stage: CPF
 hypotheses: [AIRE-H-001, AIRE-H-002, AIRE-H-003]
 outcome: 起票
+sources: [2026-07-19-desk-research-ai-reskilling.md]
+data: real  # 実観測に由来する
 ---
 
 
@@ -13,7 +15,7 @@ outcome: 起票
 
 対象仮説: [[AIRE-H-001]] [[AIRE-H-002]] [[AIRE-H-003]]
 
-生データ: `sources/2026-07-19-desk-research-ai-reskilling.md`
+生データ: [2026-07-19-desk-research-ai-reskilling.md](../../sources/2026-07-19-desk-research-ai-reskilling.md)
 
 ## 学習カード（検証後に記入）
 

@@ -16,6 +16,11 @@ import yaml
 ONTOLOGY_PATH = Path(__file__).resolve().parent.parent / "ontology.yaml"
 
 
+def version() -> int:
+    """スキーマ版（ontology.yaml の version）。生成ビューのヘッダに刻む。"""
+    return load().get("version", 0)
+
+
 @lru_cache(maxsize=1)
 def load() -> dict:
     """ontology.yaml をパースして dict で返す（プロセス内で1回だけ読む）。"""
@@ -64,6 +69,70 @@ class Relation:
         return self.cardinality == "one"
 
 
+class Field:
+    """frontmatter フィールド1件。required（必須か）と kind（値の種別）を保持する。
+
+    kind の意味は ontology.yaml 冒頭のコメントが正本。`enum` は enum-ref が指す
+    状態機械の語彙（stages/statuses/outcomes）で検証する。"""
+    __slots__ = ("name", "required", "kind", "enum_ref")
+
+    def __init__(self, d: dict):
+        self.name = d["name"]
+        self.required = bool(d.get("required", False))
+        self.kind = d.get("kind", "text")
+        self.enum_ref = d.get("enum-ref", "")
+
+
+class Attachment:
+    """付随物1種。親レコードに従属し、独自のID体系を持たない成果物の宣言。
+
+    ファイル名は `<親レコードID><suffix>.md`、置き場は親エンティティの dir（宣言せず導出する）。
+    レコード(entities)ではないので board/list/index の集計には現れないが、relations には参加する。
+    種別の解決は suffix でおこなう（ID_RE は緩めない）。
+
+    `parent_relation` は「親を指す関係」（domain=自身・range=親種別・cardinality one）を
+    relations から解決したもの。RELATIONS の構築後に束ねる（下記 _bind_parent_relations）。
+    フィールド名をコードに書かずに済ませつつ、候補が1本に定まることは _selfcheck が担保する。"""
+    __slots__ = ("name", "label", "parent", "suffix", "description", "fields", "subtypes",
+                 "templates", "parent_relation")
+
+    def __init__(self, name: str, d: dict):
+        self.name = name
+        self.label = d.get("label", name)
+        self.parent = d["parent"]
+        self.suffix = d["suffix"]
+        self.description = d.get("description", "")
+        self.fields = [Field(f) for f in d.get("fields", [])]
+        self.subtypes = [s["name"] for s in d.get("subtypes", [])]
+        # サブタイプ → 基にした雛形パス（/planning の雛形選択の正本）
+        self.templates = {s["name"]: s.get("template", "") for s in d.get("subtypes", [])}
+        self.parent_relation = None         # RELATIONS 構築後に _bind_parent_relations が入れる
+
+    def parent_of(self, stem: str) -> str:
+        """付随物のステムから親レコードIDを返す（suffix を剥がす）。"""
+        return stem[: -len(self.suffix)] if stem.endswith(self.suffix) else ""
+
+
+class Provenance:
+    """出典（不変層 sources/ への参照）の宣言。relation ではなくレコードの属性。
+
+    確信度の根拠鎖 `H の履歴 → LEARN → sources/<file>` の最後の一歩を機械可読にする。"""
+    __slots__ = ("field", "domains", "cardinality", "base_dir", "must_body_link",
+                 "required_for_types", "fictional_header_scan_lines")
+
+    def __init__(self, d: dict):
+        self.field = d.get("field", "sources")
+        self.domains = _as_set(d.get("domain", ["LEARN"]))
+        self.cardinality = d.get("cardinality", "many")
+        self.base_dir = d.get("base-dir", "sources")
+        self.must_body_link = bool(d.get("must-body-link", False))
+        self.required_for_types = set(d.get("required-for-types", []))
+        self.fictional_header_scan_lines = int(d.get("fictional-header-scan-lines", 12))
+
+    def in_domain(self, ent: str) -> bool:
+        return ent in self.domains
+
+
 def _subtype_names(entity: str) -> list:
     return [s["name"] for s in load()["entities"][entity]["subtypes"]]
 
@@ -81,6 +150,28 @@ DEC_TYPES = set(_subtype_names("DEC"))
 # エンティティ種別 → dir / id-infix
 ENTITY_INFIXES = list(load()["entities"].keys())           # ["H", "TEST", "LEARN", "DEC"]
 ID_RE = re.compile(r"^[A-Z0-9]+-(?:" + "|".join(map(re.escape, ENTITY_INFIXES)) + r")-\d+$")
+# エンティティ種別 → レコード置き場（wiki/ 配下のサブディレクトリ）。records.py の探索が使う。
+ENTITY_DIRS = {ent: e["dir"] for ent, e in load()["entities"].items()}
+RECORD_DIRS = tuple(ENTITY_DIRS.values())                  # ("hypotheses","tests","learnings","decisions")
+
+# ── frontmatter フィールド（スキーマ＝契約） ─────────────────────────
+FIELDS = {ent: [Field(f) for f in e.get("fields", [])] for ent, e in load()["entities"].items()}
+FIELDS_BY_NAME = {ent: {f.name: f for f in fs} for ent, fs in FIELDS.items()}
+REQUIRED_FIELDS = {ent: [f.name for f in fs if f.required] for ent, fs in FIELDS.items()}
+
+# ── 付随物（レコードではないが型付きリンクに参加するノード） ──────────
+# FIELDS を entities 限定のまま保つのは意図的（gen_ontology_doc がキーで entities を引くため）。
+# 両者を束ねた NODE_* を別に用意し、種別非依存の検証はそちらを引く。
+ATTACHMENTS = {name: Attachment(name, d) for name, d in (load().get("attachments") or {}).items()}
+ATTACHMENT_NAMES = list(ATTACHMENTS)                       # ["SCRIPT"]
+ATTACHMENT_SUFFIXES = {a.suffix: a.name for a in ATTACHMENTS.values()}
+# 付随物 → 置き場（親エンティティの dir を導出。宣言しない＝ドリフト防止）
+ATTACHMENT_DIRS = {a.name: ENTITY_DIRS[a.parent] for a in ATTACHMENTS.values()}
+
+# ノード種別 = エンティティ ∪ 付随物（関係の domain/range に書ける種別）
+NODE_NAMES = ENTITY_INFIXES + ATTACHMENT_NAMES
+NODE_FIELDS_BY_NAME = {**FIELDS_BY_NAME,
+                       **{a.name: {f.name: f for f in a.fields} for a in ATTACHMENTS.values()}}
 
 # ── H サブタイプの価値連鎖上の役割 ──────────────────────────────────
 CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
@@ -109,6 +200,27 @@ STATUSES = {s["name"] for s in _STATUS_LIST}
 STATUS_ORDER = [s["name"] for s in _STATUS_LIST]
 STATUS_EMOJI = {s["name"]: s["emoji"] for s in _STATUS_LIST}
 
+# 学び(LEARN)の検証判定（frontmatter outcome）。
+_OUTCOME_LIST = _SM.get("outcomes", [])
+OUTCOMES = {o["name"] for o in _OUTCOME_LIST}
+OUTCOME_ORDER = [o["name"] for o in _OUTCOME_LIST]
+OUTCOME_DESC = {o["name"]: o.get("description", "") for o in _OUTCOME_LIST}
+
+# TEST/LEARN のデータ種別（frontmatter data）。架空判定の正本。
+_DATA_KIND_LIST = _SM.get("data-kinds", [])
+DATA_KINDS = {d["name"] for d in _DATA_KIND_LIST}
+DATA_KIND_ORDER = [d["name"] for d in _DATA_KIND_LIST]
+DATA_KIND_DESC = {d["name"]: d.get("description", "") for d in _DATA_KIND_LIST}
+# 判定コードが生文字列を撒かないための定数（語彙自体の正本は上の data-kinds）
+DATA_REAL = "real"
+DATA_SIMULATED = "simulated"
+# データ種別を宣言できるレコード種別（fields 宣言から導出＝二重管理を作らない）
+DATA_FIELD = "data"
+
+# enum フィールドの enum-ref → 語彙集合（check_fields が引く）
+ENUM_REFS = {"stages": STAGES, "statuses": STATUSES, "outcomes": OUTCOMES,
+             "data-kinds": DATA_KINDS}
+
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
 # 確信度の帯 [{range, meaning}, ...]（確信度スケールの目安。ontology.md 生成に使う）
@@ -121,6 +233,13 @@ STATUS_BOUNDS = {k: dict(v) for k, v in _SM["confidence"].get("status-bounds", {
 EVIDENCE_FLOOR = sorted(
     ((e["min-confidence"], e["floor"]) for e in _SM["confidence"].get("evidence-floor", [])),
     reverse=True)
+# evidence-floor を要求される最小の確信度（これ未満の帯は階梯タグを要求しない）
+EVIDENCE_FLOOR_MIN_CONFIDENCE = min((c for c, _ in EVIDENCE_FLOOR), default=CONFIDENCE_MAX + 1)
+
+# ── 陳腐化（時間軸）の閾値。数値は自動で下げない＝可視化のみ ──────────
+_STALE = _SM.get("staleness", {})
+STALENESS_CONFIDENCE_DAYS = int(_STALE.get("confidence-days", 180))
+STALENESS_TEST_DAYS = int(_STALE.get("test-days", 14))
 
 # 証拠の階梯（序列あり）＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
 # YAML 要素は {name, desc} 辞書でも name のみの文字列でも読める（後方互換）。
@@ -148,6 +267,25 @@ EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
 RELATIONS = [Relation(d) for d in load()["relations"]]
 RELATIONS_BY_FIELD = {r.field: r for r in RELATIONS}
 
+
+def _parent_relation_candidates(a: Attachment) -> list:
+    """付随物 a の「親を指す関係」候補（domain=自身のみ・range=親種別のみ・cardinality one）。"""
+    return [r for r in RELATIONS
+            if r.domains == {a.name} and r.ranges == {a.parent} and r.is_single]
+
+
+def _bind_parent_relations() -> None:
+    """付随物に親を指す関係を束ねる（RELATIONS 構築後に1回）。候補が1本かは _selfcheck が検証する。"""
+    for a in ATTACHMENTS.values():
+        candidates = _parent_relation_candidates(a)
+        a.parent_relation = candidates[0] if len(candidates) == 1 else None
+
+
+_bind_parent_relations()
+
+# ── プロヴェナンス（出典）────────────────────────────────────────────
+PROVENANCE = Provenance(load().get("provenance", {}))
+
 # ── リーンキャンバス（仮説検証への写像。レコードでなくビュー） ──────────
 # 各 block は H サブタイプの役割(role)へ対応。ブロック検証状態は対応 role の H から射影する。
 _LC = load().get("lean-canvas", {})
@@ -155,6 +293,7 @@ LEAN_CANVAS_BLOCKS = list(_LC.get("blocks", []))                 # [{key,label,e
 LEAN_CANVAS_BLOCK_STATUS = list(_LC.get("block-status", []))     # [{name,from}]
 LEAN_CANVAS_STAGE_LENS = dict(_LC.get("stage-lens", {}))         # {block-key: {early,scale}}
 LEAN_CANVAS_VALIDATION_ORDER = _LC.get("validation-order", "")
+LEAN_CANVAS_DIR = _LC.get("artifact-dir", "lean-canvas")         # SVG 成果物の置き場（wiki/ からの相対）
 # role → H サブタイプ名（写像ドキュメント生成・整合チェック用）。role の正本は entities.H.subtypes.role。
 H_ROLES = {s.get("role") for s in load()["entities"]["H"]["subtypes"] if s.get("role")}
 
@@ -171,17 +310,72 @@ def _selfcheck() -> int:
     assert STATUS_ORDER and set(STATUS_ORDER) == STATUSES, "status 定義の不整合"
     assert STAGE_FOCUS.keys() == STAGES, "stage-focus と stages が不一致"
     assert len(LIST_GROUPS) == len(H_TYPES), "LIST_GROUPS の件数不一致"
+    assert OUTCOMES, "outcomes 定義が空"
+    # データ種別（架空判定の正本）。コード側の定数が語彙から外れていないこと
+    assert DATA_KINDS, "data-kinds 定義が空"
+    assert {DATA_REAL, DATA_SIMULATED} <= DATA_KINDS, "DATA_REAL/DATA_SIMULATED が data-kinds に無い"
     for r in RELATIONS:
-        assert r.domains <= set(ENTITY_INFIXES) and r.ranges <= set(ENTITY_INFIXES), \
+        assert r.domains <= set(NODE_NAMES) and r.ranges <= set(NODE_NAMES), \
             f"{r.name} の domain/range 不正"
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
+    # フィールド宣言（スキーマ＝契約）の整合。エンティティと付随物は同じ契約に従うので
+    # 1つのループで見る（種別ごとに書き分けると、付随物側だけ検査が1つ欠ける等の穴が空く）。
+    declared_fields = list(FIELDS.items()) + [(a.name, a.fields) for a in ATTACHMENTS.values()]
+    for ent, fields in declared_fields:
+        assert fields, f"{ent} に fields 宣言が無い"
+        names = [f.name for f in fields]
+        assert len(names) == len(set(names)), f"{ent} の fields に重複キー"
+        assert "id" in names, f"{ent} の fields に id が無い"
+        for f in fields:
+            if f.kind == "enum":
+                assert f.enum_ref in ENUM_REFS, f"{ent}.{f.name} の enum-ref '{f.enum_ref}' が未知"
+            if f.kind == "relation":
+                assert f.name in RELATIONS_BY_FIELD, f"{ent}.{f.name} は relations に宣言が無い"
+            if f.kind == "provenance":
+                assert f.name == PROVENANCE.field, f"{ent}.{f.name} は provenance.field と不一致"
+    # 関係は必ずどこかの fields に現れる（宣言したのに frontmatter キーとして未登録＝死んだ関係を防ぐ）
+    for r in RELATIONS:
+        for ent in r.domains:
+            assert r.field in NODE_FIELDS_BY_NAME.get(ent, {}), \
+                f"関係 {r.name} の field '{r.field}' が {ent} の fields に無い"
+    # 付随物: 親が実在エンティティか／suffix が正しい形か／ID_RE と衝突しないか
+    assert not (set(ATTACHMENT_NAMES) & set(ENTITY_INFIXES)), "付随物名がエンティティ種別と衝突"
+    assert len(ATTACHMENT_SUFFIXES) == len(ATTACHMENT_NAMES), "付随物の suffix が重複"
+    for a in ATTACHMENTS.values():
+        assert a.parent in ENTITY_INFIXES, f"付随物 {a.name} の parent '{a.parent}' が未知のエンティティ"
+        assert a.suffix.startswith("-") and len(a.suffix) > 1, f"付随物 {a.name} の suffix 不正"
+        assert a.subtypes, f"付随物 {a.name} に subtypes が無い"
+        # 宣言した雛形が実在すること。この検証があってはじめて `template:` が「正本」を名乗れる
+        # （雛形をリネームしても誰も気づかない、という状態を作らない）。
+        for subtype, tmpl in a.templates.items():
+            assert tmpl, f"{a.name}.{subtype} に template の宣言が無い"
+            assert (ONTOLOGY_PATH.parent / tmpl).is_file(), \
+                f"{a.name}.{subtype} の template '{tmpl}' が存在しない"
+        # 付随物のステムがレコードIDとして解釈されないこと（records/attachments の分離の前提）
+        assert not ID_RE.match(f"PREFIX-{a.parent}-001{a.suffix}"), \
+            f"付随物 {a.name} の suffix がレコードID(ID_RE)と衝突する"
+        # 「親を指す関係」が一意に定まること。lint はフィールド名を書かずこの導出に頼るので、
+        # 候補が0本（親への関係の宣言漏れ）でも2本以上（どちらが親ポインタか曖昧）でも壊れる。
+        candidates = _parent_relation_candidates(a)
+        assert len(candidates) == 1, \
+            (f"付随物 {a.name} の親を指す関係（{a.name}→{a.parent}・cardinality one）が"
+             f"{len(candidates)}本ある（1本に定める）")
+    # プロヴェナンス
+    assert PROVENANCE.domains <= set(ENTITY_INFIXES), "provenance の domain 不正"
+    for ent in PROVENANCE.domains:
+        assert PROVENANCE.field in FIELDS_BY_NAME[ent], \
+            f"provenance.field '{PROVENANCE.field}' が {ent} の fields に無い"
+        assert PROVENANCE.required_for_types <= set(_subtype_names(ent)), \
+            f"provenance.required-for-types に {ent} のサブタイプでない値がある"
     # リーンキャンバス写像: 各 block の maps-to-role が実在する H role か（role ドリフト検出）
     for b in LEAN_CANVAS_BLOCKS:
         assert b.get("maps-to-role") in H_ROLES, f"lean-canvas block {b.get('key')} の maps-to-role 不正"
     for bk in LEAN_CANVAS_STAGE_LENS:
         assert bk in {b["key"] for b in LEAN_CANVAS_BLOCKS}, f"stage-lens の未知ブロック {bk}"
-    print(f"ontology.yaml OK: entities={list(load()['entities'])} "
-          f"relations={[r.name for r in RELATIONS]} stages={STAGE_ORDER} statuses={STATUS_ORDER} "
+    print(f"ontology.yaml OK (version={load().get('version')}): entities={list(load()['entities'])} "
+          f"attachments={ATTACHMENT_NAMES} "
+          f"relations={[r.name for r in RELATIONS]} provenance={PROVENANCE.field} "
+          f"stages={STAGE_ORDER} statuses={STATUS_ORDER} outcomes={OUTCOME_ORDER} "
           f"lean-canvas-blocks={[b['key'] for b in LEAN_CANVAS_BLOCKS]}")
     return 0
 

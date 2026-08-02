@@ -23,14 +23,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from records import (  # noqa: E402
     Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
-    testcard,
+    testcard, source_paths, fictional_activities,
 )
 from project import resolve_current_project  # noqa: E402
+import graph  # noqa: E402  関係グラフの走査層（診断・下流依存度。辺集合の単一の入口）
 # 型・関係・状態機械の定義は ontology.yaml が唯一の正本（ここに再定義しない）。
 from ontology import (  # noqa: E402
     CUSTOMER_TYPES, PROBLEM_TYPES, SOLUTION_TYPES, VALUE_TYPES, WILLING_TYPES, TEAM_TYPES,
-    STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS, FICTIONAL_MARKERS,
-    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS,
+    STATUS_EMOJI, STATUS_ORDER, LIST_GROUPS, RELATIONS,
+    STAGE_NAMES, STAGE_ORDER, IMPORTANCE_FOCUS, IMPORTANCE_OTHER, PROVENANCE,
+    LEAN_CANVAS_DIR, ENTITY_INFIXES,
+    version as ontology_version,
 )
 
 
@@ -42,32 +45,38 @@ def read_stage(project) -> str:
 
 
 def fictional_records(project) -> list:
-    """本文に架空/シミュレーションマーカーを含む TEST/LEARN の stem を並べる。
-    架空マーカーは主に学びカード（LEARN）に現れるが、実験計画（TEST）本文の注記も拾う。"""
-    return sorted(s for s in project.records
-                  if ("-TEST-" in s or "-LEARN-" in s)
-                  and any(m in project.records[s][2] for m in FICTIONAL_MARKERS))
+    """架空/シミュレーション由来の TEST/LEARN の stem を並べる（ビューの警告バナー用）。
+
+    判定は records.fictional_activities が正本（frontmatter `data` の宣言 → 出典＝生データ冒頭の
+    架空宣言 → 本文マーカーの後方互換フォールバック、の順）。lint の fictional-cap と同じ導出を共有する。"""
+    return sorted(fictional_activities(project))
 
 
 def next_to_verify(project, hyps, stage) -> list:
-    """アサンプションマッピング「重要×証拠なし」象限＝重要度8 × 確信度低 × 未検証/検証中。
+    """アサンプションマッピング「重要×証拠なし」象限＝重点 × 確信度低 × 未検証/検証中。
 
-    検証活動(TEST)・学び(LEARN)が1本も紐づかない（未着手）ものを最優先に並べる
-    （OI-F1: トポロジー由来の探索域ギャップ）。返り値は (stem, fm, has_test)。"""
+    並び順のシグナルは3つ（優先度の高い順）:
+    1. 検証活動(TEST/LEARN)が1本も紐づかない＝**未着手**（OI-F1: トポロジー由来の探索域ギャップ）
+    2. **下流依存度**（`leads-to` の推移閉包）が大きい＝崩れると波及が大きい背骨（OI-D4 の残タスク）
+    3. 確信度が低い
+
+    返り値は (stem, fm, has_test, downstream)。"""
     tested = (referenced_ids(project, "hypotheses", infix="-TEST-")
               | referenced_ids(project, "hypotheses", infix="-LEARN-"))
-    nxt = [(s, fm, s in tested) for s, fm, *_ in hyps
+    down = graph.downstream_counts(project)
+    nxt = [(s, fm, s in tested, down.get(s, 0)) for s, fm, *_ in hyps
            if importance(fm, stage) >= IMPORTANCE_FOCUS and fm.get("status") in {"未検証", "検証中"}]
-    return sorted(nxt, key=lambda x: (x[2], int(x[1].get("confidence", "0") or 0), x[0]))
+    return sorted(nxt, key=lambda x: (x[2], -x[3], int(x[1].get("confidence", "0") or 0), x[0]))
 
 
 def next_to_verify_bullets(nxt) -> list:
     """next_to_verify の各項目を箇条書き行に整形する（board/list 共通の逐語部分）。"""
     lines = []
-    for stem, fm, has_test in nxt:
+    for stem, fm, has_test, downstream in nxt:
         mark = "" if has_test else " ⚠️未着手（検証活動なし）"
+        spine = f" ・下流{downstream}" if downstream else ""
         lines.append(f"- [[{stem}]] {fm.get('title', '')}"
-                     f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}）{mark}")
+                     f"（確信度{fm.get('confidence', '')}・{fm.get('status', '')}{spine}）{mark}")
     return lines
 
 
@@ -137,9 +146,13 @@ def latest_dec_next_move(project):
 
 
 def header_lines(view: str, stage: str, today: str, fictional: list) -> list:
-    """生成物マーカー＋架空データ警告。fictional は架空 TEST/LEARN の stem リスト。"""
+    """生成物マーカー＋スキーマ版＋架空データ警告。fictional は架空 TEST/LEARN の stem リスト。
+
+    ontology-version を刻むのは「どのスキーマ版で射影した生成物か」を追えるようにするため
+    （スキーマを変えると生成物の意味が変わるので、版を生成物と並べて持つ）。"""
     lines = [f"<!-- 生成物: gen_views.py {view} による機械生成。手編集禁止。"
-             f"`python3 tools/gen_views.py {view}` で再生成する。生成基準日: {today}（ステージ {stage}） -->"]
+             f"`python3 tools/gen_views.py {view}` で再生成する。生成基準日: {today}（ステージ {stage}）"
+             f" / ontology-version: {ontology_version()} -->"]
     if fictional:
         links = " ".join(f"[[{s}]]" for s in fictional)
         lines.append(f"<!-- ⚠️ 架空/シミュレーションデータを含む活動: {links}。"
@@ -192,6 +205,7 @@ def gen_board(project) -> str:
         lfm, ltext = project.records[learn_stem][1], project.records[learn_stem][2]
         return {"stem": learn_stem, "result": learning_point(learning(ltext)) or "—",
                 "outcome": lfm.get("outcome", "").strip() or "—",
+                "sources": source_paths(lfm),
                 "ids": parse_id_array(lfm.get("hypotheses", ""))}
 
     def test_unit(test_stem) -> dict:
@@ -259,6 +273,11 @@ def gen_board(project) -> str:
             # 回顧型ユニットは行の stem がユニット自身なのでリンク重複を避ける
             tag = f"[[{r['stem']}]] " if r["stem"] != e["stem"] else ""
             L.append(f"- **結果（{tag}学びの要点）**: {r['result']}（判定: {r['outcome']}）")
+        # 出典（生データ）— 確信度の根拠鎖の末端。生成物からも一次資料へ辿れるようにする。
+        srcs = list(dict.fromkeys(s for r in e["rows"] for s in r["sources"]))
+        if srcs:
+            links = " ".join(f"[{s}](../../{PROVENANCE.base_dir}/{s})" for s in srcs)
+            L.append(f"- **出典（生データ）**: {links}")
         L += [
             f"- **判断（DEC）**: {e['judgment']}",
             "",
@@ -282,8 +301,8 @@ def gen_board(project) -> str:
         L.append(f"| [[{stem}]] {fm.get('title', '')} | {fm.get('type', '')} | "
                  f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm, stage)} |")
     nxt = next_to_verify(project, hyps, stage)
-    legend = "・⚠️＝検証活動なし＝最優先" if any(not has_test for *_, has_test in nxt) else ""
-    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中{legend}）:", ""]
+    legend = "・⚠️＝検証活動なし＝最優先" if any(not e[2] for e in nxt) else ""
+    L += ["", f"**次に検証すべき仮説**（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中・下流＝leads-to 推移閉包{legend}）:", ""]
     L += next_to_verify_bullets(nxt)
     L.append("")
     return "\n".join(L)
@@ -341,7 +360,7 @@ def gen_list(project) -> str:
 
     L = header_lines("list", stage, today, fictional_records(project))
     L += ["", f"# 全仮説リスト（{project.slug}）", ""]
-    L.append(f"現在ステージ: **{stage}**。重要度は {stage} 重点タイプ=8・その他=4 で算出（frontmatter 射影）。"
+    L.append(f"現在ステージ: **{stage}**。重要度は {stage} 重点タイプ={IMPORTANCE_FOCUS}・その他={IMPORTANCE_OTHER} で算出（frontmatter 射影）。"
              "★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動 TEST・学び LEARN。")
 
     # mermaid バリューチェーン（ノード=frontmatter、矢印=leads-to）
@@ -383,8 +402,8 @@ def gen_list(project) -> str:
 
     # 次に検証すべき
     nxt = next_to_verify(project, hyps, stage)
-    legend = "。⚠️＝検証活動なし＝最優先" if any(not has_test for *_, has_test in nxt) else ""
-    L += [f"## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中{legend}）", ""]
+    legend = "。⚠️＝検証活動なし＝最優先" if any(not e[2] for e in nxt) else ""
+    L += [f"## 次に検証すべき仮説（重要度{IMPORTANCE_FOCUS} × 確信度低 × 未検証/検証中・下流＝leads-to 推移閉包{legend}）", ""]
     L += next_to_verify_bullets(nxt)
     L.append("")
 
@@ -491,18 +510,8 @@ def node_label(project, stem) -> str:
 
 
 def relation_edges(project) -> list:
-    """(relation, 始点stem, 終点stem) を frontmatter から収集する。
-    終点が同一プロジェクトに実在し range 種別が一致する辺だけを返す。"""
-    edges = []
-    for stem, (_, fm, _) in project.records.items():
-        ent = entity_of(stem)
-        for rel in RELATIONS:
-            if not rel.in_domain(ent):
-                continue
-            for tgt in parse_id_array(fm.get(rel.field, "")):
-                if tgt in project.records and rel.in_range(entity_of(tgt)):
-                    edges.append((rel, stem, tgt))
-    return edges
+    """(relation, 始点stem, 終点stem)。実体は graph.edges（診断と同じ辺集合を共有する）。"""
+    return graph.edges(project)
 
 
 def gen_relations(project):
@@ -533,11 +542,21 @@ def gen_relations(project):
         L.append(f"    {mermaid_id(s)} -->|{rel.label}| {mermaid_id(t)}")
     L += ["```", ""]
 
-    # 関係インデックス（forward・全関係型を必ず節として出す。0件でも「該当なし」で存在を示す）
+    # 関係インデックス（forward・全関係型を必ず節として出す。0件でも「該当なし」で存在を示す）。
+    # ただしこのビューはレコードだけを射影する（graph.edges が project.records を走査）ので、
+    # 始点も終点もレコードでない関係は**恒久的に**0件になる。それを「（該当なし）」と刻むと
+    # 「そんな付随物は存在しない」という誤情報になるため、節ごと出さない。domain/range の表示も
+    # 射影対象に絞る（見出しだけが射影されない種別を名乗るのを防ぐ）。関係型の一覧そのものは
+    # スキーマの話なので ontology.md が持つ。
     L += ["## 関係インデックス", ""]
+    projected = set(ENTITY_INFIXES)
     for rel in RELATIONS:
+        domains, ranges = rel.domains & projected, rel.ranges & projected
+        if not domains or not ranges:
+            continue
         rel_edges = [(s, t) for r, s, t in edges if r.name == rel.name]
-        L += [f"### {rel.label}（`{rel.field}`: {rel.domain}→{rel.range}）", ""]
+        L += [f"### {rel.label}（`{rel.field}`: "
+              f"{'/'.join(sorted(domains))}→{'/'.join(sorted(ranges))}）", ""]
         if not rel_edges:
             L += ["（該当なし）", ""]
             continue
@@ -599,10 +618,76 @@ def gen_relations(project):
             L.append("- ※ どの課題にも `addresses` が張られていない"
                      "（ソリューション仮説の frontmatter に `addresses: [課題ID]` を書くとフィットが埋まる）")
         L.append("")
+
+    L += graph_diagnostics(project)
     return "\n".join(L)
 
 
+def graph_diagnostics(project) -> list:
+    """グラフ全体の歪みを数値で出す（連結性・密度・孤立・ハブ・下流依存度・未取り込み生データ）。
+
+    個別の辺の型は lint が検証するのに対し、ここは**グラフ全体の欠落・偏り**を見る層。
+    0件でも節と「なし」を出す（その診断軸が存在することを読者に伝えるため。OI-D3 と同じ思想）。"""
+    n, m, dens = graph.density(project)
+    comps = graph.components(project)
+    deg = graph.degree(project)
+    down = {k: v for k, v in graph.downstream_counts(project).items() if v}
+    band = "疎（孤立が多い）" if dens < 1.0 else ("密（richly connected）" if dens > 2.0 else "健全な中間域")
+
+    L = ["## グラフ診断", "",
+         "グラフ全体の欠落・偏りを機械算出する（個別の辺の型検証は `/lint` の担当）。", "",
+         f"- **規模**: ノード {n} ／ 辺 {m} ／ **辺÷ノード = {dens:.2f}**（{band}）",
+         f"- **連結成分**: {len(comps)}（最大成分 {len(comps[0]) if comps else 0} ノード）"
+         + ("。単一成分＝全レコードが関係で繋がっている" if len(comps) == 1 else
+            "。**島に割れている＝系譜(derived-from/leads-to)・検証(hypotheses)の張り忘れの疑い**")]
+    if len(comps) > 1:
+        for i, c in enumerate(comps, 1):
+            L.append(f"  - 成分{i}（{len(c)}）: " + " ".join(f"[[{s}]]" for s in sorted(c)))
+
+    iso = graph.isolated(project)
+    L.append("- **孤立仮説**（どの関係も持たない）: "
+             + (" ".join(f"[[{s}]]" for s in iso) if iso else "なし"))
+
+    hubs = sorted((s for s in project.records if deg.get(s)), key=lambda s: (-deg[s], s))[:5]
+    L.append("- **ハブ**（次数上位＝コーパスを束ねているレコード）: "
+             + (" ".join(f"[[{s}]]({deg[s]})" for s in hubs) if hubs else "なし"))
+
+    top_down = sorted(down.items(), key=lambda x: (-x[1], x[0]))[:5]
+    L.append("- **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: "
+             + (" ".join(f"[[{s}]]({c})" for s, c in top_down) if top_down else "なし"))
+
+    referenced = {rel for stem, (_, fm, _) in project.records.items()
+                  if PROVENANCE.in_domain(entity_of(stem)) for rel in source_paths(fm)}
+    orphans = sorted(project.source_files - referenced)
+    L.append(f"- **未取り込みの生データ**（どの学びの `{PROVENANCE.field}` からも参照されていない）: "
+             + (" ".join(f"[{s}](../../{PROVENANCE.base_dir}/{s})" for s in orphans)
+                if orphans else "なし"))
+    L.append("")
+    return L
+
+
 # ---- index ビュー（wiki/index.md。手編集をやめ再生成に一本化） ----
+
+CANVAS_RE = re.compile(r"-lean-canvas-(\d{4}-\d{2}-\d{2})\.svg$")
+
+
+def latest_canvas(project):
+    """最新のリーンキャンバスSVGを (日付, wiki からの相対パス) で返す。無ければ None。
+
+    最新はファイル名に埋まった YYYY-MM-DD の辞書順で決める（mtime を使うとチェックアウト順で
+    出力が変わり、ビューが決定論的な射影でなくなるため）。命名規約は
+    `<PREFIX>-lean-canvas-<YYYY-MM-DD>.svg`（.claude/skills/lean-canvas/）。
+    SVG は /lean-canvas の生成物で、ここでは**埋め込みリンクを作るだけ**（中身は作らない・触らない）。"""
+    d = project.wiki / LEAN_CANVAS_DIR
+    if not d.is_dir():
+        return None
+    dated = sorted((m.group(1), p.name) for p in d.glob("*.svg")
+                   if (m := CANVAS_RE.search(p.name)))
+    if not dated:
+        return None
+    date, name = dated[-1]
+    return date, f"{LEAN_CANVAS_DIR}/{name}"
+
 
 def gen_index(project) -> str:
     """wiki/index.md ＝ 全仮説の現在の確信度・ステータス一覧（レコードからの射影）。
@@ -626,7 +711,19 @@ def gen_index(project) -> str:
           f"- 仮説(H) {len(hyps)} ｜ 実験計画(TEST) {n('-TEST-')} ｜ 学び(LEARN) {n('-LEARN-')} "
           f"｜ 意思決定(DEC) {n('-DEC-')}",
           ""]
-    L += ["| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]
+
+    # リーンキャンバス（/lean-canvas の生成物）。仮説テーブルより上に置く＝開いた瞬間に絵が見える。
+    # 画像記法で埋め込む（wikilink 埋め込み ![[...svg]] は非 md を解決できず Pages ビルドが落ちる）。
+    canvas = latest_canvas(project)
+    if canvas:
+        date, rel = canvas
+        L += ["## リーンキャンバス", "",
+              f"![リーンキャンバス {date}]({rel})", "",
+              f"[原寸で開く]({rel}) ｜ {date} 時点 ｜ `/lean-canvas` の生成物（レコードではない）", ""]
+
+    # 見出しはキャンバスの有無によらず出す（プロジェクト間で節構成とアンカーを揃えるため）
+    L += ["## 仮説一覧", "",
+          "| 仮説 | タイトル | 確信度 | ステータス | 重要度 |", "|---|---|---|---|---|"]
     for stem, fm, _, _ in sorted(hyps, key=lambda r: (-importance(r[1], stage),
                                                        int(r[1].get("confidence", "0") or 0))):
         L.append(f"| [[{stem}]] | {fm.get('title', '')} | {fm.get('confidence', '')} | "

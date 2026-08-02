@@ -136,7 +136,7 @@ flowchart LR
   `SELF-DEC-002` で **FPF→CPF に巻き戻した**（現在 CPF）。実データでの再検証が最優先タスク。
 
 俯瞰ビューは `projects/self/wiki/views/`（`board.md`・`hypotheses-list.md`）にある（Stop フックが自動生成）。
-運用で得た改善は `docs/skill-improvements.md`（SI-NNN）に蓄積し、スキル定義へ反映している。
+運用で得た改善は [docs/backlog.md](docs/backlog.md) に集約し、スキル定義・ツール・スキーマへ反映している。
 
 > ⚠️ self は**架空データによるデモ**。新しい案件で使うときは下記「新しいプロジェクトの追加」で、実データに置き換えること。
 
@@ -152,15 +152,14 @@ hypothesis-wiki/
 ├── .claude/skills/         # AgentSkills 10（new-project/desk-research/formulating/planning/building/learning/deciding/chabudai/lean-canvas/lint・共有）
 ├── .claude/settings.json   # Claude Codeフック（sourcesガード・Stop時lint/view再生成・hooksPath自動設定）
 ├── .githooks/              # git pre-commitフック（有効化: git config core.hooksPath .githooks）
-├── tools/                  # オントロジーローダ（ontology.py）・決定論lint（hwlint.py）・ビュー生成（gen_views.py）・ontology.md生成（gen_ontology_doc.py）・テストカード不変チェック・フック実体
+├── tools/                  # オントロジーローダ（ontology.py）・決定論lint（hwlint.py）・ビュー生成（gen_views.py）・関係グラフ走査（graph.py）・ontology.md生成（gen_ontology_doc.py）・テストカード不変チェック・フック実体
 ├── tests/                  # 上記ツールのunittest
 ├── templates/              # 雛形（hypothesis/activity/learning/decision/problem-interview-script/solution-interview-script/demo-script/building-lp.html/building-mockup.html/project・共有）
 ├── playbooks/              # ステージプレイブック（cpf/fpf/psf/spf/pmf）＋インタビュー心得（interviewing・共有）
 ├── docs/
-│   ├── skill-improvements.md        # スキル改善バックログ（SI-NNN）
-│   ├── ontology-improvements.md     # オントロジー改善バックログ
-│   ├── competitive-analysis.md      # 競合調査メモ
-│   └── superpowers/{specs,plans}/   # 設計・計画ドキュメント
+│   ├── README.md                    # docs の索引（消えた記録の辿り方つき）
+│   ├── backlog.md                   # 改善バックログ（実害あり／保留／方針確定・不採用）
+│   └── competitive-analysis.md      # 競合調査メモ
 └── projects/               # 案件単位の仮説検証（各案件が sources と wiki を持つ）
     └── <slug>/             # 例: self（このツール自体のドッグフーディング。接頭辞 SELF）
         ├── sources/        # 生データ（読み取り専用）
@@ -190,6 +189,39 @@ hypothesis-wiki/
 - frontmatter は Dataview の動的テーブル（確信度一覧など）にもそのまま使える。
 - `.obsidian/` は `.gitignore` 済み。
 
+## Web で公開する（GitHub Pages）
+
+公開サイト: **https://haru01.github.io/hypothesis-wiki/**
+
+Obsidian の wikilink（`[[SELF-H-004]]`）は GitHub の Markdown レンダラーでは素の文字列のままなので、
+[Quartz](https://quartz.jzhao.xyz/) v5 でサイトに変換して公開する。バックリンク・グラフビュー・
+全文検索が付き、Obsidian で見ている体験がほぼそのまま外から読める。
+
+`main` への push で [.github/workflows/pages.yml](https://github.com/haru01/hypothesis-wiki/blob/main/.github/workflows/pages.yml) が
+走ってデプロイされる。PR では同じワークフローがビルドと壊れリンク検査までを走らせる（デプロイはしない）。
+
+> **初回だけ手動の設定が要る**: リポジトリ設定 → Pages → Source を **GitHub Actions** にする。
+> これをせずに main へマージすると、ビルドは通るのに deploy ジョブだけが
+> 「Pages が有効化されていない」で失敗する。
+
+手元で確かめるなら:
+
+```bash
+bash tools/build_site.sh --serve    # http://localhost:8080
+bash tools/build_site.sh --check    # 壊れた内部リンクが 0 件かを機械的に検査
+```
+
+仕組みと約束事:
+
+- **Quartz はリポジトリに取り込まない**。[site/QUARTZ_REF](https://github.com/haru01/hypothesis-wiki/blob/main/site/QUARTZ_REF) でコミットをピン止めし、
+  ビルド時に `.site/quartz` へ取ってくる。Node はこのスクリプトと CI の中にしか存在しない。
+- **オリジナルは書き換えない**。[tools/gen_site.py](https://github.com/haru01/hypothesis-wiki/blob/main/tools/gen_site.py) が公開ツリーを `.site/staged`
+  に組み立て、**コピー側だけで**リンクを Quartz が解決できる形（wikilink）に正規化する。
+  本文の wikilink は Obsidian のグラフと `/lint` の二重表現チェックが依存しているので触らない。
+- **生データ（`projects/*/sources/`）は公開しない**。そのため確信度の根拠鎖
+  `確信度履歴 → 学び(LEARN) → 生データ` の末端はサイト上では辿れない（学びの `sources` に記録は残る）。
+- `.site/` は生成物。手で直さずレコード側を直して再生成する。
+
 ## 仕組み（3層・5ステージ・確信度）
 
 **3層アーキテクチャ** — 生データ・生成物・規約を分けて管理する。
@@ -201,8 +233,9 @@ hypothesis-wiki/
 | The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
 
 **オントロジー（型・関係の正本）** — レコードの型（仮説 H／実験計画 TEST＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
-レコード間の型付きリンク（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`learns-from`／`based-on` の6関係）、
-検証の状態機械（ステージ・ステータス・確信度・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
+各レコードの frontmatter フィールド（必須／省略可と値の種別）、レコード間の型付きリンク
+（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`learns-from`／`based-on` の6関係）、
+検証の状態機械（ステージ・ステータス・確信度・検証判定・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
 人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）。
 lint やビュー生成ツールは `tools/ontology.py` 経由でここを読むため、語彙をコードや規約に再定義しない（二重管理・ドリフト防止）。
 
@@ -218,6 +251,14 @@ lint やビュー生成ツールは `tools/ontology.py` 経由でここを読む
 
 **確信度は2軸で別管理** — 確信度（1〜10、証拠の強さ）とステータス（未検証 → 検証中 → 検証済み ／ 反証）。
 確信度・ステータスの変更は**必ず学び（LEARN）か意思決定（DEC）に紐づける**（勘で書き換えない）。確信度履歴テーブルが追記専用の正本で、frontmatter はその同期キャッシュ。
+
+**根拠鎖は生データまで機械検証される** — 紐づけは `[[LEARN-NNN]]` で終わらない。学びは frontmatter `sources` で
+**根拠となった生データ**（不変層 `projects/<slug>/sources/`）を指し、鎖が端まで繋がる:
+**`H の確信度履歴` → `[[LEARN-NNN]]` → `sources/<生データ>`**。lint が検証するのは出典パスの実在（error）と、
+**確信度を上げた履歴行が出典なき学びを指していないか**（＝出典なき確信度上昇を作らない）。
+生データ冒頭の「架空・実証拠として扱わない」宣言もここから読まれ、架空データ由来の確信度に上限（8）をかける。
+グラフ全体の歪み（連結成分・孤立仮説・ハブ・下流依存度・未取り込みの生データ）は
+`wiki/views/relations.md` の「グラフ診断」節に出る。
 
 **案件（プロジェクト）単位** — 仮説検証は `projects/<slug>/` 単位で分け、各案件が自分の `sources/` と `wiki/` を持つ。
 スキーマ層は全案件で共有。規約の詳細は [CLAUDE.md](CLAUDE.md)、案件分割の考え方は [projects/README.md](projects/README.md) を参照。

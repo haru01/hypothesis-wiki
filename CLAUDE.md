@@ -23,7 +23,8 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 ## オントロジー（型・関係の正本）
 
-レコードの**型**（エンティティ H/TEST/LEARN/DEC とサブタイプ）、レコード間の**型付きリンク**（関係）、
+レコードの**型**（エンティティ H/TEST/LEARN/DEC とサブタイプ）、**付随物**（attachments。レコードではないが
+型付きリンクに参加する従属成果物。現在は SCRIPT のみ。下記「スクリプト（付随物）」）、レコード間の**型付きリンク**（関係）、
 検証の**状態機械**（ステージ・ステータス・確信度・証拠の階梯）、および**リーンキャンバスの仮説検証への写像**
 （9ブロック↔仮説role・block-status・stage-lens。`/lean-canvas` が使う。レコードでなくビュー）は、
 [ontology.yaml](ontology.yaml) が唯一の正本（SSoT）である。人間可読な要約は [ontology.md](ontology.md)
@@ -31,9 +32,10 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 `tools/ontology.py` 経由でここを読むため、**語彙(enum)・関係・重点タイプ等をコードや本CLAUDE.mdに再定義しない**
 （二重管理・ドリフト防止）。
 
-**関係（型付きリンク）** は6種。各々 domain（始点の型）→ range（終点の型）・cardinality・inverse（逆方向の呼称）を
+**関係（型付きリンク）** は7種。各々 domain（始点の型）→ range（終点の型）・cardinality・inverse（逆方向の呼称）を
 `ontology.yaml` の `relations` で宣言する。`derived-from`（H→H・派生元）／`leads-to`（H→H・因果先）／
-`addresses`（ソリューション仮説→課題仮説・対応課題）／`hypotheses`（TEST・LEARN→H・検証対象）／
+`addresses`（ソリューション仮説→課題仮説・対応課題）／`hypotheses`（TEST・LEARN・SCRIPT→H・検証対象）／
+`script-for`（SCRIPT→TEST・対象の実験計画）／
 `learns-from`（LEARN→TEST・実施した実験計画）／`based-on`（DEC→TEST・LEARN・根拠活動/学び）。関係は原則 frontmatter 配列と本文 wikilink の**二重表現**を持つ（`addresses` のみ `must-wikilink: false` で frontmatter のみ。下記「スキル共通規約」3）。
 `/lint` は各関係を宣言（domain/range/cardinality）に照らして検証し、ビュー生成（`tools/gen_views.py`）の `relations` ビューが全関係型をグラフ化する。
 
@@ -64,6 +66,10 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 なお、schema層（`playbooks/`・`CLAUDE.md` など vault 内の接頭辞つきノートでないファイル）への参照は
 **wikilinkではなく相対mdリンク**で書く。`../` の深さは参照元ファイルの位置で変わる（上記「スキル共通規約」3を参照。
 `wiki/` 直下は `../../../`、`wiki/<種別>/` 配下の H・TEST・LEARN・DEC は `../../../../`）。
+
+> **フィールド定義の正本は [ontology.yaml](ontology.yaml) の `entities.*.fields`**（人間可読は [ontology.md](ontology.md)
+> 「frontmatter フィールド」）。以下の各節の YAML ブロックは**読み手向けの例示**であり、必須／省略可・語彙の判定は
+> オントロジー側が持つ。`/lint`（`check_fields`）が必須キーの欠落を **error**、宣言に無いキー（タイポ）を warning で弾く。
 
 ### 仮説レコード `projects/<slug>/wiki/hypotheses/<PREFIX>-H-NNN.md`
 
@@ -99,6 +105,7 @@ date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
 hypotheses: [H-NNN, ...]              # この実験が検証する仮説
 riskiest-assumption: 一文                  # 最もリスクの高い前提（この実験で崩れたら全体が崩れる一点）。検証前に記入。board の背骨
+data: real | simulated                # 省略可。この実験が何のデータで作られるか（架空判定の正本。下記「確信度とステータス」）
 ```
 
 本文＝**テストカード**（検証前に記入・後から書き換えない。後知恵バイアス防止）: 目的／方法／指標／成功基準。
@@ -114,11 +121,28 @@ date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
 learns-from: <PREFIX>-TEST-NNN        # 省略可。実施した実験計画(TEST)。回顧型（desk-research/self-reflection 等）は持たない
 hypotheses: [H-NNN, ...]             # この学びが確信度を動かした仮説
-outcome: 起票|支持|反証|判断保留|是正       # 検証の判定。board サマリへ射影
+outcome: <判定>                       # 検証の判定。語彙の正本は ontology.md「検証判定」。board サマリへ射影
+sources: [YYYY-MM-DD-....md, ...]    # 根拠となった生データ（sources/ 基準の相対パス）。下記「出典（プロヴェナンス）」参照
+data: real | simulated               # 省略可。この学びが何のデータで作られたか（架空判定の正本。下記「確信度とステータス」）
 ```
 
 本文＝**学習カード**（検証後に記入・新規作成で積む）: **学びの要点**（board へ射影する一行の見出し的学び）／事実（observed）／解釈（inference）／驚き・想定外／確信度の更新テーブル／次のアクション。
 計画型は `learns-from` で TEST を参照し（board で1実験に束ねる）、回顧型（desk-research/self-reflection/chabudai）は TEST を持たず学びを直接作成する。
+
+#### 出典（プロヴェナンス） — 確信度の根拠鎖の末端
+
+学び(LEARN)は `sources` で**根拠となった生データ**（不変層 `projects/<slug>/sources/` 配下）を指す。これにより
+確信度の根拠鎖が端まで繋がる: **`H の確信度履歴` → `[[LEARN-NNN]]` → `sources/<生データ>`**。
+frontmatter と本文の**二重表現**で書く（本文は相対mdリンク。生データは接頭辞つきノートでないので wikilink は解決しない）:
+
+```markdown
+生データ: [2026-07-17-problem-interviews-sim.md](../../sources/2026-07-17-problem-interviews-sim.md)
+```
+
+仕様の正本は [ontology.yaml](ontology.yaml) の `provenance` 節（人間可読は [ontology.md](ontology.md)）。`/lint` が検証する:
+出典パスの実在（**error**）／観測を伴う活動種別（interview・demo 等）での欠落／**確信度を上げた履歴行が指す
+LEARN に出典が無い**（根拠鎖の断絶）／どの学びからも参照されていない生データ（取り込み忘れ）。
+**生データ冒頭の架空/シミュレーション宣言はここから読まれる**（`fictional-cap` 判定の一次情報）。
 
 ### 意思決定レコード `projects/<slug>/wiki/decisions/<PREFIX>-DEC-NNN.md`
 
@@ -133,6 +157,33 @@ to-stage: CPF|FPF|PSF|SPF|PMF        # ステージを動かす判断（stage-tr
 
 本文: 確信度スナップショット（全重要仮説の当時の値）／選択肢と判断理由／巻き戻しポイント
 （この判断が誤りと判明したときどの仮説状態・どの問いに戻るか）／次の一手（前向きの戦略的現在地。board の「現在地」へ射影）。
+
+### スクリプト（付随物） `projects/<slug>/wiki/tests/<PREFIX>-TEST-NNN-script.md`
+
+`/planning` が interview/demo のテストカード（TEST）と対で作る現場用の会話台本。**レコードではなく
+付随物（attachments）**で、独自のID体系を持たない（ファイル名＝`<親テストカードID>-script.md`・置き場は親と同じ
+`wiki/tests/`）。それでいて**型付きリンクには参加する**ので `/lint` がリンク切れ・型違反を検出する。
+
+```yaml
+id: <PREFIX>-TEST-NNN-script          # ファイル名と一致（＝親テストカードID + -script）
+title: 短いタイトル
+type: problem-interview | solution-interview | demo   # 基にした雛形（templates/<type>-script.md）
+script-for: <PREFIX>-TEST-NNN         # 親テストカード（必須・単一）
+hypotheses: [<PREFIX>-H-NNN, ...]     # 省略可。台本が実際に当てる仮説（親の検証対象の部分集合）
+```
+
+`date`・`stage` は持たない（親テストカードから導ける＝二重管理を作らない）。`hypotheses` を省略可にしているのは、
+**発見型のスクリプトは既存仮説を相手に語らない**設計で、仮説を宣言すると台本の意図と食い違うため。
+本文で背景として別の仮説に言及するのは正当なので、逆向き（本文の wikilink をすべて宣言せよ）は課さない。
+
+付随物は**生成ビューに現れない**（board・list・index・relations のいずれもレコードだけを射影する）。したがって親テストカード本文から
+相対mdリンクで参照して到達可能にする（`スクリプト: [<PREFIX>-TEST-NNN-script.md](<PREFIX>-TEST-NNN-script.md)`）。
+仕様の正本は [ontology.yaml](ontology.yaml) の `attachments` 節（人間可読は [ontology.md](ontology.md)「付随物」）。
+
+> **なぜレコード（エンティティ）にしないか**: ステム `<PREFIX>-TEST-NNN-script` には `-TEST-` が含まれるため、
+> レコードとして読み込むと `tools/records.py` の `entity_of` が `TEST` を返し、`"-TEST-" in stem` で書かれた箇所
+> （board/list/index 生成・テストカード不変チェック）がスクリプトを実験計画として飲み込む。読み取り層は
+> `records` と `attachments` を別コレクションに保つ。種別の解決は `node_kind`（付随物を先に判定する）を使う。
 
 ### プロトタイプ生成物 `projects/<slug>/wiki/prototypes/<PREFIX>-TEST-NNN/index.html`
 
@@ -154,7 +205,11 @@ demo/interview の実験計画（TEST）に紐づく（TESTのテストカード
 [ontology.md](ontology.md) の「証拠の階梯」（`evidence-ladder`）。
 
 - 確信度 5-6 に上げるには〈自認〉以上、7-8 には〈実コスト〉か〈行動〉以上の証拠を要する。〈発言〉だけで上げない（interest ≠ intent）。
-- **架空/シミュレーションデータ由来の確信度は上限8**。9-10 は実観測に限る。
+- **架空/シミュレーションデータ由来の確信度は上限8**。9-10 は実観測に限る。由来の判定の正本は
+  TEST/LEARN の frontmatter **`data: real | simulated`**（そのレコードが*何のデータで作られたか*。
+  *何について書いてあるか*ではない）。未宣言なら 出典冒頭の架空宣言 → 本文マーカー語（未宣言かつ
+  出典なしのときだけ）の順に推論するが、推論は語の出現を見るので、架空データを**論じた**是正・監査
+  レコードを誤分類しうる。**TEST/LEARN には `data` を明示する**（`/lint` の `data-provenance` が促す）。
 - 確信度履歴テーブルの「根拠」列は、先頭に証拠種別タグを付けて書く（例 `〈自認〉〈実コスト〉5名中3名が…`）。使える証拠種別タグ（階梯5段＋補助 〈二次〉〈架空〉）の正本は [ontology.md](ontology.md)（`evidence-ladder` ＋ `evidence-aux`）。
 - 「検証中なのに確信度 3-4」は異常ではない。**検証したが証拠が集まっていない**正当な状態（判断保留）であり、次の検証を計画する対象になる。
 
@@ -166,6 +221,7 @@ demo/interview の実験計画（TEST）に紐づく（TESTのテストカード
 4. `projects/<slug>/wiki/views/`・`projects/<slug>/wiki/index.md`・`projects/<slug>/wiki/prototypes/` は生成物。記録の修正はレコード側で行い、生成物は再生成する（`index.md` はビュー `gen_views.py index`）
 5. ID採番は**種別×プロジェクトごと**に既存最大値+1で、プロジェクト接頭辞つき（例 `SELF-H-001`）。IDの再利用禁止（取り下げた番号は欠番として残す）
 6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。テストカード（TEST）の成功基準・riskiest-assumption は検証開始後に書き換えない（後知恵バイアス防止。学び LEARN が紐づいた TEST の変更は `check_testcard_immutable.py` が検出する）
+7. **確信度を動かした学び(LEARN)は、根拠となった生データを `sources` で指す**（出典なき確信度上昇を作らない）。根拠鎖 `H の確信度履歴 → [[LEARN-NNN]] → sources/<生データ>` を端まで繋ぐ。frontmatter と本文の相対mdリンクの二重表現で書く（上記「出典（プロヴェナンス）」）
 
 ## ステージと重要度
 

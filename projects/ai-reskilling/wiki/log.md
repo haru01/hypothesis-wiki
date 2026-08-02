@@ -23,3 +23,5 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-24] self-reflection | AIRE-TEST-004 → AIRE-LEARN-002 に移行（回顧型・学び分離）。AIRE-TEST-004 は欠番として取り下げ・再利用しない
 
 ## [2026-07-25] self-reflection | レコード種別 ACT を TEST に改名（ディレクトリ activities→tests・日本語ラベル『実験計画』に統一）。純粋な機械リネームで確信度・ステータス・出来事の意味は不変
+
+## [2026-07-29] self-reflection | 旧スキル名（/ingest→/learning 等）の参照を現行名へ更新し、壊れた相対リンクを修正 → 確信度・ステータスは不変

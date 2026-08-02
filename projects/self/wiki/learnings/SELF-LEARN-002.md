@@ -7,6 +7,8 @@ stage: CPF
 learns-from: SELF-TEST-002
 hypotheses: [SELF-H-001, SELF-H-002, SELF-H-003, SELF-H-004, SELF-H-005, SELF-H-006, SELF-H-007, SELF-H-008]
 outcome: 支持
+sources: [2026-07-17-problem-interviews-sim.md]
+data: simulated  # 架空/シミュレーション由来（確信度は fictional-cap で頭打ち）
 ---
 
 
@@ -15,7 +17,7 @@ outcome: 支持
 対象仮説: [[SELF-H-001]] [[SELF-H-002]] [[SELF-H-003]] [[SELF-H-004]] [[SELF-H-005]] [[SELF-H-006]] [[SELF-H-007]] [[SELF-H-008]]
 実験計画: [[SELF-TEST-002]]
 
-生データ: `sources/2026-07-17-problem-interviews-sim.md`（⚠️架空・実データ未検証）
+生データ: [2026-07-17-problem-interviews-sim.md](../../sources/2026-07-17-problem-interviews-sim.md)（⚠️架空・実データ未検証）
 
 ## 学習カード（検証後に記入）
 

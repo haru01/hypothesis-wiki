@@ -6,6 +6,7 @@ date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
 hypotheses: [<PREFIX>-H-NNN]   # 接頭辞つきで書く（例 [SELF-H-001]）。この実験が検証する仮説
 riskiest-assumption: 最もリスクの高い前提を一文で（この実験で崩れたら全体が崩れる一点）
+data: real | simulated   # 省略可。この実験が「何のデータで作られるか」（架空判定の正本。real=実観測 / simulated=生成データ）
 ---
 
 # 短いタイトル

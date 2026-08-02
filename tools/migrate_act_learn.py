@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """一度きりの移行スクリプト: 活動レコード(ACT)を「実験計画(ACT=テストカード)」と
-「学び(LEARN=学習カード)」に分割する（docs/migrations/2026-07-act-learn-split.md 参照）。
+「学び(LEARN=学習カード)」に分割する
+（適用済み。移行手順書 docs/migrations/2026-07-act-learn-split.md は git 履歴にある）。
 
 分類（明示・データ駆動）:
   SPLIT   計画型で学習カード記入済み  → ACT はテストカードのみに縮小し、新規 LEARN を作成（learns-from=ACT）

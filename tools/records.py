@@ -18,6 +18,9 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ontology import (  # noqa: E402
     ID_RE, STAGE_FOCUS, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
+    ENTITY_INFIXES, RECORD_DIRS, PROVENANCE, FICTIONAL_MARKERS,
+    ATTACHMENTS, ATTACHMENT_SUFFIXES, ATTACHMENT_DIRS,
+    DATA_FIELD, DATA_SIMULATED,
 )
 
 HISTORY_HEADER = "## 確信度履歴"
@@ -58,11 +61,41 @@ def parse_id_array(value: str) -> list:
 
 
 def entity_of(stem: str) -> str:
-    """レコード stem からエンティティ種別（H/TEST/LEARN/DEC）を返す。該当なしは空。"""
-    for infix in ("H", "TEST", "LEARN", "DEC"):
+    """レコード stem からエンティティ種別（H/TEST/LEARN/DEC）を返す。該当なしは空。
+
+    種別の一覧は ontology.yaml の entities が正本（ENTITY_INFIXES 経由。ここに再定義しない）。"""
+    for infix in ENTITY_INFIXES:
         if f"-{infix}-" in stem:
             return infix
     return ""
+
+
+def attachment_of(stem: str) -> str:
+    """付随物のステムから種別（SCRIPT 等）を返す。該当なしは空。
+
+    識別は suffix でおこなう（付随物は独自のID体系を持たないので ID_RE は使えない）。
+    種別・suffix の正本は ontology.yaml の attachments。"""
+    for suffix, name in ATTACHMENT_SUFFIXES.items():
+        if stem.endswith(suffix):
+            return name
+    return ""
+
+
+def node_kind(stem: str) -> str:
+    """ステムからノード種別（エンティティ または 付随物）を返す。該当なしは空。
+
+    **付随物を先に判定する順序が本質的**。`SELF-TEST-006-script` には `-TEST-` が含まれるため
+    entity_of は "TEST" という真値を返してしまい、逆順にすると付随物が実験計画として
+    検証され（date/stage/riskiest-assumption の欠落 error が湧く）、分離の意味が消える。"""
+    return attachment_of(stem) or entity_of(stem)
+
+
+def source_paths(fm: dict) -> list:
+    """frontmatter の出典キー（provenance.field＝sources）を相対パス配列で返す。
+
+    値は parse_frontmatter の契約どおり "[a, b]" 形式の文字列なので parse_id_array を流用する
+    （ID でなくパスだが、カンマ区切り配列の解析としては同一）。"""
+    return parse_id_array(fm.get(PROVENANCE.field, ""))
 
 
 def strip_frontmatter(text: str) -> str:
@@ -110,6 +143,51 @@ def referenced_ids(project, field, infix=None, where=None) -> set:
     return out
 
 
+def fictional_source(project, fm) -> str:
+    """出典のうち、冒頭に架空マーカーを宣言している最初の生データの相対パス（無ければ空）。
+
+    `sources/README.md` は生データ冒頭への架空宣言を要求している。その宣言を実際に読む
+    （不変層の一次情報なので、レコード側の宣言では上書きさせない）。"""
+    for rel in source_paths(fm):
+        if any(m in project.source_header(rel) for m in FICTIONAL_MARKERS):
+            return rel
+    return ""
+
+
+def fictional_reason(project, stem) -> str:
+    """TEST/LEARN 1件が架空/シミュレーション由来と判定される**理由**を返す。該当なしは空。
+
+    強い順に3経路。返り値は "declared"（frontmatter data の宣言）／"source"（出典冒頭の宣言）／
+    "marker"（本文マーカー語のフォールバック）:
+
+    1. `data` の宣言 — **宣言が正本**。「そのレコードが何のデータで作られたか」を著者が明示する。
+       `simulated` なら架空、`real` なら**以降の推論を見ない**。
+    2. 出典（provenance）冒頭の架空宣言 — 不変層の一次情報。宣言が無いときの推論。
+    3. 本文マーカー語 — **`data` 未宣言 かつ 出典を1件も持たない**レコードだけに効く後方互換の
+       フォールバック。
+
+    2 も 3 も語の出現を見る推論なので、「何のデータで作られたか」でなく「何について書いてあるか」を
+    拾ってしまう（旧 AR-12）。3 は本文が、2 は生データ冒頭が、他レコードの架空性に言及しただけで
+    当たる（例: 架空データを論じた揺さぶり監査メモ）。**不変層は書き換えられない**（不変ルール3）ので
+    2 の誤検出は出典側では直せない。だから `data: real` は 2 も打ち消せる必要がある。
+    宣言と出典が食い違うときは lint の data-provenance が warning で鳴らし、上書きを不可視にしない。"""
+    _, fm, body = project.records[stem]
+    declared = fm.get(DATA_FIELD, "").strip()
+    if declared:
+        return "declared" if declared == DATA_SIMULATED else ""
+    if fictional_source(project, fm):
+        return "source"
+    return "marker" if not source_paths(fm) and any(m in body for m in FICTIONAL_MARKERS) else ""
+
+
+def fictional_activities(project) -> set:
+    """架空/シミュレーション由来と判定される TEST/LEARN の stem 集合（lint とビューで共有）。
+
+    判定の正本は fictional_reason（宣言 → 出典 → 本文マーカーの順）。ここはそれを畳むだけ。"""
+    return {stem for stem in project.records
+            if ("-TEST-" in stem or "-LEARN-" in stem) and fictional_reason(project, stem)}
+
+
 def importance(fm, stage) -> int:
     """仮説の重要度。手動指定(1-10)が優先。auto は現ステージの重点タイプ=IMPORTANCE_FOCUS・
     それ以外=IMPORTANCE_OTHER（重みの正本は ontology.yaml の importance-weights）。"""
@@ -125,21 +203,28 @@ class Project:
         self.slug = root.name
         self.wiki = root / "wiki"
         self.records = {}
+        self.attachments = {}    # 付随物。records と分ける理由は node_kind の docstring を見よ
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
-        for sub in ("hypotheses", "tests", "learnings", "decisions"):
+        for sub in RECORD_DIRS:            # 置き場の正本は ontology.yaml の entities.*.dir
             d = self.wiki / sub
             if not d.is_dir():
                 continue
             for p in sorted(d.glob("*.md")):
                 if not ID_RE.match(p.stem):
-                    if not p.stem.endswith("-script"):
+                    kind = attachment_of(p.stem)
+                    if kind and ATTACHMENT_DIRS[kind] == sub:
+                        text = p.read_text(encoding="utf-8")
+                        self.attachments[p.stem] = (p, parse_frontmatter(text), text)
+                    else:
                         self.stray.append(p)
                     continue
                 text = p.read_text(encoding="utf-8")
                 self.records[p.stem] = (p, parse_frontmatter(text), text)
                 if "-H-" in p.stem:
                     self.history[p.stem] = parse_history(text)
+        # レコード ∪ 付随物。**リンク系のチェックだけ**がこれを使う（射影・集計は records のみ）。
+        self.nodes = {**self.records, **self.attachments}
         log_path = self.wiki / "log.md"
         self.log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
 
@@ -182,8 +267,48 @@ class Project:
         # ③ slug から単一トークンを正規化（ハイフン等の非英数を落とす。ID_RE と整合）
         return re.split(r"[^A-Z0-9]+", self.slug.upper())[0]
 
+    @property
+    def sources_dir(self) -> Path:
+        """不変層（生データ）のディレクトリ。基準名の正本は ontology.yaml の provenance.base-dir。"""
+        return self.root / PROVENANCE.base_dir
+
+    @cached_property
+    def source_files(self) -> set:
+        """sources/ 配下の生データの相対パス集合（README.md と隠しファイルは除く）。
+
+        出典の実在検証・取り込み忘れ（orphan）検出に使う。**読むだけ**で不変層は触らない。"""
+        d = self.sources_dir
+        if not d.is_dir():
+            return set()
+        return {str(p.relative_to(d)) for p in sorted(d.rglob("*"))
+                if p.is_file() and p.name != "README.md" and not p.name.startswith(".")}
+
+    def source_header(self, rel: str) -> str:
+        """生データ冒頭 N 行（N の正本は provenance.fictional-header-scan-lines）。
+
+        架空/シミュレーション宣言（`sources/README.md` が冒頭に明記させるもの）を
+        fictional-cap 判定の一次情報として読むために使う。存在しないパスは空文字。"""
+        p = self.sources_dir / rel
+        if not p.is_file():
+            return ""
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            return ""
+        return "\n".join(lines[:PROVENANCE.fictional_header_scan_lines])
+
     def hyp_records(self):
         """仮説レコードを (stem, fm, body, history) で列挙する。history はキャッシュ済み。"""
         for stem, (_, fm, body) in self.records.items():
             if "-H-" in stem:
                 yield stem, fm, body, self.history[stem]
+
+    def iter_attachments(self):
+        """付随物を (stem, fm, body, 種別宣言, 親レコードID) で列挙する。
+
+        付随物の解決（suffix → 種別 → 親ID）は付随物を見る全チェックが冒頭で必ず行うので、
+        hyp_records と同じくここに1回だけ書く。親レコード自体は用途がまちまち（frontmatter が
+        要る／本文が要る／存在の有無だけ要る）なので、呼び手が `project.records` を引く。"""
+        for stem, (_, fm, body) in self.attachments.items():
+            a = ATTACHMENTS[attachment_of(stem)]
+            yield stem, fm, body, a, a.parent_of(stem)
