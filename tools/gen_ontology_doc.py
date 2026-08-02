@@ -53,6 +53,20 @@ def build() -> str:
             L.append(f"- **`{key}`（{ent['label']}）** — {ent['description']}")
         L.append("")
 
+    # 凍結（不変ルール6）の適用範囲。教義と実装が同じ宣言を指すための一覧。
+    if ontology.IMMUTABLE:
+        L += ["### 凍結（不変ルール6）", "",
+              "実施済みレコードのうち**後から書き換えてはいけない範囲**の宣言。"
+              "「実施済み」＝発火関係でそのレコードを指す相手が在ること。"
+              "ここに挙がっていない部分（目的・方法・指標の補正、リンク追加、誤字修正）は実施後も直してよい。"
+              "`check_testcard_immutable.py` と `hwlint.py` の `testcard-sections` がこの宣言を読む。", "",
+              "| 種別 | 発火（実施済みの判定） | 凍結する本文節 | 凍結する frontmatter キー |", "|---|---|---|---|"]
+        for key, im in ontology.IMMUTABLE.items():
+            secs = "・".join(f"`{s}`" for s in im.sections) or "—"
+            keys = "・".join(f"`{f}`" for f in im.fields) or "—"
+            L.append(f"| `{key}` | `{im.trigger_relation}` で指されている | {secs} | {keys} |")
+        L.append("")
+
     # frontmatter フィールド（スキーマ＝契約）。必須欠落は error・未宣言キーは warning として lint が弾く。
     L += ["### frontmatter フィールド（スキーマ＝契約）", "",
           "各レコードが持つ frontmatter キーの宣言。**必須の欠落は error、宣言に無いキーは warning** として "

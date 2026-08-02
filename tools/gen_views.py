@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from records import (  # noqa: E402
     Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
-    testcard, source_paths, fictional_activities,
+    testcard, card_section, source_paths, fictional_activities,
 )
 from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（診断・下流依存度。辺集合の単一の入口）
@@ -94,16 +94,14 @@ def collapse(text: str) -> str:
 
 
 def field_value(section: str, label: str) -> str:
-    """テストカードのフィールドを逐語抽出。見出し形式（### 方法）と箇条書き形式
-    （- **方法**: …、成功基準（開始前に確定）等の接尾辞・多行ネストも可）の両方に対応する。"""
-    m = re.search(rf"^###\s*{label}[^\n]*\n(.*?)(?=\n##|\Z)", section, re.DOTALL | re.MULTILINE)
-    if not m:
-        # 箇条書き形式。太字の内外どちらの接尾辞（**方法**: / **成功基準**（開始前に確定）:）にも対応。
-        m = re.search(rf"^-\s*\*\*{label}[^*\n]*\*\*[^:：\n]*[:：]\s*(.*?)(?=\n-\s*\*\*|\n###|\n##|\Z)",
-                      section, re.DOTALL | re.MULTILINE)
-    if not m:
+    """テストカードのフィールドを board 用に1行へ畳んで返す（無ければ "—"）。
+
+    抽出そのものは records.card_section に一元化してある（不変チェックと同じ読み取りを使う）。
+    ここに残すのは表示都合の整形だけ: 表を落とし、空白を畳み、不在を "—" で埋める。"""
+    block = card_section(section, label)
+    if block is None:
         return "—"
-    block = re.split(r"\n\s*\|", m.group(1), maxsplit=1)[0]   # 表はサマリから落とす（詳細はレコード参照）
+    block = re.split(r"\n\s*\|", block, maxsplit=1)[0]   # 表はサマリから落とす（詳細はレコード参照）
     return collapse(block)
 
 
