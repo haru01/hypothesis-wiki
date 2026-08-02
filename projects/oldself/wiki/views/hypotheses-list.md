@@ -1,7 +1,7 @@
 <!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-08-02（ステージ CPF） / ontology-version: 2 -->
 <!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
-# 全仮説リスト（self）
+# 全仮説リスト（oldself）
 
 現在ステージ: **CPF**。重要度は CPF 重点タイプ=8・その他=4 で算出（frontmatter 射影）。★=核心仮説（`core`）。関連列は ← 派生元／→ 因果先（`leads-to`）／検証活動 TEST・学び LEARN。
 

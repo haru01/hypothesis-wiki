@@ -1,7 +1,7 @@
 <!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-08-02（ステージ CPF） / ontology-version: 2 -->
 <!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
-# ジャベリン実験ボード（self）
+# ジャベリン実験ボード（oldself）
 
 各実験（実験計画 TEST ＋ 学び LEARN）を date 昇順に並べる。「最もリスクの高い前提」はTEST frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN（`learns-from`）の学習カード `学びの要点`・frontmatter `outcome`、「判断」は当該 TEST/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。回顧型（desk-research 等）は計画を持たない LEARN 単独の実験として出る。
 

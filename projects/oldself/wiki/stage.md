@@ -2,8 +2,13 @@
 
 ```yaml
 current-stage: CPF
+prefix: SELF
 updated: 2026-07-19
 ```
+
+> **この案件は凍結したアーカイブ**（旧 `self`）。サンプルとして読み解きづらくなったため 2026-08-02 に
+> `projects/oldself/` へ退避し、検証の続行をやめた。**レコードID は `SELF-*` のまま**（不変層 `sources/` の
+> 参照を壊さないため接頭辞は変えていない）。作り直した現行サンプルは `projects/self/`（接頭辞 `HW`）にある。
 
 現在のステージは **CPF（Customer Problem Fit）**。一度 [[SELF-DEC-001]] で FPF に移行したが、揺さぶり監査（[[SELF-LEARN-005]]）で核心クラスタの「検証済み」が架空データ依存だったと判明し、[[SELF-DEC-002]] で **CPF に巻き戻した**。
 
