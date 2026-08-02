@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-08-01（ステージ CPF） / ontology-version: 2 -->
+<!-- 生成物: gen_views.py board による機械生成。手編集禁止。`python3 tools/gen_views.py board` で再生成する。生成基準日: 2026-08-02（ステージ CPF） / ontology-version: 2 -->
 <!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # ジャベリン実験ボード（self）
