@@ -17,12 +17,23 @@ description: 仮説検証活動（CPF→FPF→PSF→SPF→PMF）を通じて育�
 
 ### self — この Wiki 自身の仮説検証
 
-Wiki というプロダクト自体を題材にした仮説検証。
+Wiki というプロダクト自体を題材にした仮説検証。デスクリサーチで課題仮説の種を取り、
+反証可能な仮説5件に起こして最初の検証計画を立てたところ（CPF・一次インタビューは未実施）。
 
 - [[projects/self/wiki/index|仮説インデックス]] — 全仮説の現在の確信度・ステータス
 - [[projects/self/wiki/views/board|ボード]] — 仮説・実験・学び・意思決定を1枚で
 - [[projects/self/wiki/views/relations|関係グラフ]] — レコード間の型付きリンク
 - [[projects/self/wiki/log|活動ログ]]
+
+### oldself — 旧 self（凍結アーカイブ）
+
+上の self の前身。CPF→FPF 移行 → LP 提示で反証 → 揺さぶり監査 → FPF→CPF 巻き戻し、まで一巡した記録。
+サンプルとしては読み解きづらくなったため検証を止め、退避した（レコードIDの接頭辞は `OLDSELF-`）。
+
+- [[projects/oldself/wiki/index|仮説インデックス]]
+- [[projects/oldself/wiki/views/board|ボード]]
+- [[projects/oldself/wiki/views/relations|関係グラフ]]
+- [[projects/oldself/wiki/log|活動ログ]]
 
 ### ai-reskilling — AI時代のリスキリング
 

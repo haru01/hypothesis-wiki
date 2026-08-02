@@ -1,5 +1,5 @@
 <!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-08-02（ステージ CPF） / ontology-version: 2 -->
-<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-004]] [[SELF-LEARN-006]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
+<!-- ⚠️ 架空/シミュレーションデータを含む活動: [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-003]] [[OLDSELF-LEARN-004]] [[OLDSELF-LEARN-006]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-003]] [[OLDSELF-TEST-004]]。これら由来の確信度・判断は実データ未検証。 -->
 
 # 全仮説リスト（oldself）
 
@@ -10,68 +10,68 @@
 ```mermaid
 flowchart TB
     subgraph beh["状況・行動"]
-      SELF_H_001["H-001 検証を反復<br/>確信度4 🔄検証中"]
-      SELF_H_002["H-002 学びが散在<br/>確信度4 🔄検証中"]
-      SELF_H_003["H-003 報告駆動更新<br/>確信度3 🔄検証中"]
+      OLDSELF_H_001["H-001 検証を反復<br/>確信度4 🔄検証中"]
+      OLDSELF_H_002["H-002 学びが散在<br/>確信度4 🔄検証中"]
+      OLDSELF_H_003["H-003 報告駆動更新<br/>確信度3 🔄検証中"]
     end
     subgraph prob["切実な課題"]
-      SELF_H_004["H-004★ 記録が残らない<br/>確信度4 🔄検証中"]
-      SELF_H_005["H-005 確証バイアス<br/>確信度4 🔄検証中"]
-      SELF_H_006["H-006 偽の確証<br/>確信度4 🔄検証中"]
-      SELF_H_007["H-007 反証不能な仮説<br/>確信度4 🔄検証中"]
-      SELF_H_008["H-008 説明できず停滞<br/>確信度4 🔄検証中"]
+      OLDSELF_H_004["H-004★ 記録が残らない<br/>確信度4 🔄検証中"]
+      OLDSELF_H_005["H-005 確証バイアス<br/>確信度4 🔄検証中"]
+      OLDSELF_H_006["H-006 偽の確証<br/>確信度4 🔄検証中"]
+      OLDSELF_H_007["H-007 反証不能な仮説<br/>確信度4 🔄検証中"]
+      OLDSELF_H_008["H-008 説明できず停滞<br/>確信度4 🔄検証中"]
     end
     subgraph sol["ソリューション"]
-      SELF_H_009["H-009 AI支援+記録+レポート<br/>確信度2 ❌反証"]
-      SELF_H_010["H-010 対価/乗り換え<br/>確信度2 ❌反証"]
+      OLDSELF_H_009["H-009 AI支援+記録+レポート<br/>確信度2 ❌反証"]
+      OLDSELF_H_010["H-010 対価/乗り換え<br/>確信度2 ❌反証"]
     end
-    SELF_H_001 --> SELF_H_004
-    SELF_H_001 --> SELF_H_006
-    SELF_H_002 --> SELF_H_004
-    SELF_H_002 --> SELF_H_009
-    SELF_H_003 --> SELF_H_008
-    SELF_H_004 --> SELF_H_008
-    SELF_H_004 --> SELF_H_009
-    SELF_H_006 --> SELF_H_009
-    SELF_H_008 --> SELF_H_009
-    SELF_H_009 --> SELF_H_010
+    OLDSELF_H_001 --> OLDSELF_H_004
+    OLDSELF_H_001 --> OLDSELF_H_006
+    OLDSELF_H_002 --> OLDSELF_H_004
+    OLDSELF_H_002 --> OLDSELF_H_009
+    OLDSELF_H_003 --> OLDSELF_H_008
+    OLDSELF_H_004 --> OLDSELF_H_008
+    OLDSELF_H_004 --> OLDSELF_H_009
+    OLDSELF_H_006 --> OLDSELF_H_009
+    OLDSELF_H_008 --> OLDSELF_H_009
+    OLDSELF_H_009 --> OLDSELF_H_010
 ```
 
 ## 状況・行動仮説
 
 | ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |
 |---|---|---|---|---|---|---|
-| [[SELF-H-001]] | 実践者は作る前に検証を反復する | 4 | 🔄検証中 | 8 | → [[SELF-H-004]] [[SELF-H-006]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
-| [[SELF-H-002]] | 学びが複数ツールに散在し集約されない | 4 | 🔄検証中 | 8 | ← [[SELF-H-001]] ・ → [[SELF-H-004]] [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
-| [[SELF-H-003]] | 仮説の更新は報告サイクルに駆動される | 3 | 🔄検証中 | 8 | ← [[SELF-H-001]] ・ → [[SELF-H-008]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロで、実観測は [[SELF-… |
+| [[OLDSELF-H-001]] | 実践者は作る前に検証を反復する | 4 | 🔄検証中 | 8 | → [[OLDSELF-H-004]] [[OLDSELF-H-006]] ・ [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-003]] [[OLDSELF-LEARN-005]] [[OLDSELF-LEARN-007]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-003]] [[OLDSELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
+| [[OLDSELF-H-002]] | 学びが複数ツールに散在し集約されない | 4 | 🔄検証中 | 8 | ← [[OLDSELF-H-001]] ・ → [[OLDSELF-H-004]] [[OLDSELF-H-009]] ・ [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-003]] [[OLDSELF-LEARN-005]] [[OLDSELF-LEARN-007]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-003]] [[OLDSELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
+| [[OLDSELF-H-003]] | 仮説の更新は報告サイクルに駆動される | 3 | 🔄検証中 | 8 | ← [[OLDSELF-H-001]] ・ → [[OLDSELF-H-008]] ・ [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-007]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロで、実観測は [[OLDSE… |
 
 ## 課題仮説
 
 | ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |
 |---|---|---|---|---|---|---|
-| [[SELF-H-004]]★ | 記録が残らず散逸・属人化し過去の学びが忘れられる | 4 | 🔄検証中 | 8 | → [[SELF-H-008]] [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
-| [[SELF-H-005]] | 確証バイアスで反証を軽視し過大評価する | 4 | 🔄検証中 | 8 | [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-TEST-002]] | 架空5名の**自認は5/5だが実コストは0/5**。課題として実在するが実践者は「買って… |
-| [[SELF-H-006]] | 好意的反応を購買意向と取り違え偽の確証で前進する | 4 | 🔄検証中 | 8 | → [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
-| [[SELF-H-007]] | 反証不能な曖昧仮説を成功基準なしで検証する | 4 | 🔄検証中 | 8 | [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-TEST-002]] | 架空5名中、成功基準を決めていないは一致するが**自認3/5・実コスト0/5**と痛みの… |
-| [[SELF-H-008]] | 検証の根拠を経営層に説明できず合意形成が停滞する | 4 | 🔄検証中 | 8 | ← [[SELF-H-004]] ・ → [[SELF-H-009]] ・ [[SELF-LEARN-001]] [[SELF-LEARN-002]] [[SELF-LEARN-003]] [[SELF-LEARN-005]] [[SELF-LEARN-006]] [[SELF-LEARN-007]] [[SELF-TEST-002]] [[SELF-TEST-003]] [[SELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
+| [[OLDSELF-H-004]]★ | 記録が残らず散逸・属人化し過去の学びが忘れられる | 4 | 🔄検証中 | 8 | → [[OLDSELF-H-008]] [[OLDSELF-H-009]] ・ [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-003]] [[OLDSELF-LEARN-005]] [[OLDSELF-LEARN-006]] [[OLDSELF-LEARN-007]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-003]] [[OLDSELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
+| [[OLDSELF-H-005]] | 確証バイアスで反証を軽視し過大評価する | 4 | 🔄検証中 | 8 | [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-TEST-002]] | 架空5名の**自認は5/5だが実コストは0/5**。課題として実在するが実践者は「買って… |
+| [[OLDSELF-H-006]] | 好意的反応を購買意向と取り違え偽の確証で前進する | 4 | 🔄検証中 | 8 | → [[OLDSELF-H-009]] ・ [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-003]] [[OLDSELF-LEARN-005]] [[OLDSELF-LEARN-007]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-003]] [[OLDSELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
+| [[OLDSELF-H-007]] | 反証不能な曖昧仮説を成功基準なしで検証する | 4 | 🔄検証中 | 8 | [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-TEST-002]] | 架空5名中、成功基準を決めていないは一致するが**自認3/5・実コスト0/5**と痛みの… |
+| [[OLDSELF-H-008]] | 検証の根拠を経営層に説明できず合意形成が停滞する | 4 | 🔄検証中 | 8 | ← [[OLDSELF-H-004]] ・ → [[OLDSELF-H-009]] ・ [[OLDSELF-LEARN-001]] [[OLDSELF-LEARN-002]] [[OLDSELF-LEARN-003]] [[OLDSELF-LEARN-005]] [[OLDSELF-LEARN-006]] [[OLDSELF-LEARN-007]] [[OLDSELF-TEST-002]] [[OLDSELF-TEST-003]] [[OLDSELF-TEST-006]] | 〈二次〉根拠不足のため減点。確信度履歴に証拠の階梯タグがゼロ（〈架空〉は階梯外の補助タグ… |
 
 ## ソリューション仮説
 
 | ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |
 |---|---|---|---|---|---|---|
-| [[SELF-H-009]] | AI支援＋構造化記録が既存ツールより核心課題を解決する | 2 | ❌反証 | 4 | ← [[SELF-H-004]] ・ → [[SELF-H-010]] ・ [[SELF-LEARN-004]] [[SELF-LEARN-006]] [[SELF-TEST-004]] | LP提示の架空インタビューで、AI支援が「浅い・一般論的」と受け取られ、記録形式も共同編… |
-| [[SELF-H-010]] | 実践者は対価を払い既存ツールから乗り換える | 2 | ❌反証 | 4 | ← [[SELF-H-009]] ・ [[SELF-LEARN-004]] [[SELF-LEARN-006]] [[SELF-TEST-004]] | 架空LP提示で、好反応でも乗り換え/支払いの行動的意向は2/10のみ。Miro派が乗り換… |
+| [[OLDSELF-H-009]] | AI支援＋構造化記録が既存ツールより核心課題を解決する | 2 | ❌反証 | 4 | ← [[OLDSELF-H-004]] ・ → [[OLDSELF-H-010]] ・ [[OLDSELF-LEARN-004]] [[OLDSELF-LEARN-006]] [[OLDSELF-TEST-004]] | LP提示の架空インタビューで、AI支援が「浅い・一般論的」と受け取られ、記録形式も共同編… |
+| [[OLDSELF-H-010]] | 実践者は対価を払い既存ツールから乗り換える | 2 | ❌反証 | 4 | ← [[OLDSELF-H-009]] ・ [[OLDSELF-LEARN-004]] [[OLDSELF-LEARN-006]] [[OLDSELF-TEST-004]] | 架空LP提示で、好反応でも乗り換え/支払いの行動的意向は2/10のみ。Miro派が乗り換… |
 
 ## 次に検証すべき仮説（重要度8 × 確信度低 × 未検証/検証中・下流＝leads-to 推移閉包）
 
-- [[SELF-H-001]] 実践者は作る前に検証を反復する（確信度4・検証中 ・下流5）
-- [[SELF-H-002]] 学びが複数ツールに散在し集約されない（確信度4・検証中 ・下流4）
-- [[SELF-H-003]] 仮説の更新は報告サイクルに駆動される（確信度3・検証中 ・下流3）
-- [[SELF-H-004]] 記録が残らず散逸・属人化し過去の学びが忘れられる（確信度4・検証中 ・下流3）
-- [[SELF-H-006]] 好意的反応を購買意向と取り違え偽の確証で前進する（確信度4・検証中 ・下流2）
-- [[SELF-H-008]] 検証の根拠を経営層に説明できず合意形成が停滞する（確信度4・検証中 ・下流2）
-- [[SELF-H-005]] 確証バイアスで反証を軽視し過大評価する（確信度4・検証中）
-- [[SELF-H-007]] 反証不能な曖昧仮説を成功基準なしで検証する（確信度4・検証中）
+- [[OLDSELF-H-001]] 実践者は作る前に検証を反復する（確信度4・検証中 ・下流5）
+- [[OLDSELF-H-002]] 学びが複数ツールに散在し集約されない（確信度4・検証中 ・下流4）
+- [[OLDSELF-H-003]] 仮説の更新は報告サイクルに駆動される（確信度3・検証中 ・下流3）
+- [[OLDSELF-H-004]] 記録が残らず散逸・属人化し過去の学びが忘れられる（確信度4・検証中 ・下流3）
+- [[OLDSELF-H-006]] 好意的反応を購買意向と取り違え偽の確証で前進する（確信度4・検証中 ・下流2）
+- [[OLDSELF-H-008]] 検証の根拠を経営層に説明できず合意形成が停滞する（確信度4・検証中 ・下流2）
+- [[OLDSELF-H-005]] 確証バイアスで反証を軽視し過大評価する（確信度4・検証中）
+- [[OLDSELF-H-007]] 反証不能な曖昧仮説を成功基準なしで検証する（確信度4・検証中）
 
 ## タイプ別サマリ
 
