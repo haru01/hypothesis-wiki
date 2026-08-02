@@ -19,7 +19,7 @@ python3 tools/hwlint.py --all      # 全プロジェクト
 python3 tools/check_testcard_immutable.py --base origin/main   # 成功基準の事後書き換え（項目7）
 ```
 
-hwlint が機械的に担う部分（下記チェック項目のうち **1 の証拠リンク・5 の index/log 同期・6 の status↔confidence 矛盾（`status-confidence`）と証拠の階梯×確信度（`evidence-floor`）・8 の ID 整合・9 の架空上限の機械判定（履歴全行走査）・10 の関係の型検証と H→H 循環（`relation-cycle`）・2 の DEC 根拠欠落（`dec-based-on`）**、および status/type/stage/confidence の語彙・範囲などのスキーマ整合）と、`check_testcard_immutable.py` が担う **7 の成功基準の事後書き換え**は、スクリプトの出力をそのまま報告に転記する（再点検に時間を使わない）。LLM は残りの**意味的チェック**（2 の孤立の文脈判断・3 矛盾する仮説・4 長期放置・6 の機械判定を超える解釈・7 の機械検出が拾えない文脈判断・9 の「明示が十分か」の判断）に集中する。
+hwlint が機械的に担う部分（下記チェック項目のうち **1 の証拠リンク・5 の index/log 同期・6 の status↔confidence 矛盾（`status-confidence`）と証拠の階梯×確信度（`evidence-floor`）・8 の ID 整合・9 の架空上限の機械判定（履歴全行走査）・10 の関係の型検証と H→H 循環（`relation-cycle`）・2 の DEC 根拠欠落（`dec-based-on`）**、および status/type/stage/confidence の語彙・範囲などのスキーマ整合）と、`check_testcard_immutable.py` が担う **7 の成功基準の事後書き換え**は、スクリプトの出力をそのまま報告に転記する（再点検に時間を使わない）。LLM は残りの**意味的チェック**（2 の孤立の文脈判断・3 矛盾する仮説・4 長期放置・6 の機械判定を超える解釈・7 の機械検出が拾えない文脈判断・9 の「明示が十分か」の判断・11 未決着の反証・12 宙に浮いた次の一手）に集中する。11・12 は生成済みの `wiki/views/board.md`（「サマリ」表と「現在地」節）を材料にする。
 
 関係の型検証・二重表現は [ontology.yaml](../../../ontology.yaml) の宣言（domain/range/cardinality/inverse/must-wikilink）を単一の真実源とする。語彙(enum)も同様（`tools/ontology.py` 経由で hwlint が読む）。
 
@@ -38,6 +38,8 @@ hwlint が機械的に担う部分（下記チェック項目のうち **1 の�
 8. **ID の不整合** — 重複、種別ごとの最大値との齟齬。**欠番は一律に異常としない**: `wiki/log.md` に対応する「取り下げ」記録がある欠番は正常（取り下げ運用の結果）。記録のない欠番・ID重複のみを異常として検出する。あわせて **ファイル名と frontmatter `id` の整合** を確認する: `id` はファイル名と完全一致（接頭辞つき。例 `SELF-H-001.md` → `id: SELF-H-001`）であるべきで、接頭辞なし（`id: H-001`）やファイル名と異なる `id` は不整合として報告する。
 9. **架空/デモデータの未明示** — 確信度・「検証済み」の根拠が架空/デモ・シミュレーションデータ（`sources/` 冒頭に「架空」明記があるもの）なのに、仮説レコード・LEARN・ビューに「実データ未検証」の注記/フラグが無いもの。実証拠と誤認されうるため要対応として報告する。**確信度が上限（8）を超える行の架空根拠は hwlint が履歴全行を走査して `fictional-cap`（error）で検出する**（最終行だけでなく中間行の架空根拠も取りこぼさない）。LLM は「明示が十分か」の判断に集中する。
 10. **関係の型違反・二重表現の欠落**（機械判定） — frontmatter の関係リンクが [ontology.yaml](../../../ontology.yaml) の宣言に反するもの: 接頭辞なし・不在参照・range 種別違反（例: `hypotheses` が H でなく TEST を指す、`learns-from` が TEST 以外を指す）・cardinality 違反（単一関係 `derived-from`・`learns-from` に複数）・domain/range サブタイプ違反（例: 課題仮説が `addresses` を持つ／`addresses` が課題仮説以外を指す）を **error**（`refs`）で検出する。加えて `must-wikilink` な関係が frontmatter にあるのに本文 wikilink `[[…]]` に無いものを **warning**（`relation-wikilink`）で検出する（二重表現規約: Obsidian グラフに辺を出すため本文にも張る）。さらに H→H 関係（`derived-from`/`leads-to`）の自己参照・循環を **error**（`relation-cycle`）で検出する。
+11. **未決着の反証** — `outcome: 反証` の学び(LEARN)のうち、(a) その LEARN も `learns-from` の TEST も**どの DEC の `based-on` にも載っておらず**、かつ (b) その LEARN より後の日付で**同じ仮説を対象にした TEST も無い**もの。反証は最も情報量の多い出来事なのに、意思決定にも再検証にも接続されず宙に浮いている状態を指す。判定材料は `wiki/views/board.md` の「サマリ」表で、**「判定＝反証／判断（DEC）＝—」の行がそのまま候補**になる（ビューが無ければ `python3 tools/gen_views.py board`）。推奨対応は `/deciding`（`pivot`/`persevere`/`kill`）または `/planning`（前提を変えた再検証）。
+12. **宙に浮いた次の一手（ループ停滞）** — 最新 DEC 本文の `## 次の一手`（board の「現在地」節に射影）が実験計画(TEST)に落ちていないもの。**最新 DEC の日付より後の TEST/LEARN が0件**で、かつ `wiki/log.md` の最終更新から日が経っている（目安30日・項目4と同じ運用感覚）ときに「反復ループが止まっている」として報告する。DEC 直後に TEST が無いのは正常な過渡状態なので、**日数が経っている場合のみ挙げる**。`kill`（撤退）で意図的に検証を止めた場合は正常。推奨対応は `/planning`（次の一手を TEST に落とす）または `/deciding`（判断が古いなら更新）。
 
 ## 出力
 
