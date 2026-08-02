@@ -21,3 +21,7 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-07-16] hypothesis | SELF-H-005 好意的な反応を成果と取り違え、偽の確証のまま前に進む → 新規作成 確信度4・未検証（P3 Forbes / P4 The Mom Test）
 
 ## [2026-08-02] interview | SELF-TEST-001 実践者5名への問題インタビューのテストカードとスクリプトを作成（実データ・CPF 5仮説） → 確信度変化なし（未実施）
+
+## [2026-08-02] desk-research | SELF-LEARN-002 既存デスクリサーチの読み直しで未起票の課題の芽（P7 説明可能性）を発見。P9・P11・S7/S8 は候補として記録し入口クラスタ P1・P2・P10 は見送りを維持 → SELF-H-006 を確信度4・未検証で起票（〈二次〉P7 NN/g・Torres ＋ P8 Ries）
+
+## [2026-08-02] hypothesis | SELF-H-006 辿り着き方を示せず、検証結果をステークホルダーに否定される → 新規作成 確信度4・未検証（P7 NN/g・Torres / P8 Ries）
