@@ -133,6 +133,21 @@ class Provenance:
         return ent in self.domains
 
 
+class Immutability:
+    """凍結（不変ルール6）の適用範囲の宣言。
+
+    「実施済み」の判定（trigger_relation でこのレコードを指す相手が在るか）と、実施後に
+    書き換えを禁じる本文節・frontmatter キーを持つ。教義（CLAUDE.md 不変ルール6）と実装が
+    同じ宣言を指すようにするための型 — 凍結範囲をコードに直書きすると、規約文だけ直して
+    実装が置き去りになる（実際そうなっていた）。"""
+    __slots__ = ("trigger_relation", "sections", "fields")
+
+    def __init__(self, d: dict):
+        self.trigger_relation = d.get("trigger-relation", "")
+        self.sections = list(d.get("sections", []))
+        self.fields = list(d.get("fields", []))
+
+
 def _subtype_names(entity: str) -> list:
     return [s["name"] for s in load()["entities"][entity]["subtypes"]]
 
@@ -286,6 +301,10 @@ _bind_parent_relations()
 # ── プロヴェナンス（出典）────────────────────────────────────────────
 PROVENANCE = Provenance(load().get("provenance", {}))
 
+# ── 凍結（不変ルール6）の適用範囲。宣言の無いエンティティは凍結しない ──────
+IMMUTABLE = {ent: Immutability(e["immutable"])
+             for ent, e in load()["entities"].items() if e.get("immutable")}
+
 # ── リーンキャンバス（仮説検証への写像。レコードでなくビュー） ──────────
 # 各 block は H サブタイプの役割(role)へ対応。ブロック検証状態は対応 role の H から射影する。
 _LC = load().get("lean-canvas", {})
@@ -367,6 +386,16 @@ def _selfcheck() -> int:
             f"provenance.field '{PROVENANCE.field}' が {ent} の fields に無い"
         assert PROVENANCE.required_for_types <= set(_subtype_names(ent)), \
             f"provenance.required-for-types に {ent} のサブタイプでない値がある"
+    # 凍結範囲: 宣言したキー・関係が実在すること（規約文だけ直して実装が置き去りになるのを防ぐ）
+    for ent, im in IMMUTABLE.items():
+        assert ent in ENTITY_INFIXES, f"immutable を宣言した '{ent}' が未知のエンティティ"
+        assert im.sections or im.fields, f"{ent}.immutable が何も凍結していない"
+        rel = RELATIONS_BY_FIELD.get(im.trigger_relation)
+        assert rel, f"{ent}.immutable の trigger-relation '{im.trigger_relation}' が relations に無い"
+        assert ent in rel.ranges, \
+            f"{ent}.immutable の trigger-relation '{im.trigger_relation}' は {ent} を指さない"
+        for key in im.fields:
+            assert key in FIELDS_BY_NAME[ent], f"{ent}.immutable の fields '{key}' が {ent} の fields に無い"
     # リーンキャンバス写像: 各 block の maps-to-role が実在する H role か（role ドリフト検出）
     for b in LEAN_CANVAS_BLOCKS:
         assert b.get("maps-to-role") in H_ROLES, f"lean-canvas block {b.get('key')} の maps-to-role 不正"

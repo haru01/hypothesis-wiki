@@ -20,11 +20,14 @@ from ontology import (  # noqa: E402
     ID_RE, STAGE_FOCUS, IMPORTANCE_FOCUS, IMPORTANCE_OTHER,
     ENTITY_INFIXES, RECORD_DIRS, PROVENANCE, FICTIONAL_MARKERS,
     ATTACHMENTS, ATTACHMENT_SUFFIXES, ATTACHMENT_DIRS,
-    DATA_FIELD, DATA_SIMULATED,
+    DATA_FIELD, DATA_SIMULATED, IMMUTABLE,
 )
 
 HISTORY_HEADER = "## 確信度履歴"
-TESTCARD_RE = re.compile(r"## テストカード.*?(?=## 学習カード|\Z)", re.DOTALL)
+# テストカード節は次の `##` 見出しの手前まで（旧形式の `## 学習カード` はその特殊形）。
+# 終端を `## 学習カード` に限っていた頃は、学習カードが LEARN に分離された現行モデルで
+# 終端に到達せず本文末尾までを飲み込んでいた（凍結範囲が過剰に広がる原因だった）。
+TESTCARD_RE = re.compile(r"## テストカード.*?(?=^## |\Z)", re.DOTALL | re.MULTILINE)
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -109,9 +112,49 @@ def strip_comments(text: str) -> str:
 
 
 def testcard(text: str) -> str:
-    """TEST 本文からテストカード節（## テストカード〜## 学習カードの手前）を逐語抽出する。"""
+    """TEST 本文からテストカード節（## テストカード〜次の ## 見出しの手前）を逐語抽出する。"""
     m = TESTCARD_RE.search(text)
     return m.group(0) if m else ""
+
+
+def card_section(section: str, label: str):
+    """テストカードの1項目（例 `成功基準`）の中身を**逐語**抽出する。無ければ None。
+
+    見出し形式（`### 成功基準`）と箇条書き形式（`- **成功基準**（開始前に確定）: …`）の
+    両方に対応する。表示都合の整形（表落とし・空白畳み）は呼び手（gen_views）の責務なので
+    ここではしない — ビュー生成と不変チェックが同じ抽出を共有できるようにするため。
+
+    節はカードの末尾まで伸びうる（markdown には節の終端記号が無い）。したがって最後の節の
+    直後への追記はその節への変更として読める。リンク等は雛形どおり `## テストカード` の
+    手前に置くこと。"""
+    m = re.search(rf"^###\s*{label}[^\n]*\n(.*?)(?=\n##|\Z)", section, re.DOTALL | re.MULTILINE)
+    if not m:
+        # 箇条書き形式。太字の内外どちらの接尾辞（**方法**: / **成功基準**（開始前に確定）:）にも対応。
+        m = re.search(rf"^-\s*\*\*{label}[^*\n]*\*\*[^:：\n]*[:：]\s*(.*?)(?=\n-\s*\*\*|\n###|\n##|\Z)",
+                      section, re.DOTALL | re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def frozen_parts(text: str):
+    """TEST のうち実施後に凍結する部分（`ontology.yaml` の `entities.TEST.immutable` 宣言）を返す。
+
+    `{節名: 逐語ブロック, frontmatterキー: 値}` の dict。宣言された節が本文から1つも取れなければ
+    None を返し、呼び手（check_testcard_immutable）がテストカード全体比較へフォールバックできるようにする
+    （雛形逸脱で保護が静かに外れるのを避ける＝フェイルクローズ）。"""
+    spec = IMMUTABLE.get("TEST")
+    if not spec:
+        return None
+    card = strip_comments(testcard(text))
+    parts = {}
+    for name in spec.sections:
+        block = card_section(card, name)
+        if block is None:
+            return None
+        parts[name] = block.strip()
+    fm = parse_frontmatter(text)
+    for key in spec.fields:
+        parts[key] = fm.get(key, "").strip()
+    return parts
 
 
 def parse_history(body: str) -> list:

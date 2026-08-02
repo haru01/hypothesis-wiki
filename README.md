@@ -238,7 +238,7 @@ bash tools/build_site.sh --check    # 壊れた内部リンクが 0 件かを機
 
 | 層 | 場所 | 編集権 |
 |---|---|---|
-| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning`・`/desk-research` が生データを置く。AIは既存ファイルを改変しない（新規追加は可） |
+| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning`・`/desk-research` が生データを置く。AIはコミット済みの生データを改変しない（新規追加・未コミットの下書きの修正は可） |
 | The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新 |
 | The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
 

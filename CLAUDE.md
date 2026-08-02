@@ -17,7 +17,7 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 
 | 層 | 場所 | 編集権 |
 |---|---|---|
-| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning` が生データを置く。AIは**既存ファイルを改変しない**（新規追加は可・既存の編集禁止） |
+| Raw Sources（不変層） | `projects/<slug>/sources/` | 人間または `/learning` が生データを置く。AIは**コミット済みの生データを改変しない**（新規追加・未コミットの下書きの修正は可） |
 | The Wiki（生成・保守層） | `projects/<slug>/wiki/` | AIが規約に従って作成・更新する |
 | The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`（他エージェント向け入口）・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更する（全プロジェクト共有） |
 
@@ -93,6 +93,7 @@ core: true                           # 省略可。核心仮説なら true（lis
 
 > **出来事の記録（イベントログ）としての設計**: 「仮説を立てた(H)→実験計画を立てた(TEST)→実施して学びを得た(LEARN)→意思決定した(DEC)」を
 > 追記専用の出来事レコードとして時系列に積む。各レコードは作成後は原則書き換えず、記入タイミングでレコードを分ける（テストカード=TEST は検証前、学習カード=LEARN は検証後）。
+> 「原則」の実体は**凍結範囲**で、TEST は実施後（学び LEARN が紐づいた後）に成功基準と `riskiest-assumption` だけが凍る（下記 不変ルール6）。それ以外の補正は妨げない。
 > 現在の状態（確信度・ステータス・ステージ）はこれら出来事の射影（fold）としてビューが導出する。**更新より新規作成**を選ぶ。
 
 ### 実験計画レコード（テストカード） `projects/<slug>/wiki/tests/<PREFIX>-TEST-NNN.md`
@@ -104,11 +105,11 @@ type: interview | demo | survey | mvp-test | desk-research | self-reflection
 date: YYYY-MM-DD
 stage: CPF | FPF | PSF | SPF | PMF
 hypotheses: [H-NNN, ...]              # この実験が検証する仮説
-riskiest-assumption: 一文                  # 最もリスクの高い前提（この実験で崩れたら全体が崩れる一点）。検証前に記入。board の背骨
+riskiest-assumption: 一文                  # 最もリスクの高い前提（この実験で崩れたら全体が崩れる一点）。検証前に記入し実施後は凍結（不変ルール6）。board の背骨
 data: real | simulated                # 省略可。この実験が何のデータで作られるか（架空判定の正本。下記「確信度とステータス」）
 ```
 
-本文＝**テストカード**（検証前に記入・後から書き換えない。後知恵バイアス防止）: 目的／方法／指標／成功基準。
+本文＝**テストカード**（検証前に記入）: 目的／方法／指標／成功基準。実施後（学び LEARN が紐づいた後）に凍結されるのは**成功基準と `riskiest-assumption` だけ**で、目的・方法・指標の補正やリンク追加は後からでもよい（不変ルール6）。
 検証後の学びは別レコード LEARN に積む（この TEST には学習カードを持たせない）。
 
 ### 学びレコード（学習カード） `projects/<slug>/wiki/learnings/<PREFIX>-LEARN-NNN.md`
@@ -217,10 +218,10 @@ demo/interview の実験計画（TEST）に紐づく（TESTのテストカード
 
 1. **確信度・ステータスの変更は必ず学び（LEARN）か意思決定（DEC）に紐づける**。根拠レコードなしに書き換えない
 2. 変更時は仮説レコードの確信度履歴テーブルに1行**追記**し（過去行は書き換えない。この表が正本、frontmatter `confidence`/`status` は最新行の同期キャッシュ）、`projects/<slug>/wiki/log.md` にも追記する
-3. `projects/<slug>/sources/` の既存ファイルは改変・削除しない（`/learning` による新規生データの追加は可。一度置いた観測データは後から書き換えない）。`projects/<slug>/wiki/log.md` は追記のみ（過去行の編集禁止）
+3. `projects/<slug>/sources/` の**コミット済み**ファイルは改変・削除しない（`/learning` による新規生データの追加は可。一度記録した観測データは後から書き換えない。まだコミットしていない下書きは直してよい）。`projects/<slug>/wiki/log.md` は追記のみ（過去行の編集禁止）
 4. `projects/<slug>/wiki/views/`・`projects/<slug>/wiki/index.md`・`projects/<slug>/wiki/prototypes/` は生成物。記録の修正はレコード側で行い、生成物は再生成する（`index.md` はビュー `gen_views.py index`）
 5. ID採番は**種別×プロジェクトごと**に既存最大値+1で、プロジェクト接頭辞つき（例 `SELF-H-001`）。IDの再利用禁止（取り下げた番号は欠番として残す）
-6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。テストカード（TEST）の成功基準・riskiest-assumption は検証開始後に書き換えない（後知恵バイアス防止。学び LEARN が紐づいた TEST の変更は `check_testcard_immutable.py` が検出する）
+6. **検証後の学びは既存レコードを編集せず新規 LEARN として積む**（update より create）。実験計画(TEST)は**学び LEARN が紐づくまでは自由に直してよい**（実施前に計画を練り直す機会はよくある）。紐づいた後に凍結されるのは**テストカードの「成功基準」節と frontmatter `riskiest-assumption` だけ**で、目的・方法・指標の補正・リンク追加・誤字修正は許される（後知恵バイアス防止に必要なのは事後の改竄を弾くことだけ）。凍結範囲の正本は [ontology.md](ontology.md)「凍結（不変ルール6）」＝ [ontology.yaml](ontology.yaml) の `entities.TEST.immutable` で、`check_testcard_immutable.py` が検出する
 7. **確信度を動かした学び(LEARN)は、根拠となった生データを `sources` で指す**（出典なき確信度上昇を作らない）。根拠鎖 `H の確信度履歴 → [[LEARN-NNN]] → sources/<生データ>` を端まで繋ぐ。frontmatter と本文の相対mdリンクの二重表現で書く（上記「出典（プロヴェナンス）」）
 
 ## ステージと重要度

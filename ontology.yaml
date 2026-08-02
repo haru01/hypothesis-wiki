@@ -82,7 +82,7 @@ entities:
   TEST:
     label: 実験計画
     dir: tests
-    description: テストカード。検証前に記入し以後不変（後知恵バイアス防止）。「動いて検証する(Act)→学ぶ(Learn)」の計画側で、目的・方法・指標・成功基準・riskiest-assumption を宣言する。検証後の学びは LEARN（別レコード）に積む。
+    description: テストカード。検証前に記入する計画で、「動いて検証する(Act)→学ぶ(Learn)」の計画側として目的・方法・指標・成功基準・riskiest-assumption を宣言する。学び(LEARN)が紐づくまでは自由に直してよく、紐づいた後は下記 immutable の範囲だけを凍結する（後知恵バイアス防止）。検証後の学びは LEARN（別レコード）に積む。
     fields:
       - {name: id,                   required: true, kind: id}
       - {name: title,                required: true, kind: text}
@@ -92,6 +92,15 @@ entities:
       - {name: hypotheses,           required: true, kind: relation}
       - {name: riskiest-assumption,  required: true, kind: text}
       - {name: data,                 required: false, kind: enum, enum-ref: data-kinds}
+    # 凍結（不変ルール6）の適用範囲。「実験が実施された」＝trigger-relation でこの TEST を指すレコードが
+    # 在る、とみなし、以後ここに挙げた本文節・frontmatter キー**だけ**を書き換え禁止にする。
+    # 目的・方法・指標の補正／スクリプト・プロトタイプへのリンク追加／誤字修正は実施後も許す
+    # （後知恵バイアス防止に必要なのは、事後に成功基準と riskiest-assumption を改竄させないことだけ）。
+    # tools/check_testcard_immutable.py と tools/hwlint.py の testcard-sections がここを読む。
+    immutable:
+      trigger-relation: learns-from
+      sections: [成功基準]              # 本文節（見出し `### <name>` / 箇条書き `- **<name>**:` の両形式）
+      fields: [riskiest-assumption]    # frontmatter キー
     subtypes:
       - {name: interview}
       - {name: demo}

@@ -799,14 +799,78 @@ outcome: 反証
 """
 
 
+def init_repo(repo: Path):
+    """tmpdir を git リポジトリにし、その中で git を叩くランナーを返す。
+
+    TestcardImmutableTest と GuardSourcesTest が共有する（どちらも「コミット済みか」を
+    境界にするフックを検証するので、同じ作法でリポジトリを用意する必要がある）。"""
+    run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True,
+                                    text=True, env=GIT_ENV)
+    run("git", "init", "-b", "main")
+    run("git", "config", "user.email", "t@example.com")
+    run("git", "config", "user.name", "t")
+    return run
+
+
+# 見出し形式のテストカード（雛形 templates/testcard.md 準拠）。箇条書き形式の
+# BASE_TEST_FOR_GIT と対にして、凍結節の抽出が両形式で効くことを固定する。
+HEADING_TEST_FOR_GIT = """---
+id: DEMO-TEST-002
+title: 見出し形式のテスト活動
+type: interview
+date: 2026-07-01
+stage: CPF
+hypotheses: [DEMO-H-001]
+riskiest-assumption: 実践者は実コストを払っている
+---
+
+# 見出し形式のテスト活動
+
+対象仮説: [[DEMO-H-001]]
+
+## テストカード（検証前に記入）
+
+### 目的
+
+実コストの有無を確かめる。
+
+### 方法
+
+実践者5名にインタビューする。
+
+### 指標
+
+自認の有無と、支払っている時間・金。
+
+### 成功基準
+
+5名中3名以上が実コストを払っている。
+"""
+
+HEADING_LEARN_FOR_GIT = LEARN_FOR_GIT.replace("DEMO-LEARN-001", "DEMO-LEARN-002") \
+                                     .replace("DEMO-TEST-001", "DEMO-TEST-002")
+
+
 class TestcardImmutableTest(unittest.TestCase):
     def _init_repo(self, repo: Path):
+        return init_repo(repo)
+
+    def _committed_pair(self, repo: Path, test_text=None, learn_text=None,
+                        test_name="DEMO-TEST-001.md", learn_name="DEMO-LEARN-001.md"):
+        """実施済み（LEARN 紐付け済み）の TEST をコミットした状態を作り、TEST のパスを返す。"""
+        run = self._init_repo(repo)
+        rel = f"projects/demo/wiki/tests/{test_name}"
+        write(repo, rel, test_text if test_text is not None else BASE_TEST_FOR_GIT)
+        write(repo, f"projects/demo/wiki/learnings/{learn_name}",
+              learn_text if learn_text is not None else LEARN_FOR_GIT)
+        run("git", "add", "-A"); run("git", "commit", "-m", "base")
+        return rel
+
+    def _amend(self, repo: Path, rel: str, text: str):
         run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True,
-                                       text=True, env=GIT_ENV)
-        run("git", "init", "-b", "main")
-        run("git", "config", "user.email", "t@example.com")
-        run("git", "config", "user.name", "t")
-        return run
+                                        text=True, env=GIT_ENV)
+        write(repo, rel, text)
+        run("git", "add", "-A"); run("git", "commit", "-m", "edit")
 
     def _run_checker(self, repo: Path, *argv):
         return subprocess.run(
@@ -814,7 +878,7 @@ class TestcardImmutableTest(unittest.TestCase):
             cwd=repo, capture_output=True, text=True, env=GIT_ENV)
 
     def test_rewrite_after_learning_detected(self):
-        # TEST を learns-from で指す LEARN が在れば、TEST テストカードの変更は検出される。
+        # TEST を learns-from で指す LEARN が在れば、成功基準の変更は検出される（箇条書き形式）。
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             run = self._init_repo(repo)
@@ -853,21 +917,180 @@ class TestcardImmutableTest(unittest.TestCase):
             result = self._run_checker(repo, "--staged")
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
+    # ── 凍結範囲を成功基準＋riskiest-assumption に絞ったことの担保 ────────────
+
+    def test_method_edit_after_learning_allowed(self):
+        """実施後でも目的・方法・指標は直してよい（本改修の主目的）。
+
+        実施前に計画を練り直す機会はよくあるし、実施後に手順を正確に書き直すのも
+        後知恵バイアスではない。凍結されるのは成功基準と riskiest-assumption だけ。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo, test_text=HEADING_TEST_FOR_GIT,
+                                       learn_text=HEADING_LEARN_FOR_GIT,
+                                       test_name="DEMO-TEST-002.md", learn_name="DEMO-LEARN-002.md")
+            self._amend(repo, rel, HEADING_TEST_FOR_GIT.replace(
+                "実践者5名にインタビューする。", "実践者5名に対面でインタビューする（所要40分）。"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_link_addition_after_learning_allowed(self):
+        """実施後にスクリプト・プロトタイプへの相対mdリンクを足せる（雛形どおりカード外に置く場合）。
+
+        雛形は `対象仮説:` 等のリンクを `## テストカード` の**手前**に置く。凍結節の末尾に
+        追記した場合は、markdown 上その節の一部になるので凍結範囲の変更として弾かれる
+        （末尾に区切りが無い以上これは避けられないし、成功基準の直後への追記は疑わしい）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo)
+            self._amend(repo, rel, BASE_TEST_FOR_GIT.replace(
+                "対象仮説: [[DEMO-H-001]]",
+                "対象仮説: [[DEMO-H-001]]\nスクリプト: [DEMO-TEST-001-script.md](DEMO-TEST-001-script.md)"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_trailing_whitespace_change_allowed(self):
+        # 凍結節の末尾の空白・改行だけの差ではエラーにしない（正規化は strip のみ）。
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo)
+            self._amend(repo, rel, BASE_TEST_FOR_GIT + "\n\n")
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_riskiest_assumption_rewrite_detected(self):
+        """frontmatter riskiest-assumption の事後書き換えを弾く。
+
+        凍結範囲を本文だけ見ていた頃はここが素通しだった（規約は凍結すると言っていたのに）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo)
+            self._amend(repo, rel, BASE_TEST_FOR_GIT.replace(
+                "riskiest-assumption: 実践者は実コストを払っている",
+                "riskiest-assumption: 実践者は課題を自認している"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("riskiest-assumption", result.stdout)
+
+    def test_heading_form_criteria_rewrite_detected(self):
+        # 見出し形式（### 成功基準）でも成功基準の書き換えは検出される。
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo, test_text=HEADING_TEST_FOR_GIT,
+                                       learn_text=HEADING_LEARN_FOR_GIT,
+                                       test_name="DEMO-TEST-002.md", learn_name="DEMO-LEARN-002.md")
+            self._amend(repo, rel, HEADING_TEST_FOR_GIT.replace("3名以上", "1名以上"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("成功基準", result.stdout)
+
+    def test_criteria_section_removal_detected(self):
+        """見出しを消してから中身を書き換える迂回を塞ぐ。
+
+        凍結節が片側だけ取れないケースを許すと、「成功基準の見出しを別名にする」→
+        「次のコミットで中身を書き換える」で凍結を完全に回避できてしまう。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo, test_text=HEADING_TEST_FOR_GIT,
+                                       learn_text=HEADING_LEARN_FOR_GIT,
+                                       test_name="DEMO-TEST-002.md", learn_name="DEMO-LEARN-002.md")
+            self._amend(repo, rel, HEADING_TEST_FOR_GIT.replace("### 成功基準", "### 判定のめやす"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
+    def test_without_criteria_falls_back_to_whole_card(self):
+        """凍結節が両側とも取れない雛形逸脱ではテストカード全体を比較する（フェイルクローズ）。
+
+        保護が静かに外れるより、広く弾いて雛形へ誘導するほうがよい。"""
+        no_criteria = HEADING_TEST_FOR_GIT.replace("### 成功基準", "### 判定のめやす")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo, test_text=no_criteria,
+                                       learn_text=HEADING_LEARN_FOR_GIT,
+                                       test_name="DEMO-TEST-002.md", learn_name="DEMO-LEARN-002.md")
+            self._amend(repo, rel, no_criteria.replace("実践者5名にインタビューする。", "方法を変えた。"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("フォールバック", result.stdout)
+
 
 class GuardSourcesTest(unittest.TestCase):
+    """不変層の境界は「コミット済みかどうか」（pre-commit の --diff-filter=M と同じ）。
+
+    未コミットの下書きは直してよい。かつては `p.exists()` を境界にしていたため、
+    自分が直前に置いた生データの誤字修正すらブロックされ、pre-commit より厳しかった。"""
+
     def _run(self, payload):
         return subprocess.run(
             [sys.executable, str(TOOLS / "hooks" / "guard_sources.py")],
             input=json.dumps(payload), capture_output=True, text=True)
 
-    def test_edit_existing_source_blocked(self):
+    def _repo_with_source(self, tmp, name="2026-07-01-interview.md", text="生データ"):
+        """履歴のあるリポジトリに、まだコミットしていない生データを1つ置く。
+
+        初期コミットを作るのは意図的で、HEAD が在る（＝現実のリポジトリと同じ）状態で
+        「未コミットだから直せる」ことを確かめるため。HEAD が無い場合は別テストで見る。"""
+        repo = Path(tmp)
+        run = init_repo(repo)
+        write(repo, "README.md", "demo repo")
+        run("git", "add", "-A"); run("git", "commit", "-m", "init")
+        src = repo / "projects" / "demo" / "sources" / name
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_text(text, encoding="utf-8")
+        return repo, src, run
+
+    def test_uncommitted_draft_edit_allowed(self):
+        # 未コミットの下書きは直せる（本改修の主目的）。
+        with tempfile.TemporaryDirectory() as tmp:
+            _, src, _ = self._repo_with_source(tmp)
+            r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_unborn_head_edit_allowed(self):
+        # コミットが1つも無いリポジトリでは、何もコミットされていない＝下書き扱いで直せる。
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            init_repo(repo)
+            src = repo / "projects" / "demo" / "sources" / "2026-07-01-interview.md"
+            src.parent.mkdir(parents=True)
+            src.write_text("生データ", encoding="utf-8")
+            r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_staged_but_uncommitted_edit_allowed(self):
+        # `git add` しただけではまだ凍らせない（pre-commit の --diff-filter=M と同じ境界）。
+        with tempfile.TemporaryDirectory() as tmp:
+            _, src, run = self._repo_with_source(tmp)
+            run("git", "add", "-A")
+            r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_committed_source_edit_blocked(self):
+        # コミット済み＝記録された観測。以後は書き換えない。
+        with tempfile.TemporaryDirectory() as tmp:
+            _, src, run = self._repo_with_source(tmp)
+            run("git", "add", "-A"); run("git", "commit", "-m", "add source")
+            r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("不変層", r.stderr)
+
+    def test_committed_readme_edit_allowed(self):
+        # README.md は不変層の説明文であって観測データでないので、コミット済みでも直せる。
+        with tempfile.TemporaryDirectory() as tmp:
+            _, src, run = self._repo_with_source(tmp, name="README.md", text="この案件の生データ置き場")
+            run("git", "add", "-A"); run("git", "commit", "-m", "add readme")
+            r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_non_git_dir_edit_blocked(self):
+        # git でコミット状態を判定できないときは凍結側に倒す（フェイルクローズ）。
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "projects" / "demo" / "sources" / "2026-07-01-interview.md"
             src.parent.mkdir(parents=True)
             src.write_text("生データ", encoding="utf-8")
             r = self._run({"tool_name": "Edit", "tool_input": {"file_path": str(src)}})
             self.assertEqual(r.returncode, 2)
-            self.assertIn("不変層", r.stderr)
+            self.assertIn("判定できなかった", r.stderr)
 
     def test_new_source_write_allowed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -970,6 +1193,19 @@ class EvidenceTagTest(unittest.TestCase):
 class OntologyLoaderTest(unittest.TestCase):
     def test_selfcheck_passes(self):
         self.assertEqual(ontology._selfcheck(), 0)
+
+    def test_immutable_declaration_is_grounded(self):
+        """凍結範囲（不変ルール6）の宣言が実在のフィールド・関係を指すこと。
+
+        規約文だけ直して実装が置き去りになる（＝今回の不具合そのもの）のを防ぐ。"""
+        im = ontology.IMMUTABLE["TEST"]
+        self.assertEqual(im.sections, ["成功基準"])
+        self.assertEqual(im.fields, ["riskiest-assumption"])
+        # 凍結するのは実在の frontmatter キーで、発火関係は実在し TEST を指す
+        for key in im.fields:
+            self.assertIn(key, ontology.FIELDS_BY_NAME["TEST"])
+        self.assertIn(im.trigger_relation, ontology.RELATIONS_BY_FIELD)
+        self.assertIn("TEST", ontology.RELATIONS_BY_FIELD[im.trigger_relation].ranges)
 
     def test_constants_derived_from_yaml(self):
         self.assertEqual(ontology.STATUS_ORDER, ["検証済み", "検証中", "未検証", "反証"])
@@ -1993,6 +2229,10 @@ class RecordsModuleTest(unittest.TestCase):
         import check_testcard_immutable
         self.assertIs(check_testcard_immutable.testcard, records.testcard)
         self.assertIs(gen_views.testcard, records.testcard)
+        # 凍結範囲の抽出も同様（不変チェック・lint・ビュー生成が同じ節抽出を使う）。
+        self.assertIs(check_testcard_immutable.frozen_parts, records.frozen_parts)
+        self.assertIs(gen_views.card_section, records.card_section)
+        self.assertIs(hwlint.card_section, records.card_section)
 
 
 class PrefixDerivationTest(unittest.TestCase):

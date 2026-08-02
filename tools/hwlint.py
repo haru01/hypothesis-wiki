@@ -22,7 +22,7 @@ from ontology import (  # noqa: E402
     IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
     DATA_FIELD, DATA_REAL, DATA_KINDS,
     STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
-    ID_RE, NODE_FIELDS_BY_NAME,
+    ID_RE, NODE_FIELDS_BY_NAME, IMMUTABLE,
 )
 # レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
 # ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
@@ -30,7 +30,7 @@ from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
     importance, source_paths, fictional_activities, fictional_reason, fictional_source, Project,
-    node_kind,
+    node_kind, testcard, card_section,
 )
 from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の算出）
@@ -908,6 +908,31 @@ def check_stale_test(project, today: str = None) -> list:
     return problems
 
 
+def check_testcard_sections(project) -> list:
+    """実験計画(TEST)の本文に凍結節（成功基準）が見つからないものを報告する（warning）。
+
+    禁止ではなく計器。凍結範囲（ontology.yaml の `entities.TEST.immutable`）は見出し名を目印に
+    特定するので、雛形を外れた TEST では `check_testcard_immutable.py` がテストカード全体比較へ
+    フォールバックする（＝実施後に目的・方法・指標すら直せなくなる）。その状態を可視化して
+    雛形へ誘導する。"""
+    spec = IMMUTABLE.get("TEST")
+    if not spec:
+        return []
+    problems = []
+    for stem, (_, _, body) in project.records.items():
+        if entity_of(stem) != "TEST":
+            continue
+        card = strip_comments(testcard(body))
+        missing = [name for name in spec.sections if card_section(card, name) is None]
+        if missing:
+            problems.append(Problem("warning", stem, "testcard-sections",
+                f"テストカードに凍結節 {'・'.join(missing)} が見つからない"
+                f"（`### {missing[0]}` か `- **{missing[0]}**:` で書く）。"
+                "このままだと実施後の不変チェックがテストカード全体比較にフォールバックし、"
+                "目的・方法・指標の補正までブロックされる"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -961,7 +986,7 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,
           check_isolated_hypothesis, check_stale_confidence, check_stale_test,
-          check_relation_cycles,
+          check_relation_cycles, check_testcard_sections,
           check_attachment_id, check_attachment_vocabulary, check_attachment_refs,
           check_attachment_backlink]
 
