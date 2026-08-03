@@ -16,3 +16,12 @@ __pycache__/
 # 公開サイトのビルド作業ツリー（生成物）。tools/build_site.sh が作る。
 # staged/ は公開ツリーのコピー、quartz/ は取ってきた Quartz 本体と public/ 出力。
 .site/
+
+# self プロジェクトの生データ（実インタビュー録）。実在の個人・企業の話を含むので共有しない。
+# 学び(LEARN)は wiki/ 側に残るが、その根拠となる一次記録は各自ローカルにだけ置く
+# （このためクローン環境では /lint の provenance チェックが出典パスの不在で error を出す）。
+# 例外の2件は実名を含まないので追跡を続ける（sources/ 層のルール説明と、公開文献のデスクリサーチ記録。
+# 後者は SELF-LEARN-001・SELF-LEARN-002 の根拠鎖の末端）。
+projects/self/sources/*
+!projects/self/sources/README.md
+!projects/self/sources/2026-07-16-desk-research-corporate-hypothesis-testing.md

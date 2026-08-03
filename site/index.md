@@ -25,16 +25,6 @@ Wiki というプロダクト自体を題材にした仮説検証。デスクリ
 - [[projects/self/wiki/views/relations|関係グラフ]] — レコード間の型付きリンク
 - [[projects/self/wiki/log|活動ログ]]
 
-### oldself — 旧 self（凍結アーカイブ）
-
-上の self の前身。CPF→FPF 移行 → LP 提示で反証 → 揺さぶり監査 → FPF→CPF 巻き戻し、まで一巡した記録。
-サンプルとしては読み解きづらくなったため検証を止め、退避した（レコードIDの接頭辞は `OLDSELF-`）。
-
-- [[projects/oldself/wiki/index|仮説インデックス]]
-- [[projects/oldself/wiki/views/board|ボード]]
-- [[projects/oldself/wiki/views/relations|関係グラフ]]
-- [[projects/oldself/wiki/log|活動ログ]]
-
 ### ai-reskilling — AI時代のリスキリング
 
 - [[projects/ai-reskilling/wiki/index|仮説インデックス]]

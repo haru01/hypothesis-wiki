@@ -138,18 +138,6 @@ flowchart LR
 俯瞰ビューは `projects/self/wiki/views/`（`board.md`・`hypotheses-list.md`）にある（Stop フックが自動生成）。
 運用で得た改善は [docs/backlog.md](docs/backlog.md) に集約し、スキル定義・ツール・スキーマへ反映している。
 
-### もう一巡ぶんの記録（`projects/oldself/`、接頭辞 `OLDSELF`）
-
-self の前身が `projects/oldself/` に凍結してある。CPF→FPF 移行（`OLDSELF-DEC-001`）→ LP 生成（`OLDSELF-TEST-004`、
-`wiki/prototypes/OLDSELF-TEST-004/index.html`）→ 提示インタビューで **反証**（`OLDSELF-H-009`・`OLDSELF-H-010`。
-好反応は出たが乗り換え・対価という**行動**の意向は出なかった＝ interest ≠ intent）→ 揺さぶり監査
-（`OLDSELF-LEARN-005`）で「検証済み」の根拠が架空データ依存だったと露呈 → `OLDSELF-DEC-002` で **FPF→CPF に巻き戻し**、
-という一巡ぶんが残っている。ピボット・巻き戻しまで含む長い例を読みたいときはこちら。
-
-> ⚠️ oldself のインタビュー等は**すべて動作デモ用の架空シミュレーションデータ**（各 `sources/` の冒頭に明記）。
-> 是正の積み重ねで読み解きづらくなったため 2026-08-02 に検証を止めて凍結し、そのとき接頭辞を
-> `SELF-` → `OLDSELF-` に一括改名した（作り直した `self` が `SELF` を使うため）。
-
 ## ディレクトリ構成
 
 ```

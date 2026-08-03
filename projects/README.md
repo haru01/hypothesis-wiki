@@ -46,7 +46,4 @@ projects/
 - 切り替えは `.env` の `CURRENT_PROJECT`（未設定なら `self`）。
 - **self**（接頭辞 `SELF`）: このツール自体のドッグフーディング実例。デスクリサーチ →
   反証可能な仮説5件 → 最初の検証計画（CPF）まで。詳細は `projects/self/wiki/`。
-- **oldself**（接頭辞 `OLDSELF`）: 上の self の前身。CPF→FPF→巻き戻しまで一巡したが、
-  サンプルとして読み解きづらくなったため 2026-08-02 に**凍結**した（退避時に接頭辞を
-  `SELF-` → `OLDSELF-` へ一括改名済み）。
 - **ai-reskilling**（接頭辞 `AIRE`）: AI時代のリスキリングを題材にした `/desk-research` のテスト検証。
