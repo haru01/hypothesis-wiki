@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-08-02（ステージ CPF） / ontology-version: 2 -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-08-03（ステージ CPF） / ontology-version: 2 -->
 
 # 関係グラフ（self）
 
@@ -15,6 +15,7 @@ flowchart LR
       SELF_H_004["H-004 基準がない<br/>確信度4 ⚪未検証"]
       SELF_H_005["H-005 偽の確証<br/>確信度4 ⚪未検証"]
       SELF_H_006["H-006 説得できない<br/>確信度4 ⚪未検証"]
+      SELF_H_007["H-007 段階を誤る<br/>確信度3 ⚪未検証"]
     end
     subgraph TEST["実験計画 TEST"]
       SELF_TEST_001["TEST-001 実践者5名への問題インタビュー（CPF …"]
@@ -27,6 +28,7 @@ flowchart LR
     SELF_H_001 -->|因果先| SELF_H_005
     SELF_H_002 -->|因果先| SELF_H_003
     SELF_H_004 -->|因果先| SELF_H_006
+    SELF_H_007 -->|因果先| SELF_H_005
     SELF_TEST_001 -->|検証対象| SELF_H_001
     SELF_TEST_001 -->|検証対象| SELF_H_002
     SELF_TEST_001 -->|検証対象| SELF_H_003
@@ -54,6 +56,7 @@ flowchart LR
 | [[SELF-H-001]] | 因果先 → | [[SELF-H-005]] |
 | [[SELF-H-002]] | 因果先 → | [[SELF-H-003]] |
 | [[SELF-H-004]] | 因果先 → | [[SELF-H-006]] |
+| [[SELF-H-007]] | 因果先 → | [[SELF-H-005]] |
 
 ### 対応課題（`addresses`: H→H）
 
@@ -89,16 +92,16 @@ flowchart LR
 - [[SELF-H-002]] ← 検証活動: [[SELF-TEST-001]] [[SELF-LEARN-001]]
 - [[SELF-H-003]] ← 因果元: [[SELF-H-002]] ／ 検証活動: [[SELF-TEST-001]] [[SELF-LEARN-001]]
 - [[SELF-H-004]] ← 因果元: [[SELF-H-001]] ／ 検証活動: [[SELF-TEST-001]] [[SELF-LEARN-001]]
-- [[SELF-H-005]] ← 因果元: [[SELF-H-001]] ／ 検証活動: [[SELF-TEST-001]] [[SELF-LEARN-001]]
+- [[SELF-H-005]] ← 因果元: [[SELF-H-001]] [[SELF-H-007]] ／ 検証活動: [[SELF-TEST-001]] [[SELF-LEARN-001]]
 - [[SELF-H-006]] ← 因果元: [[SELF-H-004]] ／ 検証活動: [[SELF-LEARN-002]]
 
 ## グラフ診断
 
 グラフ全体の欠落・偏りを機械算出する（個別の辺の型検証は `/lint` の担当）。
 
-- **規模**: ノード 9 ／ 辺 15 ／ **辺÷ノード = 1.67**（健全な中間域）
-- **連結成分**: 1（最大成分 9 ノード）。単一成分＝全レコードが関係で繋がっている
+- **規模**: ノード 10 ／ 辺 16 ／ **辺÷ノード = 1.60**（健全な中間域）
+- **連結成分**: 1（最大成分 10 ノード）。単一成分＝全レコードが関係で繋がっている
 - **孤立仮説**（どの関係も持たない）: なし
-- **ハブ**（次数上位＝コーパスを束ねているレコード）: [[SELF-LEARN-001]](5) [[SELF-TEST-001]](5) [[SELF-H-001]](4) [[SELF-H-004]](4) [[SELF-H-002]](3)
-- **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: [[SELF-H-001]](3) [[SELF-H-002]](1) [[SELF-H-004]](1)
-- **未取り込みの生データ**（どの学びの `sources` からも参照されていない）: なし
+- **ハブ**（次数上位＝コーパスを束ねているレコード）: [[SELF-LEARN-001]](5) [[SELF-TEST-001]](5) [[SELF-H-001]](4) [[SELF-H-004]](4) [[SELF-H-005]](4)
+- **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: [[SELF-H-001]](3) [[SELF-H-002]](1) [[SELF-H-004]](1) [[SELF-H-007]](1)
+- **未取り込みの生データ**（どの学びの `sources` からも参照されていない）: [2026-08-03-interview-A-dialogue.md](../../sources/2026-08-03-interview-A-dialogue.md)

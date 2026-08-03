@@ -1,16 +1,17 @@
-<!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-08-02（ステージ CPF） / ontology-version: 2 -->
+<!-- 生成物: gen_views.py index による機械生成。手編集禁止。`python3 tools/gen_views.py index` で再生成する。生成基準日: 2026-08-03（ステージ CPF） / ontology-version: 2 -->
 
 # self — 仮説インデックス
 
 全仮説の現在の確信度・ステータス（レコードからの射影）。詳細は [board](views/board.md)・[list](views/hypotheses-list.md)・[relations](views/relations.md) 各ビューを参照。
 
 - ステージ: **CPF** Customer Problem Fit
-- 仮説(H) 6 ｜ 実験計画(TEST) 1 ｜ 学び(LEARN) 2 ｜ 意思決定(DEC) 0
+- 仮説(H) 7 ｜ 実験計画(TEST) 1 ｜ 学び(LEARN) 2 ｜ 意思決定(DEC) 0
 
 ## 仮説一覧
 
 | 仮説 | タイトル | 確信度 | ステータス | 重要度 |
 |---|---|---|---|---|
+| [[SELF-H-007]] | 事業の段階を判定する基準がなく、前例と売上目標が方法を決めてしまう | 3 | 未検証 | 8 |
 | [[SELF-H-001]] | 実践者は作る前に顧客と話し、検証をセット単位で反復している | 4 | 未検証 | 8 |
 | [[SELF-H-002]] | 検証で得た学びは複数のツールに分かれて記録されている | 4 | 未検証 | 8 |
 | [[SELF-H-003]] | 「なぜそう決めたか」を後から辿れず、過去の学びが失われる | 4 | 未検証 | 8 |

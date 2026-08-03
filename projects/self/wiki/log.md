@@ -25,3 +25,5 @@ type は `hypothesis` `interview` `demo` `survey` `mvp-test` `desk-research` `se
 ## [2026-08-02] desk-research | SELF-LEARN-002 既存デスクリサーチの読み直しで未起票の課題の芽（P7 説明可能性）を発見。P9・P11・S7/S8 は候補として記録し入口クラスタ P1・P2・P10 は見送りを維持 → SELF-H-006 を確信度4・未検証で起票（〈二次〉P7 NN/g・Torres ＋ P8 Ries）
 
 ## [2026-08-02] hypothesis | SELF-H-006 辿り着き方を示せず、検証結果をステークホルダーに否定される → 新規作成 確信度4・未検証（P7 NN/g・Torres / P8 Ries）
+
+## [2026-08-03] hypothesis | SELF-H-007 事業の段階を判定する基準がなく、前例と売上目標が方法を決めてしまう → 新規作成 確信度3・未検証（〈二次〉SELF-TEST-001 の1名目で聞いた客先X社の事例。9割解約・1年以上の損失。支援者経由の伝聞 n=1 なので既存5件の確信度4より弱く見る）。SELF-H-005 の因果の元として leads-to を張る
