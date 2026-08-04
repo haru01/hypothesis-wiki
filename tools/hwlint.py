@@ -23,6 +23,8 @@ from ontology import (  # noqa: E402
     DATA_FIELD, DATA_REAL, DATA_KINDS,
     STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
     ID_RE, NODE_FIELDS_BY_NAME, IMMUTABLE,
+    STRUCTURED_FIELDS, STRUCTURED_BY_ENTITY, TRUTH_OUTCOMES,
+    OUTCOME_SUPPORTED, OUTCOME_REFUTED, satisfies,
 )
 # レコードモデル層（frontmatter/履歴/log のパーサと Project）は records.py に集約。
 # ここから import することで、lint と gen_views が同じモデルを共有する（linter へのモデル依存の解消）。
@@ -30,7 +32,7 @@ from records import (  # noqa: E402
     HISTORY_HEADER, parse_frontmatter, parse_id_array, entity_of,
     strip_frontmatter, strip_comments, parse_history, referenced_ids,
     importance, source_paths, fictional_activities, fictional_reason, fictional_source, Project,
-    node_kind, testcard, card_section,
+    node_kind, testcard, card_section, struct_field, as_number,
 )
 from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の算出）
@@ -235,6 +237,189 @@ def check_frontmatter_refs(project) -> list:
                     problems.append(Problem("error", stem, "refs",
                         f"frontmatter {rel.field} '{rid}' は {'・'.join(sorted(rel.range_subtypes))} を指すべき"
                         f"（'{target_fm.get('type')}' を指している）"))
+    return problems
+
+
+def _struct_rows(project, stem, sf):
+    """レコード stem の構造化フィールド sf を (行番号, dict) で列挙する（dict でない行は除く）。
+
+    形の誤り自体は check_struct_shape が報告するので、ここは意味を見るチェックのための
+    「読める行だけ」を返す入口にする（各チェックが毎回 isinstance を書かないため）。"""
+    text = project.records[stem][2]
+    return [(i, row) for i, row in enumerate(struct_field(text, sf.name), 1) if isinstance(row, dict)]
+
+
+def check_struct_shape(project) -> list:
+    """構造化フィールド（判定・成功基準・実測）の行の形を宣言に照らす。
+
+    スキーマ＝契約の考え方（check_fields）を、平坦なキーから「行の中」へ延ばした層。
+    行の形が自由だと、書いたつもりの判定が黙って無視される（例: `hypothesis` を `hypotheses` と
+    書いた行は誰も読まない）。宣言の正本は ontology.yaml の structured-fields。
+
+    - 行がマッピングでない → error
+    - 必須キーの欠落／空 → error
+    - 宣言に無いキー → warning（タイポ）
+    - kind: enum が語彙外／kind: number が数値でない → error
+    - kind: ref が同レコードの ref-field（例 hypotheses）の集合に無い → error
+    """
+    problems = []
+    for stem, (_, fm, text) in project.records.items():
+        ent = entity_of(stem)
+        for sf in STRUCTURED_BY_ENTITY.get(ent, []):
+            rows = struct_field(text, sf.name)
+            for i, row in enumerate(rows, 1):
+                if not isinstance(row, dict):
+                    problems.append(Problem("error", stem, "struct-shape",
+                        f"{sf.name} の {i} 行目がマッピングでない（`- {{{sf.keys[0].name}: …}}` の形で書く）"))
+                    continue
+                for k in sf.keys:
+                    value = str(row.get(k.name, "") or "").strip()
+                    if not value:
+                        if k.required:
+                            problems.append(Problem("error", stem, "struct-shape",
+                                f"{sf.name} の {i} 行目に必須キー {k.name}（{k.kind}）が無い/空"))
+                        continue
+                    if k.kind == "enum" and value not in ENUM_REFS[k.enum_ref]:
+                        problems.append(Problem("error", stem, "struct-shape",
+                            f"{sf.name} の {i} 行目 {k.name} '{value}' は規約外"
+                            f"（{'・'.join(sorted(ENUM_REFS[k.enum_ref]))}）"))
+                    if k.kind == "number" and as_number(value) is None:
+                        problems.append(Problem("error", stem, "struct-shape",
+                            f"{sf.name} の {i} 行目 {k.name} '{value}' が数値でない"))
+                    if k.kind == "ref" and value not in parse_id_array(fm.get(k.ref_field, "")):
+                        problems.append(Problem("error", stem, "struct-shape",
+                            f"{sf.name} の {i} 行目 {k.name} '{value}' が frontmatter "
+                            f"{k.ref_field} に無い（このレコードが対象にしていない仮説）"))
+                for key in row:
+                    if key not in sf.keys_by_name:
+                        problems.append(Problem("warning", stem, "struct-shape",
+                            f"{sf.name} の {i} 行目に宣言の無いキー '{key}'"
+                            f"（タイポか、スキーマへの宣言漏れ）"))
+    return problems
+
+
+def check_judgment_coverage(project) -> list:
+    """真偽判定を名乗る学び(LEARN)が複数仮説を対象にしているのに judgments が無い（warning）。
+
+    `hypotheses` は many なのに `outcome` はレコードに1つ。3仮説を見て「1つは反証・2つは据え置き」と
+    判定しても、frontmatter に残るのは要約1語だけで**仮説ごとの結論がグラフから消える**。
+    起票・是正は仮説の真偽判定ではないので対象外（judgment-check.truth-outcomes）。"""
+    problems = []
+    sf = STRUCTURED_FIELDS.get("judgments")
+    if not sf:
+        return problems
+    for stem, (_, fm, text) in project.records.items():
+        if entity_of(stem) != "LEARN" or fm.get("outcome", "").strip() not in TRUTH_OUTCOMES:
+            continue
+        ids = parse_id_array(fm.get("hypotheses", ""))
+        if len(ids) >= 2 and not struct_field(text, sf.name):
+            problems.append(Problem("warning", stem, "judgment-coverage",
+                f"{len(ids)} 件の仮説を対象にした outcome={fm.get('outcome')} の学びだが "
+                f"judgments（仮説ごとの判定）が無い（どの仮説が動いたのかがグラフから消える）"))
+    return problems
+
+
+def _criteria_by_hypothesis(project, test_stem) -> dict:
+    """TEST の success-criteria を {仮説ID: [行, ...]} に畳む。"""
+    out = {}
+    for _, row in _struct_rows(project, test_stem, STRUCTURED_FIELDS["success-criteria"]):
+        h = str(row.get("hypothesis", "") or "").strip()
+        if h:
+            out.setdefault(h, []).append(row)
+    return out
+
+
+def check_measurement_match(project) -> list:
+    """実測(measurements)と、実施した実験計画(TEST)の成功基準(success-criteria)の噛み合いを見る（warning）。
+
+    - 基準に無い metric を実測している → 名前の食い違い（突き合わせが静かに空振りする）
+    - 基準にあるのに実測が無い → 検算できない基準（測り忘れ）
+    - 母数の食い違い（基準 of=5 に対し実測 n=8）→ 「5名中3名」の解釈が計画時と変わっている
+    """
+    problems = []
+    if not {"measurements", "success-criteria"} <= set(STRUCTURED_FIELDS):
+        return problems
+    for stem, (_, fm, text) in project.records.items():
+        if entity_of(stem) != "LEARN":
+            continue
+        measured = {str(r.get("metric", "") or "").strip(): r
+                    for _, r in _struct_rows(project, stem, STRUCTURED_FIELDS["measurements"])}
+        lf = parse_id_array(fm.get("learns-from", ""))
+        test_stem = lf[0] if lf and lf[0] in project.records else ""
+        if not test_stem:
+            if measured:
+                problems.append(Problem("warning", stem, "measurement-match",
+                    "measurements があるが learns-from が実在の実験計画(TEST)を指していない"
+                    "（突き合わせる成功基準が無い）"))
+            continue
+        criteria = {str(r.get("metric", "") or "").strip(): r
+                    for _, r in _struct_rows(project, test_stem, STRUCTURED_FIELDS["success-criteria"])}
+        for metric in measured:
+            if criteria and metric not in criteria:
+                problems.append(Problem("warning", stem, "measurement-match",
+                    f"実測の metric '{metric}' が [[{test_stem}]] の成功基準に無い"
+                    f"（名前を揃えないと検算されない）"))
+        for metric, crow in criteria.items():
+            if metric not in measured:
+                problems.append(Problem("warning", stem, "measurement-match",
+                    f"[[{test_stem}]] の成功基準 '{metric}' に対する実測が無い（検算できない）"))
+                continue
+            of, n = as_number(crow.get("of")), as_number(measured[metric].get("n"))
+            if of is not None and n is not None and of != n:
+                problems.append(Problem("warning", stem, "measurement-match",
+                    f"'{metric}' の母数が計画と違う（計画 of={of:g} / 実測 n={n:g}）"
+                    f"。基準の解釈が変わっていないか学習カードに書く"))
+    return problems
+
+
+def check_judgment_mismatch(project) -> list:
+    """実測から導いた判定と、著者が書いた判定が**真逆**なら弾く（error）。
+
+    後知恵バイアス防止の数値版。凍結（不変ルール6）は成功基準の文言を守るだけで、
+    「基準を割ったのに支持と書く」のは止められなかった。ここがそれを止める。
+
+    非対称なのが要点（方針の正本は ontology.yaml の judgment-check）:
+    全基準を満たしたのに 反証／全基準を割ったのに 支持 だけを error にし、慎重側（判断保留）へ
+    倒すのは常に許す。一部だけ満たした mixed は導出しない（人の解釈に委ねる）。
+    """
+    problems = []
+    if not {"measurements", "success-criteria", "judgments"} <= set(STRUCTURED_FIELDS):
+        return problems
+    for stem, (_, fm, text) in project.records.items():
+        if entity_of(stem) != "LEARN":
+            continue
+        lf = parse_id_array(fm.get("learns-from", ""))
+        test_stem = lf[0] if lf and lf[0] in project.records else ""
+        if not test_stem:
+            continue
+        measured = {str(r.get("metric", "") or "").strip(): as_number(r.get("value"))
+                    for _, r in _struct_rows(project, stem, STRUCTURED_FIELDS["measurements"])}
+        judged = {str(r.get("hypothesis", "") or "").strip(): str(r.get("outcome", "") or "").strip()
+                  for _, r in _struct_rows(project, stem, STRUCTURED_FIELDS["judgments"])}
+        record_outcome = fm.get("outcome", "").strip()
+        for hyp, rows in _criteria_by_hypothesis(project, test_stem).items():
+            results = []
+            for row in rows:
+                metric = str(row.get("metric", "") or "").strip()
+                value, threshold = measured.get(metric), as_number(row.get("threshold"))
+                if value is None or threshold is None:
+                    results = []            # 1つでも測れていなければ導出しない
+                    break
+                results.append(satisfies(value, str(row.get("op", "")).strip(), threshold))
+            if not results or len(set(results)) > 1:
+                continue                    # 未測定 または mixed → 人の解釈に委ねる
+            derived = OUTCOME_SUPPORTED if results[0] else OUTCOME_REFUTED
+            # 仮説ごとの判定があればそれを、無ければレコード全体の outcome を突き合わせ相手にする
+            claimed = judged.get(hyp) or (record_outcome if hyp not in judged else "")
+            if claimed not in TRUTH_OUTCOMES or claimed == derived:
+                continue
+            if {claimed, derived} == {OUTCOME_SUPPORTED, OUTCOME_REFUTED}:
+                detail = "・".join(
+                    f"{str(r.get('metric', '')).strip()} 実測 {measured[str(r.get('metric', '')).strip()]:g} "
+                    f"{str(r.get('op', '')).strip()} 基準 {as_number(r.get('threshold')):g}" for r in rows)
+                problems.append(Problem("error", stem, "judgment-mismatch",
+                    f"{hyp} の判定 '{claimed}' が実測と真逆（実測からは '{derived}'）: {detail}"
+                    f"。基準は [[{test_stem}]] で凍結済み — 判定を直すか、外れた理由を学習カードに書く"))
     return problems
 
 
@@ -987,6 +1172,8 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_dec_based_on, check_untested_focus, check_addresses_gaps,
           check_isolated_hypothesis, check_stale_confidence, check_stale_test,
           check_relation_cycles, check_testcard_sections,
+          check_struct_shape, check_judgment_coverage,
+          check_measurement_match, check_judgment_mismatch,
           check_attachment_id, check_attachment_vocabulary, check_attachment_refs,
           check_attachment_backlink]
 

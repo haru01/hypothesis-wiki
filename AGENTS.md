@@ -38,7 +38,7 @@
   `sources/` はコミット済みなら読み取り専用（未コミットの下書きは直してよい）／確信度・ステータスの変更は必ず学び(LEARN)か意思決定(DEC)に紐づける／
   確信度履歴テーブルは追記専用（frontmatter は同期キャッシュ）／`log.md` は追記のみ／
   検証後の学びは新規 LEARN として積む（既存 TEST は学び LEARN が紐づくまで自由に直してよく、紐づいた後は
-  成功基準と `riskiest-assumption` だけが凍る）。
+  成功基準（本文の節と frontmatter `success-criteria`）と `riskiest-assumption` だけが凍る）。
 
 ## 記述言語
 

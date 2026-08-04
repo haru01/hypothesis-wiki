@@ -68,8 +68,11 @@ importance: auto
 
 
 def act(id="DEMO-TEST-001", type="interview", hypotheses="[DEMO-H-001]", body="対象仮説: [[DEMO-H-001]]",
-        date="2026-07-01", riskiest="対象者が課題を自認していること", data=None):
+        date="2026-07-01", riskiest="対象者が課題を自認していること", data="real", criteria=None):
+    # data は必須フィールド。既定を real にして「妥当なレコード」の雛形を保つ
+    # （data=None を渡せば未宣言の壊れたレコードを作れる＝必須化そのもののテストに使う）。
     kind = f"data: {data}\n" if data else ""
+    kind += criteria if criteria else ""
     return f"""---
 id: {id}
 title: テスト活動
@@ -87,11 +90,14 @@ riskiest-assumption: {riskiest}
 
 
 def learn(id="DEMO-LEARN-001", learns_from="DEMO-TEST-001", hypotheses="[DEMO-H-001]",
-          outcome="支持", body=None, type="interview", sources=None, body_link=True, data=None):
+          outcome="支持", body=None, type="interview", sources=None, body_link=True, data="real",
+          judgments=None, measurements=None):
     lf = f"learns-from: {learns_from}\n" if learns_from else ""
     lf_link = f"実験計画: [[{learns_from}]]\n" if learns_from else ""
     src = f"sources: [{', '.join(sources)}]\n" if sources else ""
-    src += f"data: {data}\n" if data else ""
+    src += f"data: {data}\n" if data else ""     # data は必須（既定 real）。None で未宣言レコードを作れる
+    src += judgments if judgments else ""
+    src += measurements if measurements else ""
     src_link = ("生データ: " + " ".join(f"[{s}](../../sources/{s})" for s in sources) + "\n"
                 if sources and body_link else "")
     body = body if body is not None else f"対象仮説: [[DEMO-H-001]]\n{lf_link}{src_link}"
@@ -377,9 +383,10 @@ class ProvenanceTest(unittest.TestCase):
                 "| 2026-07-02 | 9 | 検証済み | 〈自認〉〈実コスト〉5名中3名 | [[DEMO-LEARN-001]] |"]
         files = {
             "wiki/hypotheses/DEMO-H-001.md": hyp(confidence="9", status="検証済み", rows=rows),
-            "wiki/tests/DEMO-TEST-001.md": act(),
-            # LEARN/TEST 本文には架空の語を書かない（＝偶然の書き写しが無い状態）
-            "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC]),
+            "wiki/tests/DEMO-TEST-001.md": act(data=None),
+            # LEARN/TEST 本文には架空の語を書かない（＝偶然の書き写しが無い状態）。
+            # data も宣言しない — 推論フォールバック（出典冒頭の宣言）を通す条件そのもの。
+            "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC], data=None),
         }
         with tempfile.TemporaryDirectory() as tmp:
             root = self._project(tmp, files,
@@ -397,8 +404,8 @@ class ProvenanceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = self._project(tmp, {
                 "wiki/hypotheses/DEMO-H-001.md": hyp(),
-                "wiki/tests/DEMO-TEST-001.md": act(),
-                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC]),
+                "wiki/tests/DEMO-TEST-001.md": act(data=None),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(sources=[SRC], data=None),
             }, source_text="# 【架空・シミュレーション】インタビュー\n")
             self.assertEqual(gen_views.fictional_records(Project(root)), ["DEMO-LEARN-001"])
 
@@ -647,7 +654,9 @@ class FictionalCapTest(unittest.TestCase):
                 f"| 2026-07-05 | {confidence} | 検証済み | 〈行動〉 | [[DEMO-TEST-001]] |"]
         return make_project(tmp, {
             "wiki/hypotheses/DEMO-H-001.md": hyp(status="検証済み", confidence=str(confidence), rows=rows),
+            # data 未宣言＝本文マーカー語のフォールバックが効く条件（後方互換の経路を守るテスト）
             "wiki/tests/DEMO-TEST-001.md": act(
+                data=None,
                 body="対象仮説: [[DEMO-H-001]]\n\n> ⚠️ 架空のシミュレーションデータ。実証拠として扱わない。"),
         })
 
@@ -730,7 +739,7 @@ class DataProvenanceTest(unittest.TestCase):
         """宣言も出典も無く本文マーカー語だけで架空にしている＝明示を促す。"""
         body = "対象仮説: [[DEMO-H-001]]\n\n> ⚠️ 架空のシミュレーションデータ。"
         with tempfile.TemporaryDirectory() as tmp:
-            root = self._project(tmp, act(body=body))
+            root = self._project(tmp, act(body=body, data=None))
             self.assertTrue(self._checks(root, "fictional-cap"))   # 従来どおり蓋は働く
             warns = self._checks(root, "data-provenance")
             self.assertEqual([p.level for p in warns], ["warning"])
@@ -972,6 +981,23 @@ class TestcardImmutableTest(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertIn("riskiest-assumption", result.stdout)
 
+    def test_success_criteria_rewrite_detected(self):
+        """frontmatter success-criteria（成功基準の機械可読な背骨）の事後書き換えを弾く。
+
+        散文の節だけ凍らせても、数値を後から動かせるならゴールポストは動く。"""
+        base = BASE_TEST_FOR_GIT.replace(
+            "riskiest-assumption: 実践者は実コストを払っている\n",
+            "riskiest-assumption: 実践者は実コストを払っている\n"
+            "success-criteria:\n"
+            "  - {hypothesis: DEMO-H-001, metric: 実コストを払っている人数, op: \">=\", threshold: 3, of: 5}\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            rel = self._committed_pair(repo, test_text=base)
+            self._amend(repo, rel, base.replace("threshold: 3", "threshold: 1"))
+            result = self._run_checker(repo, "--base", "HEAD~1")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("success-criteria", result.stdout)
+
     def test_heading_form_criteria_rewrite_detected(self):
         # 見出し形式（### 成功基準）でも成功基準の書き換えは検出される。
         with tempfile.TemporaryDirectory() as tmp:
@@ -1200,7 +1226,8 @@ class OntologyLoaderTest(unittest.TestCase):
         規約文だけ直して実装が置き去りになる（＝今回の不具合そのもの）のを防ぐ。"""
         im = ontology.IMMUTABLE["TEST"]
         self.assertEqual(im.sections, ["成功基準"])
-        self.assertEqual(im.fields, ["riskiest-assumption"])
+        # 成功基準の機械可読な背骨も同格で凍る（散文だけ凍らせて数値を動かせるなら意味が無い）
+        self.assertEqual(im.fields, ["riskiest-assumption", "success-criteria"])
         # 凍結するのは実在の frontmatter キーで、発火関係は実在し TEST を指す
         for key in im.fields:
             self.assertIn(key, ontology.FIELDS_BY_NAME["TEST"])
@@ -1775,9 +1802,21 @@ class OntologyDerivationTest(unittest.TestCase):
         for name in ontology.DATA_KIND_ORDER:
             self.assertTrue(ontology.DATA_KIND_DESC.get(name), f"{name} に説明が無い")
         # TEST/LEARN の fields に data が宣言されている（enum-ref 経由で語彙検証が乗る）
+        # data は**必須**。未宣言を許すと本文マーカー語の推論に黙って落ち、宣言漏れが静かに
+        # 「実データ」扱いになって fictional-cap が効かない（黙って劣化させない＝書かせて弾く）。
         for ent in ("TEST", "LEARN"):
             field = ontology.FIELDS_BY_NAME[ent][ontology.DATA_FIELD]
-            self.assertEqual((field.kind, field.enum_ref, field.required), ("enum", "data-kinds", False))
+            self.assertEqual((field.kind, field.enum_ref, field.required), ("enum", "data-kinds", True))
+
+    def test_data_omission_is_an_error(self):
+        # 宣言漏れが黙って通らないこと（推論フォールバックは残すが、新規レコードでは書かせる）。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp(),
+                                      "wiki/tests/DEMO-TEST-001.md": act(data=None)})
+            problems = [p for p in hwlint.lint_project(root)
+                        if p.check == "fields" and ontology.DATA_FIELD in p.message]
+            self.assertTrue(problems, "data 未宣言が error にならない")
+            self.assertEqual(problems[0].level, "error")
 
     def test_hwlint_uses_ontology_vocab(self):
         # hwlint はローカル再定義でなく ontology の定数を参照する。
@@ -2401,6 +2440,228 @@ class AttachmentTest(unittest.TestCase):
             })
             self.assertTrue(any(p.check == "id-filename" and "memo" in p.where
                                 for p in hwlint.lint_project(root)))
+
+
+def judgments_fm(*pairs) -> str:
+    rows = "\n".join(f"  - {{hypothesis: {h}, outcome: {o}}}" for h, o in pairs)
+    return f"judgments:\n{rows}\n"
+
+
+def measurements_fm(*rows) -> str:
+    body = "\n".join("  - {" + ", ".join(f"{k}: {v}" for k, v in r.items()) + "}" for r in rows)
+    return f"measurements:\n{body}\n"
+
+
+def criteria_fm(*rows) -> str:
+    body = "\n".join("  - {" + ", ".join(f"{k}: {v}" for k, v in r.items()) + "}" for r in rows)
+    return f"success-criteria:\n{body}\n"
+
+
+class StructuredFieldTest(unittest.TestCase):
+    """構造化フィールド（判定・成功基準・実測）の行の形をスキーマ宣言に照らす層。
+
+    平坦なキーの契約（check_fields）を「行の中」へ延ばしたもの。行の形が自由だと、
+    書いたつもりの判定が黙って無視される（`hypothesis` を `hypotheses` と書いた行は誰も読まない）。"""
+
+    def _project(self, tmp, learn_text=None, act_text=None):
+        return make_project(tmp, {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(),
+            "wiki/hypotheses/DEMO-H-002.md": hyp(id="DEMO-H-002"),
+            "wiki/tests/DEMO-TEST-001.md": act_text or act(hypotheses="[DEMO-H-001, DEMO-H-002]"),
+            "wiki/learnings/DEMO-LEARN-001.md": learn_text or learn(),
+        })
+
+    def _checks(self, root, name):
+        return [p for p in hwlint.lint_project(root) if p.check == name]
+
+    def test_valid_rows_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(hypotheses="[DEMO-H-001, DEMO-H-002]",
+                                            judgments=judgments_fm(("DEMO-H-001", "支持"),
+                                                                   ("DEMO-H-002", "判断保留"))))
+            self.assertEqual(self._checks(root, "struct-shape"), [])
+
+    def test_missing_required_key_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(judgments="judgments:\n  - {hypothesis: DEMO-H-001}\n"))
+            probs = self._checks(root, "struct-shape")
+            self.assertTrue(any("outcome" in p.message and p.level == "error" for p in probs))
+
+    def test_unknown_key_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(
+                judgments="judgments:\n  - {hypothesis: DEMO-H-001, outcome: 支持, whim: x}\n"))
+            probs = self._checks(root, "struct-shape")
+            self.assertTrue(any("whim" in p.message and p.level == "warning" for p in probs))
+
+    def test_outcome_vocabulary_enforced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(judgments=judgments_fm(("DEMO-H-001", "たぶん支持"))))
+            self.assertTrue(any(p.level == "error" and "たぶん支持" in p.message
+                                for p in self._checks(root, "struct-shape")))
+
+    def test_hypothesis_outside_hypotheses_detected(self):
+        """判定の対象が frontmatter hypotheses に無い＝このレコードが見ていない仮説を判定している。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(judgments=judgments_fm(("DEMO-H-002", "反証"))))
+            self.assertTrue(any(p.level == "error" and "DEMO-H-002" in p.message
+                                for p in self._checks(root, "struct-shape")))
+
+    def test_non_numeric_threshold_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, act_text=act(criteria=criteria_fm(
+                {"hypothesis": "DEMO-H-001", "metric": "自認数", "op": '">="', "threshold": "多め"})))
+            self.assertTrue(any(p.level == "error" and "多め" in p.message
+                                for p in self._checks(root, "struct-shape")))
+
+    def test_row_that_is_not_a_mapping_detected(self):
+        """書き損じた行を黙って捨てない（捨てると「書いたのに無視された」が見えなくなる）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(judgments="judgments:\n  - DEMO-H-001\n"))
+            self.assertTrue(any(p.level == "error" and "マッピングでない" in p.message
+                                for p in self._checks(root, "struct-shape")))
+
+
+class JudgmentTest(unittest.TestCase):
+    """判定の粒度（judgments）と、成功基準×実測の検算（judgment-mismatch）。"""
+
+    def _project(self, tmp, learn_text, act_text=None):
+        return make_project(tmp, {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(),
+            "wiki/hypotheses/DEMO-H-002.md": hyp(id="DEMO-H-002"),
+            "wiki/tests/DEMO-TEST-001.md": act_text or act(hypotheses="[DEMO-H-001, DEMO-H-002]"),
+            "wiki/learnings/DEMO-LEARN-001.md": learn_text,
+        })
+
+    def _checks(self, root, name):
+        return [p for p in hwlint.lint_project(root) if p.check == name]
+
+    # ---- judgment-coverage ----
+
+    def test_multi_hypothesis_learn_without_judgments_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(hypotheses="[DEMO-H-001, DEMO-H-002]", outcome="支持"))
+            self.assertEqual([p.level for p in self._checks(root, "judgment-coverage")], ["warning"])
+
+    def test_non_truth_outcome_is_exempt(self):
+        """起票・是正は仮説の真偽判定ではないので仮説ごとの判定を求めない。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(hypotheses="[DEMO-H-001, DEMO-H-002]", outcome="是正"))
+            self.assertEqual(self._checks(root, "judgment-coverage"), [])
+
+    def test_single_hypothesis_learn_is_exempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(hypotheses="[DEMO-H-001]", outcome="支持"))
+            self.assertEqual(self._checks(root, "judgment-coverage"), [])
+
+    def test_judgments_present_silences_the_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(hypotheses="[DEMO-H-001, DEMO-H-002]", outcome="支持",
+                                            judgments=judgments_fm(("DEMO-H-001", "支持"),
+                                                                   ("DEMO-H-002", "判断保留"))))
+            self.assertEqual(self._checks(root, "judgment-coverage"), [])
+
+    # ---- judgment-mismatch（後知恵バイアス防止の数値版）----
+
+    def _criteria_act(self, threshold="3"):
+        return act(hypotheses="[DEMO-H-001]", criteria=criteria_fm(
+            {"hypothesis": "DEMO-H-001", "metric": "自認数", "op": '">="',
+             "threshold": threshold, "of": "5"}))
+
+    def test_goalpost_move_detected(self):
+        """基準を割ったのに「支持」と書いた＝ゴールポストの事後移動。ここが本命。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="支持",
+                                            measurements=measurements_fm({"metric": "自認数",
+                                                                          "value": "1", "n": "5"})),
+                                 act_text=self._criteria_act())
+            probs = self._checks(root, "judgment-mismatch")
+            self.assertEqual([p.level for p in probs], ["error"])
+            self.assertIn("反証", probs[0].message)
+
+    def test_refuting_a_met_criterion_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="反証",
+                                            measurements=measurements_fm({"metric": "自認数",
+                                                                          "value": "4", "n": "5"})),
+                                 act_text=self._criteria_act())
+            self.assertEqual([p.level for p in self._checks(root, "judgment-mismatch")], ["error"])
+
+    def test_cautious_verdict_is_allowed(self):
+        """慎重側（判断保留）へ倒すのは常に正当。機械は確証の水増しだけを止める。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="判断保留",
+                                            measurements=measurements_fm({"metric": "自認数",
+                                                                          "value": "4", "n": "5"})),
+                                 act_text=self._criteria_act())
+            self.assertEqual(self._checks(root, "judgment-mismatch"), [])
+
+    def test_consistent_verdict_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="支持",
+                                            measurements=measurements_fm({"metric": "自認数",
+                                                                          "value": "4", "n": "5"})),
+                                 act_text=self._criteria_act())
+            self.assertEqual(self._checks(root, "judgment-mismatch"), [])
+
+    def test_mixed_criteria_are_left_to_the_author(self):
+        """一部だけ満たした場合は導出しない（機械が解釈まで奪わない）。"""
+        crit = act(hypotheses="[DEMO-H-001]", criteria=criteria_fm(
+            {"hypothesis": "DEMO-H-001", "metric": "自認数", "op": '">="', "threshold": "3"},
+            {"hypothesis": "DEMO-H-001", "metric": "実コスト件数", "op": '">="', "threshold": "2"}))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="支持", measurements=measurements_fm(
+                {"metric": "自認数", "value": "4"}, {"metric": "実コスト件数", "value": "0"})),
+                act_text=crit)
+            self.assertEqual(self._checks(root, "judgment-mismatch"), [])
+
+    def test_per_hypothesis_judgment_wins_over_record_outcome(self):
+        """レコード全体が慎重でも、仮説ごとの判定が実測と真逆なら弾く。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="判断保留",
+                                            judgments=judgments_fm(("DEMO-H-001", "支持")),
+                                            measurements=measurements_fm({"metric": "自認数",
+                                                                          "value": "1"})),
+                                 act_text=self._criteria_act())
+            self.assertEqual([p.level for p in self._checks(root, "judgment-mismatch")], ["error"])
+
+    # ---- measurement-match ----
+
+    def test_metric_name_drift_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(measurements=measurements_fm({"metric": "自認した人数",
+                                                                          "value": "4"})),
+                                 act_text=self._criteria_act())
+            msgs = " ".join(p.message for p in self._checks(root, "measurement-match"))
+            self.assertIn("自認した人数", msgs)     # 基準に無い metric
+            self.assertIn("自認数", msgs)           # 実測の無い基準
+
+    def test_population_drift_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(tmp, learn(outcome="支持", measurements=measurements_fm(
+                {"metric": "自認数", "value": "4", "n": "8"})), act_text=self._criteria_act())
+            self.assertTrue(any("母数" in p.message for p in self._checks(root, "measurement-match")))
+
+
+class BoardJudgmentProjectionTest(unittest.TestCase):
+    """board が仮説ごとの判定を潰さずに射影すること（要約1語に戻さない）。"""
+
+    def test_board_expands_judgments(self):
+        import gen_views
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/stage.md": "current-stage: CPF\n",
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/hypotheses/DEMO-H-002.md": hyp(id="DEMO-H-002"),
+                "wiki/tests/DEMO-TEST-001.md": act(hypotheses="[DEMO-H-001, DEMO-H-002]"),
+                "wiki/learnings/DEMO-LEARN-001.md": learn(
+                    hypotheses="[DEMO-H-001, DEMO-H-002]", outcome="反証",
+                    judgments=judgments_fm(("DEMO-H-001", "反証"), ("DEMO-H-002", "判断保留"))),
+            })
+            out = gen_views.gen_board(gen_views.Project(root))
+            self.assertIn("H-001=反証", out)                    # サマリ表が仮説単位に展開される
+            self.assertIn("H-002=判断保留", out)
+            self.assertIn("**判定（仮説ごと）**", out)
 
 
 if __name__ == "__main__":

@@ -15,9 +15,13 @@
 #   attachment = レコードではないが型付きリンクを持つ「付随物」（下記 attachments 節）。
 #              親レコードに従属し、独自のID体系を持たない（ファイル名 = 親ID + suffix）。
 #   provenance = グラフの外（不変層 sources/）を指す出典属性。relation とは別概念（下記 provenance 節）。
+#   structured-field = 「行の集まり」を持つ frontmatter フィールド（配列 of マッピング）。
+#              判定・成功基準・実測のように *1レコードに複数行* あり *行の中に構造* があるものは
+#              平坦な key: value では表せない。行のキーと語彙を宣言する（下記 structured-fields 節）。
 
 # スキーマ版。生成ビューのヘッダに ontology-version として刻まれる（どの版で射影した生成物かを追える）。
-version: 2
+# 3: 判定の粒度と成功基準を機械可読にした（judgments / success-criteria / measurements・data 必須化）
+version: 3
 
 # ── フィールドの kind（値の種別）の意味 ─────────────────────────────
 # id          … ファイル名と一致する接頭辞つきID（check_id_matches_filename が検証）
@@ -30,6 +34,7 @@ version: 2
 # flag        … 真偽（true のときだけ意味を持つ省略可フィールド）
 # relation    … 関係キー。型の正本は下記 relations 節（ここでは required/存在だけを宣言）
 # provenance  … 出典キー。仕様の正本は下記 provenance 節
+# structured  … 行の集まり（配列 of マッピング）。行の形の正本は下記 structured-fields 節
 
 # ── エンティティ（レコード種別とサブタイプ） ─────────────────────────────
 entities:
@@ -91,7 +96,11 @@ entities:
       - {name: stage,                required: true, kind: enum, enum-ref: stages}
       - {name: hypotheses,           required: true, kind: relation}
       - {name: riskiest-assumption,  required: true, kind: text}
-      - {name: data,                 required: false, kind: enum, enum-ref: data-kinds}
+      # data は必須。未宣言を許すと本文マーカー語の推論に黙って落ち、宣言漏れが静かに
+      # 「実データ」扱いになって fictional-cap が効かない（＝架空由来の確信度が上限なく上がる）。
+      # 黙って劣化させるくらいなら書かせて弾く。推論経路自体は他 vault・旧レコードのために残す。
+      - {name: data,                 required: true, kind: enum, enum-ref: data-kinds}
+      - {name: success-criteria,     required: false, kind: structured}
     # 凍結（不変ルール6）の適用範囲。「実験が実施された」＝trigger-relation でこの TEST を指すレコードが
     # 在る、とみなし、以後ここに挙げた本文節・frontmatter キー**だけ**を書き換え禁止にする。
     # 目的・方法・指標の補正／スクリプト・プロトタイプへのリンク追加／誤字修正は実施後も許す
@@ -100,7 +109,9 @@ entities:
     immutable:
       trigger-relation: learns-from
       sections: [成功基準]              # 本文節（見出し `### <name>` / 箇条書き `- **<name>**:` の両形式）
-      fields: [riskiest-assumption]    # frontmatter キー
+      # frontmatter キー。success-criteria は成功基準の機械可読な背骨なので、散文の節と同格で凍らせる
+      # （数値だけ後から動かせるなら、節を凍らせた意味が無い）。
+      fields: [riskiest-assumption, success-criteria]
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -112,7 +123,7 @@ entities:
   LEARN:
     label: 学び
     dir: learnings
-    description: 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
+    description: 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。1つの学びが複数の仮説を動かすときは judgments で仮説ごとの判定を、実験計画の success-criteria に対する実測は measurements で持つ（outcome だけでは「どの仮説が崩れたか」がグラフから消える）。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
     fields:
       - {name: id,          required: true,  kind: id}
       - {name: title,       required: true,  kind: text}
@@ -122,8 +133,10 @@ entities:
       - {name: learns-from, required: false, kind: relation}
       - {name: hypotheses,  required: true,  kind: relation}
       - {name: outcome,     required: true,  kind: enum, enum-ref: outcomes}
+      - {name: judgments,   required: false, kind: structured}
+      - {name: measurements, required: false, kind: structured}
       - {name: sources,     required: false, kind: provenance}
-      - {name: data,        required: false, kind: enum, enum-ref: data-kinds}
+      - {name: data,        required: true,  kind: enum, enum-ref: data-kinds}   # 必須の理由は TEST.data 参照
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -297,6 +310,53 @@ provenance:
   required-for-types: [interview, demo, survey, mvp-test, desk-research]
   fictional-header-scan-lines: 12   # 出典冒頭N行の fictional-markers を架空判定の一次情報にする
 
+# ── 構造化フィールド（行の集まりを持つ frontmatter キー） ──────────────
+# 平坦な key: value でも、record→record の relation でもない第三の形。
+# **1レコードに複数行あり、行の中に構造がある**もの（仮説ごとの判定・成功基準・実測）を宣言する。
+#
+# なぜ必要か: `hypotheses` は many なのに `outcome` はレコードに1つしかない。1つの学びが
+# 3仮説を見て「1つは反証・2つは据え置き」と判定しても、frontmatter に残るのは要約1語だけで、
+# **仮説ごとの結論はグラフから消えて散文にしか残らない**。判定の粒度を仮説に合わせるための層。
+#
+# 読み取り: parse_frontmatter は「素の文字列」契約で入れ子を潰すので、これらは
+# records.py の struct_field（入れ子を保つ別経路）で読む。
+#
+# キーの kind:
+#   ref    … 同じレコードの ref-field（関係キー）が指す集合の要素であること
+#   enum   … enum-ref が指す語彙
+#   number … 数値
+#   text   … 自由記述
+structured-fields:
+  judgments:
+    domain: [LEARN]
+    label: 仮説ごとの判定
+    description: この学びが対象仮説それぞれをどう判定したか。hypotheses が複数のとき、レコード単位の outcome では表せない結論の違いをここに残す。board が仮説単位に射影し、「反証されたのに誰も判断していない」の機械判定の材料になる。
+    keys:
+      - {name: hypothesis, required: true,  kind: ref, ref-field: hypotheses}
+      - {name: outcome,    required: true,  kind: enum, enum-ref: outcomes}
+      - {name: note,       required: false, kind: text}
+
+  success-criteria:
+    domain: [TEST]
+    label: 成功基準（機械可読な背骨）
+    description: 本文「成功基準」節の散文を置き換えるものではなく、検算できる骨だけを取り出したもの。実施前に確定し、実施後は凍結する（immutable.fields）。実測（measurements）と突き合わせて、数値と真逆の判定を弾くために使う。
+    keys:
+      - {name: hypothesis, required: true,  kind: ref, ref-field: hypotheses}
+      - {name: metric,     required: true,  kind: text}    # 測る対象の名前。measurements.metric と一致させる
+      - {name: op,         required: true,  kind: enum, enum-ref: criteria-ops}
+      - {name: threshold,  required: true,  kind: number}
+      - {name: of,         required: false, kind: number}  # 母数（「5名中3名」の5）。実測 n と食い違えば warning
+
+  measurements:
+    domain: [LEARN]
+    label: 実測
+    description: 実験計画(TEST)の success-criteria に対して実際に観測した値。metric 名で基準と突き合わせる。判定（judgments・outcome）が実測と真逆でないことを lint が検算する＝ゴールポストの事後移動を数値で弾く。
+    keys:
+      - {name: metric, required: true,  kind: text}
+      - {name: value,  required: true,  kind: number}
+      - {name: n,      required: false, kind: number}      # 母集団（何人・何件を見たか）
+      - {name: note,   required: false, kind: text}
+
 # ── 状態機械 ────────────────────────────────────────────────────────
 state-machines:
   # 検証ステージ（正式名称は playbooks/<stage>.md の見出しが正典）
@@ -338,6 +398,22 @@ state-machines:
     - {name: 反証,     description: 成功基準を満たさず仮説が否定された}
     - {name: 判断保留, description: 実験したが結論が出ず証拠が足りない（確信度は原則上げない）}
     - {name: 是正,     description: 記録・運用の誤りを正した（仮説の真偽判定ではないので確信度は動かさない）}
+
+  # 成功基準（success-criteria）の比較演算子。実測（measurements.value）を左辺に置いて評価する。
+  criteria-ops: [">=", ">", "<=", "<", "==", "!="]
+
+  # 実測から導いた判定と、著者が書いた判定（judgments / outcome）を突き合わせるときの方針。
+  # **数値と真逆の結論だけを弾く**（hwlint の judgment-mismatch）。
+  #   - 全基準を満たしたのに 反証 と書いた   → error（数値と結論が逆）
+  #   - 全基準を割ったのに 支持 と書いた     → error（ゴールポストの事後移動。本命）
+  #   - 満たしたが 判断保留 と書いた         → 許す（慎重側への倒しは常に正当）
+  #   - 一部だけ満たした（mixed）           → 導出しない（人の解釈に委ねる）
+  #   - 起票・是正                          → 対象外（仮説の真偽判定ではない）
+  # 「慎重側は許す」が非対称の要点。機械は確証の水増しだけを止め、疑うことは止めない。
+  judgment-check:
+    truth-outcomes: [支持, 反証, 判断保留]   # 真偽判定を名乗る outcome（これ以外は検算・被覆の対象外）
+    supported: 支持
+    refuted: 反証
 
   # 実験計画(TEST)・学び(LEARN)の**データ種別**（frontmatter data）。fictional-cap 判定の正本。
   # 「そのレコードが何のデータで作られたか」であって「何について書いてあるか」ではない

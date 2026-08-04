@@ -232,7 +232,8 @@ bash tools/build_site.sh --check    # 壊れた内部リンクが 0 件かを機
 
 **オントロジー（型・関係の正本）** — レコードの型（仮説 H／実験計画 TEST＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
 各レコードの frontmatter フィールド（必須／省略可と値の種別）、レコード間の型付きリンク
-（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`learns-from`／`based-on` の6関係）、
+（`derived-from`／`leads-to`／`addresses`／`hypotheses`／`script-for`／`learns-from`／`based-on` の7関係）、
+行の集まりを持つ構造化フィールド（`judgments`＝仮説ごとの判定／`success-criteria`＝成功基準の機械可読な背骨／`measurements`＝実測）、
 検証の状態機械（ステージ・ステータス・確信度・検証判定・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
 人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）。
 lint やビュー生成ツールは `tools/ontology.py` 経由でここを読むため、語彙をコードや規約に再定義しない（二重管理・ドリフト防止）。
@@ -249,6 +250,12 @@ lint やビュー生成ツールは `tools/ontology.py` 経由でここを読む
 
 **確信度は2軸で別管理** — 確信度（1〜10、証拠の強さ）とステータス（未検証 → 検証中 → 検証済み ／ 反証）。
 確信度・ステータスの変更は**必ず学び（LEARN）か意思決定（DEC）に紐づける**（勘で書き換えない）。確信度履歴テーブルが追記専用の正本で、frontmatter はその同期キャッシュ。
+
+**判定はごまかせない** — 1つの学びが複数の仮説を別々に判定したときは `judgments` に仮説ごとに残す
+（`outcome` はレコード全体の要約1語なので、書かないと「どれが崩れたか」がグラフから消える）。
+実験計画に数えられる成功基準（`success-criteria`）があれば、学びの実測（`measurements`）と突き合わせて
+**基準を割ったのに「支持」と書く**のを lint が error で弾く。凍結（成功基準の文言を後から変えさせない）は
+字面を守るだけなので、数値の側からもゴールポストの移動を止める。慎重側（判断保留）へ倒すのは常に許す。
 
 **根拠鎖は生データまで機械検証される** — 紐づけは `[[LEARN-NNN]]` で終わらない。学びは frontmatter `sources` で
 **根拠となった生データ**（不変層 `projects/<slug>/sources/`）を指し、鎖が端まで繋がる:

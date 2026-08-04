@@ -18,7 +18,7 @@
 
 - **`H`（仮説）** — 反証可能な仮説文。追記専用の確信度履歴テーブルを正本として持ち、TEST/LEARN/DEC から検証・更新される。事業の前提を1つずつ言語化した検証の起点。
 - **`TEST`（実験計画）** — テストカード。検証前に記入する計画で、「動いて検証する(Act)→学ぶ(Learn)」の計画側として目的・方法・指標・成功基準・riskiest-assumption を宣言する。学び(LEARN)が紐づくまでは自由に直してよく、紐づいた後は下記 immutable の範囲だけを凍結する（後知恵バイアス防止）。検証後の学びは LEARN（別レコード）に積む。
-- **`LEARN`（学び）** — 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
+- **`LEARN`（学び）** — 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。1つの学びが複数の仮説を動かすときは judgments で仮説ごとの判定を、実験計画の success-criteria に対する実測は measurements で持つ（outcome だけでは「どの仮説が崩れたか」がグラフから消える）。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
 - **`DEC`（意思決定）** — ステージ移行・ピボット・撤退・巻き戻しなどの節目の判断。based-on で根拠の LEARN/TEST に結び、to-stage を持つ最新 DEC が現在ステージの正本になる。巻き戻しポイントと次の一手を残す。
 
 ### 凍結（不変ルール6）
@@ -27,7 +27,7 @@
 
 | 種別 | 発火（実施済みの判定） | 凍結する本文節 | 凍結する frontmatter キー |
 |---|---|---|---|
-| `TEST` | `learns-from` で指されている | `成功基準` | `riskiest-assumption` |
+| `TEST` | `learns-from` で指されている | `成功基準` | `riskiest-assumption`・`success-criteria` |
 
 ### frontmatter フィールド（スキーマ＝契約）
 
@@ -61,7 +61,8 @@
 | `stage` | 必須 | enum | `stages` |
 | `hypotheses` | 必須 | relation | — |
 | `riskiest-assumption` | 必須 | text | — |
-| `data` | 省略可 | enum | `data-kinds` |
+| `data` | 必須 | enum | `data-kinds` |
+| `success-criteria` | 省略可 | structured | — |
 
 **`LEARN`（学び）**
 
@@ -75,8 +76,10 @@
 | `learns-from` | 省略可 | relation | — |
 | `hypotheses` | 必須 | relation | — |
 | `outcome` | 必須 | enum | `outcomes` |
+| `judgments` | 省略可 | structured | — |
+| `measurements` | 省略可 | structured | — |
 | `sources` | 省略可 | provenance | — |
-| `data` | 省略可 | enum | `data-kinds` |
+| `data` | 必須 | enum | `data-kinds` |
 
 **`DEC`（意思決定）**
 
@@ -159,6 +162,51 @@
 
 `hwlint.py` が検証すること: パスの実在（**error**）／必須種別での欠落／**確信度を上げた履歴行が指す学び(LEARN)に出典が無い**（根拠鎖の断絶）／どの学びからも参照されていない生データ（取り込み忘れ）。
 
+## 構造化フィールド（行の集まり）
+
+平坦な `key: value` でも record→record の関係でもない第三の形。**1レコードに複数行あり、行の中に構造がある**フィールドを宣言する。
+
+必要な理由: `hypotheses` は配列(many)なのに `outcome` はレコードに1つしかない。1つの学びが3仮説を見て「1つは反証・2つは据え置き」と判定しても、frontmatter に残るのは要約1語だけで、**仮説ごとの結論はグラフから消えて散文にしか残らない**。判定の粒度を仮説に合わせ、成功基準と実測を突き合わせられるようにするための層。
+
+| フィールド | 持てる種別 | 名称 | 意味 |
+|---|---|---|---|
+| `judgments` | LEARN | 仮説ごとの判定 | この学びが対象仮説それぞれをどう判定したか。hypotheses が複数のとき、レコード単位の outcome では表せない結論の違いをここに残す。board が仮説単位に射影し、「反証されたのに誰も判断していない」の機械判定の材料になる。 |
+| `success-criteria` | TEST | 成功基準（機械可読な背骨） | 本文「成功基準」節の散文を置き換えるものではなく、検算できる骨だけを取り出したもの。実施前に確定し、実施後は凍結する（immutable.fields）。実測（measurements）と突き合わせて、数値と真逆の判定を弾くために使う。 |
+| `measurements` | LEARN | 実測 | 実験計画(TEST)の success-criteria に対して実際に観測した値。metric 名で基準と突き合わせる。判定（judgments・outcome）が実測と真逆でないことを lint が検算する＝ゴールポストの事後移動を数値で弾く。 |
+
+**`judgments` の行のキー**
+
+| キー | 必須 | kind | 参照/語彙 |
+|---|---|---|---|
+| `hypothesis` | 必須 | ref | frontmatter `hypotheses` の要素 |
+| `outcome` | 必須 | enum | `outcomes` |
+| `note` | 省略可 | text | — |
+
+**`success-criteria` の行のキー**
+
+| キー | 必須 | kind | 参照/語彙 |
+|---|---|---|---|
+| `hypothesis` | 必須 | ref | frontmatter `hypotheses` の要素 |
+| `metric` | 必須 | text | — |
+| `op` | 必須 | enum | `criteria-ops` |
+| `threshold` | 必須 | number | — |
+| `of` | 省略可 | number | — |
+
+**`measurements` の行のキー**
+
+| キー | 必須 | kind | 参照/語彙 |
+|---|---|---|---|
+| `metric` | 必須 | text | — |
+| `value` | 必須 | number | — |
+| `n` | 省略可 | number | — |
+| `note` | 省略可 | text | — |
+
+**成功基準の演算子**: `>=`・`>`・`<=`・`<`・`==`・`!=`（実測 `value` を左辺、`threshold` を右辺に置いて評価する）。
+
+**判定の検算（`judgment-mismatch`）**: 実測から導いた判定と著者が書いた判定が**真逆のときだけ** error にする。全基準を満たしたのに `反証`／全基準を割ったのに `支持` は弾き、慎重側（`判断保留`）へ倒すのは常に許す。一部だけ満たした場合は導出せず人の解釈に委ねる。検算の対象になる判定は `支持`・`反証`・`判断保留`（起票・是正は仮説の真偽判定ではないので対象外）。
+
+凍結（不変ルール6）との関係: 本文の「成功基準」節を凍らせても、数値だけ後から動かせるなら意味が無い。`success-criteria` は `riskiest-assumption` と同格で凍結する。
+
 ## 状態機械
 
 ### ステージ
@@ -198,7 +246,7 @@
 
 ### データ種別（実験計画・学びの `data`）
 
-そのレコードが**何のデータで作られたか**（何について書いてあるか、ではない）。架空判定の正本で、確信度の上限（fictional-cap）が掛かるかを決める。省略可だが、省くと出典冒頭の宣言・本文マーカー語による推論に戻る。
+そのレコードが**何のデータで作られたか**（何について書いてあるか、ではない）。架空判定の正本で、確信度の上限（fictional-cap）が掛かるかを決める。**必須** — 未宣言を許すと出典冒頭の宣言・本文マーカー語による推論に黙って落ち、宣言漏れが静かに「実データ」扱いになって上限が効かない。推論経路は他 vault・旧レコードのために残す。
 
 | 種別 | 意味 |
 |---|---|
