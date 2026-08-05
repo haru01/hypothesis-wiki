@@ -6,7 +6,8 @@
 「読ませる鋭さ」はレコード側に構造化フィールドとして書いてある前提で読む:
   - 最もリスクの高い前提 = TEST frontmatter `riskiest-assumption`
   - 結果の一行要約       = LEARN 学習カード `### 学びの要点`
-  - 結果の判定           = LEARN frontmatter `outcome`（起票/支持/反証/判断保留/是正）
+  - 結果の判定           = LEARN frontmatter `outcome`（起票/支持/反証/判断保留/是正）。
+                           仮説ごとに判定が違うときは `judgments` を仮説単位に展開して射影する
   - 判断                 = その TEST/LEARN を `based-on` に含む DEC の type/title
   - 戦略的現在地         = 最新 DEC 本文の `## 次の一手`
   - 因果・核心・対応課題 = H frontmatter `leads-to` / `core` / `addresses`
@@ -23,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from records import (  # noqa: E402
     Project, parse_id_array, strip_comments, entity_of, importance, referenced_ids,
-    testcard, card_section, source_paths, fictional_activities,
+    testcard, card_section, source_paths, fictional_activities, struct_field,
 )
 from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（診断・下流依存度。辺集合の単一の入口）
@@ -201,8 +202,18 @@ def gen_board(project) -> str:
 
     def learn_row(learn_stem) -> dict:
         lfm, ltext = project.records[learn_stem][1], project.records[learn_stem][2]
+        # 仮説ごとの判定（judgments）。1つの学びが複数仮説を別々に判定したとき、レコード単位の
+        # outcome だけでは「どれが崩れたか」が board から読めない。あれば仮説単位に展開して射影する。
+        judgments = [(str(r.get("hypothesis", "") or "").strip(),
+                      str(r.get("outcome", "") or "").strip())
+                     for r in struct_field(ltext, "judgments") if isinstance(r, dict)]
+        judgments = [(h, o) for h, o in judgments if h and o]
+        outcome = lfm.get("outcome", "").strip() or "—"
         return {"stem": learn_stem, "result": learning_point(learning(ltext)) or "—",
-                "outcome": lfm.get("outcome", "").strip() or "—",
+                "outcome": outcome, "judgments": judgments,
+                # サマリ列の見え方: 仮説ごとの判定があればそちらを優先（要約1語に潰さない）
+                "outcome_cell": (" ".join(f"{h.split('-', 1)[-1]}={o}" for h, o in judgments)
+                                 if judgments else outcome),
                 "sources": source_paths(lfm),
                 "ids": parse_id_array(lfm.get("hypotheses", ""))}
 
@@ -216,7 +227,7 @@ def gen_board(project) -> str:
                 "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
                 "risk": fm.get("riskiest-assumption", "—") or "—",
                 "method": field_value(tc, "方法"), "criteria": field_value(tc, "成功基準"),
-                "outcome_summary": " / ".join(r["outcome"] for r in rows) if rows else "未実施",
+                "outcome_summary": " / ".join(r["outcome_cell"] for r in rows) if rows else "未実施",
                 "judgment": judgment_for([test_stem] + learns)}
 
     def learn_unit(learn_stem) -> dict:
@@ -227,7 +238,7 @@ def gen_board(project) -> str:
                 "date": fm.get("date", ""), "title": fm.get("title", ""), "type": fm.get("type", ""),
                 "risk": "—（回顧型・事前の実験計画なし）",   # desk-research/self-reflection 等は事前計画を持たない
                 "method": "—", "criteria": "—",
-                "outcome_summary": row["outcome"], "judgment": judgment_for([learn_stem])}
+                "outcome_summary": row["outcome_cell"], "judgment": judgment_for([learn_stem])}
 
     units = ([test_unit(s) for s in project.records if "-TEST-" in s]
              + [learn_unit(s) for s in standalone_learns])
@@ -239,6 +250,7 @@ def gen_board(project) -> str:
              "TEST frontmatter `riskiest-assumption`、「結果（学びの要点）」「判定」は紐づく LEARN"
              "（`learns-from`）の学習カード `学びの要点`・frontmatter `outcome`、"
              "「判断」は当該 TEST/LEARN を `based-on` に持つ DEC 由来。すべて射影・逐語転記。"
+             "学びが仮説ごとに違う判定を持つ（`judgments`）ときは、判定列を仮説単位に展開する。"
              "回顧型（desk-research 等）は計画を持たない LEARN 単独の実験として出る。")
     L.append("")
 
@@ -271,6 +283,9 @@ def gen_board(project) -> str:
             # 回顧型ユニットは行の stem がユニット自身なのでリンク重複を避ける
             tag = f"[[{r['stem']}]] " if r["stem"] != e["stem"] else ""
             L.append(f"- **結果（{tag}学びの要点）**: {r['result']}（判定: {r['outcome']}）")
+            if r["judgments"]:      # 仮説ごとに判定が違うときは潰さずに並べる
+                per_h = " ｜ ".join(f"[[{h}]] {o}" for h, o in r["judgments"])
+                L.append(f"- **判定（仮説ごと）**: {per_h}")
         # 出典（生データ）— 確信度の根拠鎖の末端。生成物からも一次資料へ辿れるようにする。
         srcs = list(dict.fromkeys(s for r in e["rows"] for s in r["sources"]))
         if srcs:

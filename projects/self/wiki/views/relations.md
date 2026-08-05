@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-08-03（ステージ CPF） / ontology-version: 2 -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-08-04（ステージ CPF） / ontology-version: 3 -->
 
 # 関係グラフ（self）
 
@@ -104,4 +104,4 @@ flowchart LR
 - **孤立仮説**（どの関係も持たない）: なし
 - **ハブ**（次数上位＝コーパスを束ねているレコード）: [[SELF-LEARN-001]](5) [[SELF-TEST-001]](5) [[SELF-H-001]](4) [[SELF-H-004]](4) [[SELF-H-005]](4)
 - **下流依存度**（`leads-to` の推移閉包＝崩れると波及が大きい背骨）: [[SELF-H-001]](3) [[SELF-H-002]](1) [[SELF-H-004]](1) [[SELF-H-007]](1)
-- **未取り込みの生データ**（どの学びの `sources` からも参照されていない）: [2026-08-03-interview-A-dialogue.md](../../sources/2026-08-03-interview-A-dialogue.md)
+- **未取り込みの生データ**（どの学びの `sources` からも参照されていない）: なし

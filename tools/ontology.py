@@ -83,6 +83,40 @@ class Field:
         self.enum_ref = d.get("enum-ref", "")
 
 
+class StructuredField:
+    """構造化フィールド1件（行の集まりを持つ frontmatter キー）の宣言。
+
+    平坦な key: value でも record→record の relation でもない第三の形。行のキー（必須か・値の種別）を
+    宣言し、hwlint がこの宣言に照らして行の形を検証する。判定(judgments)・成功基準(success-criteria)・
+    実測(measurements) が該当する。仕様の正本は ontology.yaml の structured-fields 節。"""
+    __slots__ = ("name", "domains", "label", "description", "keys", "keys_by_name")
+
+    def __init__(self, name: str, d: dict):
+        self.name = name
+        self.domains = _as_set(d.get("domain", []))
+        self.label = d.get("label", name)
+        self.description = d.get("description", "")
+        self.keys = [StructuredKey(k) for k in d.get("keys", [])]
+        self.keys_by_name = {k.name: k for k in self.keys}
+
+    def in_domain(self, ent: str) -> bool:
+        return ent in self.domains
+
+
+class StructuredKey:
+    """構造化フィールドの行1キー分の宣言。
+
+    kind は ref（同レコードの ref-field が指す集合の要素）／enum（enum-ref の語彙）／number／text。"""
+    __slots__ = ("name", "required", "kind", "enum_ref", "ref_field")
+
+    def __init__(self, d: dict):
+        self.name = d["name"]
+        self.required = bool(d.get("required", False))
+        self.kind = d.get("kind", "text")
+        self.enum_ref = d.get("enum-ref", "")
+        self.ref_field = d.get("ref-field", "")
+
+
 class Attachment:
     """付随物1種。親レコードに従属し、独自のID体系を持たない成果物の宣言。
 
@@ -232,9 +266,28 @@ DATA_SIMULATED = "simulated"
 # データ種別を宣言できるレコード種別（fields 宣言から導出＝二重管理を作らない）
 DATA_FIELD = "data"
 
-# enum フィールドの enum-ref → 語彙集合（check_fields が引く）
+# 成功基準の比較演算子（success-criteria.op の語彙）。実測を左辺に置いて評価する。
+CRITERIA_OPS = list(_SM.get("criteria-ops", []))
+_OPS = {">=": lambda a, b: a >= b, ">": lambda a, b: a > b,
+        "<=": lambda a, b: a <= b, "<": lambda a, b: a < b,
+        "==": lambda a, b: a == b, "!=": lambda a, b: a != b}
+
+
+def satisfies(value: float, op: str, threshold: float) -> bool:
+    """実測 value が基準（op threshold）を満たすか。未知の演算子は False（語彙は _selfcheck が担保）。"""
+    fn = _OPS.get(op)
+    return bool(fn and fn(value, threshold))
+
+
+# 実測から導いた判定と著者の判定を突き合わせる方針（judgment-check）。方針の正本は ontology.yaml。
+_JC = _SM.get("judgment-check", {})
+TRUTH_OUTCOMES = set(_JC.get("truth-outcomes", []))   # 真偽判定を名乗る outcome（検算・被覆の対象）
+OUTCOME_SUPPORTED = _JC.get("supported", "支持")
+OUTCOME_REFUTED = _JC.get("refuted", "反証")
+
+# enum フィールドの enum-ref → 語彙集合（check_fields・構造化フィールドの行検証が引く）
 ENUM_REFS = {"stages": STAGES, "statuses": STATUSES, "outcomes": OUTCOMES,
-             "data-kinds": DATA_KINDS}
+             "data-kinds": DATA_KINDS, "criteria-ops": set(CRITERIA_OPS)}
 
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
@@ -301,6 +354,13 @@ _bind_parent_relations()
 # ── プロヴェナンス（出典）────────────────────────────────────────────
 PROVENANCE = Provenance(load().get("provenance", {}))
 
+# ── 構造化フィールド（行の集まりを持つ frontmatter キー）──────────────
+STRUCTURED_FIELDS = {name: StructuredField(name, d)
+                     for name, d in (load().get("structured-fields") or {}).items()}
+# エンティティ種別 → その種別が持てる構造化フィールド（宣言の domain から導出）
+STRUCTURED_BY_ENTITY = {ent: [s for s in STRUCTURED_FIELDS.values() if s.in_domain(ent)]
+                        for ent in ENTITY_INFIXES}
+
 # ── 凍結（不変ルール6）の適用範囲。宣言の無いエンティティは凍結しない ──────
 IMMUTABLE = {ent: Immutability(e["immutable"])
              for ent, e in load()["entities"].items() if e.get("immutable")}
@@ -352,6 +412,10 @@ def _selfcheck() -> int:
                 assert f.name in RELATIONS_BY_FIELD, f"{ent}.{f.name} は relations に宣言が無い"
             if f.kind == "provenance":
                 assert f.name == PROVENANCE.field, f"{ent}.{f.name} は provenance.field と不一致"
+            if f.kind == "structured":
+                sf = STRUCTURED_FIELDS.get(f.name)
+                assert sf, f"{ent}.{f.name} は structured-fields に宣言が無い"
+                assert sf.in_domain(ent), f"structured-fields.{f.name} の domain に {ent} が無い"
     # 関係は必ずどこかの fields に現れる（宣言したのに frontmatter キーとして未登録＝死んだ関係を防ぐ）
     for r in RELATIONS:
         for ent in r.domains:
@@ -386,6 +450,32 @@ def _selfcheck() -> int:
             f"provenance.field '{PROVENANCE.field}' が {ent} の fields に無い"
         assert PROVENANCE.required_for_types <= set(_subtype_names(ent)), \
             f"provenance.required-for-types に {ent} のサブタイプでない値がある"
+    # 構造化フィールド: domain が実在種別か／行のキー宣言が引ける参照先を持つか／
+    # フィールド自体が entities.*.fields に kind: structured で登録されているか（死んだ宣言を防ぐ）
+    for name, sf in STRUCTURED_FIELDS.items():
+        assert sf.domains <= set(ENTITY_INFIXES), f"structured-fields.{name} の domain 不正"
+        assert sf.keys, f"structured-fields.{name} に keys 宣言が無い"
+        for ent in sf.domains:
+            f = FIELDS_BY_NAME[ent].get(name)
+            assert f and f.kind == "structured", \
+                f"structured-fields.{name} が {ent}.fields に kind: structured で登録されていない"
+        for k in sf.keys:
+            assert k.kind in ("ref", "enum", "number", "text"), \
+                f"structured-fields.{name}.{k.name} の kind '{k.kind}' が未知"
+            if k.kind == "enum":
+                assert k.enum_ref in ENUM_REFS, \
+                    f"structured-fields.{name}.{k.name} の enum-ref '{k.enum_ref}' が未知"
+            if k.kind == "ref":
+                assert k.ref_field in RELATIONS_BY_FIELD, \
+                    f"structured-fields.{name}.{k.name} の ref-field '{k.ref_field}' が relations に無い"
+                for ent in sf.domains:
+                    assert k.ref_field in FIELDS_BY_NAME[ent], \
+                        f"structured-fields.{name}.{k.name} の ref-field が {ent}.fields に無い"
+    # 判定の検算（judgment-check）で使う語彙が outcomes の部分集合であること
+    assert TRUTH_OUTCOMES <= OUTCOMES, "judgment-check.truth-outcomes に outcomes 外の値がある"
+    assert {OUTCOME_SUPPORTED, OUTCOME_REFUTED} <= TRUTH_OUTCOMES, \
+        "judgment-check の supported/refuted が truth-outcomes に無い"
+    assert CRITERIA_OPS and set(CRITERIA_OPS) <= set(_OPS), "criteria-ops に評価器の無い演算子がある"
     # 凍結範囲: 宣言したキー・関係が実在すること（規約文だけ直して実装が置き去りになるのを防ぐ）
     for ent, im in IMMUTABLE.items():
         assert ent in ENTITY_INFIXES, f"immutable を宣言した '{ent}' が未知のエンティティ"

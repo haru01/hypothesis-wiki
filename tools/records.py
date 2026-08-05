@@ -63,6 +63,42 @@ def parse_id_array(value: str) -> list:
     return [x.strip() for x in value.strip("[]").split(",") if x.strip()]
 
 
+def struct_field(text: str, key: str) -> list:
+    """構造化フィールド（配列 of マッピング）を**入れ子を保ったまま**読む。
+
+    parse_frontmatter は「素の文字列」契約なので、入れ子は str() に潰れて読めない。判定(judgments)・
+    成功基準(success-criteria)・実測(measurements) のように「1レコードに複数行・行の中に構造」がある
+    フィールドはこちらで読む（宣言の正本は ontology.yaml の structured-fields 節）。
+
+    BaseLoader を使うので葉は全部 str（数値の型強制を避ける＝frontmatter 全体の契約と揃える）。
+    **形の誤りは落とさずそのまま返す**（dict でない行も含める）。捨ててしまうと lint が
+    「書いたのに無視された行」を報告できず、書き損じが黙って消える。
+    """
+    m = re.match(r"^---\n(.*?)\n---(?:\n|$)", text, re.DOTALL)
+    if not m:
+        return []
+    try:
+        data = yaml.load(m.group(1), Loader=yaml.BaseLoader)
+    except yaml.YAMLError:
+        return []
+    if not isinstance(data, dict):
+        return []
+    value = data.get(key)
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def as_number(value):
+    """構造化フィールドの数値キーを float で返す（数値でなければ None）。
+
+    BaseLoader は葉を str で返すので、比較の前にここで一度だけ通す。"""
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def entity_of(stem: str) -> str:
     """レコード stem からエンティティ種別（H/TEST/LEARN/DEC）を返す。該当なしは空。
 

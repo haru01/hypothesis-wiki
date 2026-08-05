@@ -156,6 +156,40 @@ def build() -> str:
           "**確信度を上げた履歴行が指す学び(LEARN)に出典が無い**（根拠鎖の断絶）／"
           "どの学びからも参照されていない生データ（取り込み忘れ）。", ""]
 
+    # 構造化フィールド（行の集まりを持つ frontmatter キー）
+    if ontology.STRUCTURED_FIELDS:
+        L += ["## 構造化フィールド（行の集まり）", "",
+              "平坦な `key: value` でも record→record の関係でもない第三の形。"
+              "**1レコードに複数行あり、行の中に構造がある**フィールドを宣言する。", "",
+              "必要な理由: `hypotheses` は配列(many)なのに `outcome` はレコードに1つしかない。"
+              "1つの学びが3仮説を見て「1つは反証・2つは据え置き」と判定しても、frontmatter に残るのは"
+              "要約1語だけで、**仮説ごとの結論はグラフから消えて散文にしか残らない**。"
+              "判定の粒度を仮説に合わせ、成功基準と実測を突き合わせられるようにするための層。", "",
+              "| フィールド | 持てる種別 | 名称 | 意味 |", "|---|---|---|---|"]
+        for sf in ontology.STRUCTURED_FIELDS.values():
+            L.append(f"| `{sf.name}` | {'・'.join(sorted(sf.domains))} | {sf.label} | {sf.description} |")
+        L.append("")
+        for sf in ontology.STRUCTURED_FIELDS.values():
+            L += [f"**`{sf.name}` の行のキー**", "",
+                  "| キー | 必須 | kind | 参照/語彙 |", "|---|---|---|---|"]
+            for k in sf.keys:
+                ref = (f"`{k.enum_ref}`" if k.enum_ref else
+                       (f"frontmatter `{k.ref_field}` の要素" if k.ref_field else "—"))
+                L.append(f"| `{k.name}` | {'必須' if k.required else '省略可'} | {k.kind} | {ref} |")
+            L.append("")
+        L += [f"**成功基準の演算子**: {'・'.join(f'`{op}`' for op in ontology.CRITERIA_OPS)}"
+              "（実測 `value` を左辺、`threshold` を右辺に置いて評価する）。", "",
+              "**判定の検算（`judgment-mismatch`）**: 実測から導いた判定と著者が書いた判定が"
+              "**真逆のときだけ** error にする。"
+              f"全基準を満たしたのに `{ontology.OUTCOME_REFUTED}`／全基準を割ったのに "
+              f"`{ontology.OUTCOME_SUPPORTED}` は弾き、慎重側（`判断保留`）へ倒すのは常に許す。"
+              "一部だけ満たした場合は導出せず人の解釈に委ねる。"
+              f"検算の対象になる判定は {'・'.join(f'`{o}`' for o in ontology.OUTCOME_ORDER if o in ontology.TRUTH_OUTCOMES)}"
+              "（起票・是正は仮説の真偽判定ではないので対象外）。", "",
+              "凍結（不変ルール6）との関係: 本文の「成功基準」節を凍らせても、"
+              "数値だけ後から動かせるなら意味が無い。`success-criteria` は "
+              "`riskiest-assumption` と同格で凍結する。", ""]
+
     # 状態機械（射影定数 ontology.py 経由。生 YAML を直読みしない＝単一の入口）
     stage_focus = o["state-machines"]["stage-focus"]   # 順序保持のため元の list を使う
     L += ["## 状態機械", "", "### ステージ", "",
@@ -185,8 +219,9 @@ def build() -> str:
     if ontology.DATA_KIND_ORDER:
         L += [f"### データ種別（実験計画・学びの `{ontology.DATA_FIELD}`）", "",
               "そのレコードが**何のデータで作られたか**（何について書いてあるか、ではない）。"
-              "架空判定の正本で、確信度の上限（fictional-cap）が掛かるかを決める。省略可だが、"
-              "省くと出典冒頭の宣言・本文マーカー語による推論に戻る。", "",
+              "架空判定の正本で、確信度の上限（fictional-cap）が掛かるかを決める。**必須** — "
+              "未宣言を許すと出典冒頭の宣言・本文マーカー語による推論に黙って落ち、宣言漏れが静かに"
+              "「実データ」扱いになって上限が効かない。推論経路は他 vault・旧レコードのために残す。", "",
               "| 種別 | 意味 |", "|---|---|"]
         for name in ontology.DATA_KIND_ORDER:
             L.append(f"| `{name}` | {ontology.DATA_KIND_DESC.get(name) or '—'} |")
