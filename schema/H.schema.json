@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/haru01/hypothesis-wiki/schema/H.schema.json",
+  "$id": "https://github.com/iepyon/hypothesis-wiki/schema/H.schema.json",
   "title": "H（仮説）",
   "description": "反証可能な仮説文。追記専用の確信度履歴テーブルを正本として持ち、TEST/LEARN/DEC から検証・更新される。事業の前提を1つずつ言語化した検証の起点。",
   "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",

@@ -15,7 +15,7 @@ configuration:
   enablePopovers: true
   analytics: null                              # 変更: 既定は plausible に送信する
   locale: ja-JP                                # 変更: 既定 en-US
-  baseUrl: haru01.github.io/hypothesis-wiki    # 変更: プロジェクトページなのでサブパス込み
+  baseUrl: iepyon.github.io/hypothesis-wiki    # 変更: プロジェクトページなのでサブパス込み
   ignorePatterns:
     # 変更: 既定に入っている `templates` を**外している**。Obsidian の雛形フォルダを
     # 想定した既定値だが、このリポジトリの templates/ は公開したい schema 層。
@@ -263,7 +263,7 @@ plugins:
     enabled: true
     options:
       links:
-        リポジトリ: https://github.com/haru01/hypothesis-wiki
+        リポジトリ: https://github.com/iepyon/hypothesis-wiki
     layout:
       position: footer
       priority: 50

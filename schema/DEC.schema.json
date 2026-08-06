@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/haru01/hypothesis-wiki/schema/DEC.schema.json",
+  "$id": "https://github.com/iepyon/hypothesis-wiki/schema/DEC.schema.json",
   "title": "DEC（意思決定）",
   "description": "ステージ移行・ピボット・撤退・巻き戻しなどの節目の判断。based-on で根拠の LEARN/TEST に結び、to-stage を持つ最新 DEC が現在ステージの正本になる。巻き戻しポイントと次の一手を残す。",
   "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",

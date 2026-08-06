@@ -142,7 +142,7 @@ def build_one(node: str) -> dict:
     meta = a if a else _entity(node)
     return {
         "$schema": SCHEMA_URL,
-        "$id": f"https://github.com/haru01/hypothesis-wiki/schema/{node}.schema.json",
+        "$id": f"https://github.com/iepyon/hypothesis-wiki/schema/{node}.schema.json",
         "title": f"{node}（{meta.get('label', node) if isinstance(meta, dict) else meta.label}）",
         "description": (meta.get("description", "") if isinstance(meta, dict) else meta.description),
         "$comment": ("ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。"

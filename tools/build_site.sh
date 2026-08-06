@@ -18,7 +18,7 @@ WORK="$REPO/.site"
 STAGED="$WORK/staged"
 QUARTZ="$WORK/quartz"
 QUARTZ_URL="https://github.com/jackyzha0/quartz.git"
-BASE_URL="haru01.github.io/hypothesis-wiki"
+BASE_URL="iepyon.github.io/hypothesis-wiki"
 
 SERVE=0 CHECK=0 FRESH=0 STRICT=0
 for arg in "$@"; do

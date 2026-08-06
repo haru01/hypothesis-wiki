@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/haru01/hypothesis-wiki/schema/SCRIPT.schema.json",
+  "$id": "https://github.com/iepyon/hypothesis-wiki/schema/SCRIPT.schema.json",
   "title": "SCRIPT（スクリプト）",
   "description": "interview/demo の実験計画(TEST)の「方法」を現場の会話に落とした台本。/planning がテストカードと対で生成する。事前登録した反証条件・記録シートを載せ、観測をそのまま受け止める器になる。確信度は動かさない（学びは LEARN に積む）。",
   "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",

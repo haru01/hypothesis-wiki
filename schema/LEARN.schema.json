@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/haru01/hypothesis-wiki/schema/LEARN.schema.json",
+  "$id": "https://github.com/iepyon/hypothesis-wiki/schema/LEARN.schema.json",
   "title": "LEARN（学び）",
   "description": "学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。1つの学びが複数の仮説を動かすときは judgments で仮説ごとの判定を、実験計画の success-criteria に対する実測は measurements で持つ（outcome だけでは「どの仮説が崩れたか」がグラフから消える）。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。",
   "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",

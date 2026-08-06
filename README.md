@@ -190,13 +190,13 @@ hypothesis-wiki/
 
 ## Web で公開する（GitHub Pages）
 
-公開サイト: **https://haru01.github.io/hypothesis-wiki/**
+公開サイト: **https://iepyon.github.io/hypothesis-wiki/**
 
 Obsidian の wikilink（`[[SELF-H-004]]`）は GitHub の Markdown レンダラーでは素の文字列のままなので、
 [Quartz](https://quartz.jzhao.xyz/) v5 でサイトに変換して公開する。バックリンク・グラフビュー・
 全文検索が付き、Obsidian で見ている体験がほぼそのまま外から読める。
 
-`main` への push で [.github/workflows/pages.yml](https://github.com/haru01/hypothesis-wiki/blob/main/.github/workflows/pages.yml) が
+`main` への push で [.github/workflows/pages.yml](https://github.com/iepyon/hypothesis-wiki/blob/main/.github/workflows/pages.yml) が
 走ってデプロイされる。PR では同じワークフローがビルドと壊れリンク検査までを走らせる（デプロイはしない）。
 
 > **初回だけ手動の設定が要る**: リポジトリ設定 → Pages → Source を **GitHub Actions** にする。
@@ -212,9 +212,9 @@ bash tools/build_site.sh --check    # 壊れた内部リンクが 0 件かを機
 
 仕組みと約束事:
 
-- **Quartz はリポジトリに取り込まない**。[site/QUARTZ_REF](https://github.com/haru01/hypothesis-wiki/blob/main/site/QUARTZ_REF) でコミットをピン止めし、
+- **Quartz はリポジトリに取り込まない**。[site/QUARTZ_REF](https://github.com/iepyon/hypothesis-wiki/blob/main/site/QUARTZ_REF) でコミットをピン止めし、
   ビルド時に `.site/quartz` へ取ってくる。Node はこのスクリプトと CI の中にしか存在しない。
-- **オリジナルは書き換えない**。[tools/gen_site.py](https://github.com/haru01/hypothesis-wiki/blob/main/tools/gen_site.py) が公開ツリーを `.site/staged`
+- **オリジナルは書き換えない**。[tools/gen_site.py](https://github.com/iepyon/hypothesis-wiki/blob/main/tools/gen_site.py) が公開ツリーを `.site/staged`
   に組み立て、**コピー側だけで**リンクを Quartz が解決できる形（wikilink）に正規化する。
   本文の wikilink は Obsidian のグラフと `/lint` の二重表現チェックが依存しているので触らない。
 - **生データ（`projects/*/sources/`）は公開しない**。そのため確信度の根拠鎖

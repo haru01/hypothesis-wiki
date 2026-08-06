@@ -51,4 +51,4 @@ Wiki というプロダクト自体を題材にした仮説検証。デスクリ
 > このサイトには含めていない。そのため確信度の根拠鎖 `確信度履歴 → 学び → 生データ` の
 > **末端はここでは辿れない**。学びレコードの `sources` に、どの生データに基づくかは記録されている。
 
-このサイトは [hypothesis-wiki](https://github.com/haru01/hypothesis-wiki) から生成している。
+このサイトは [hypothesis-wiki](https://github.com/iepyon/hypothesis-wiki) から生成している。
