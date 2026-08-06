@@ -14,15 +14,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
-    STATUSES, STAGES, H_TYPES, TEST_TYPES, LEARN_TYPES, DEC_TYPES, OUTCOMES,
-    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
+    # 語彙そのもの（STATUSES / H_TYPES / OUTCOMES / CONFIDENCE_MIN-MAX 等）はもう引かない。
+    # 値が語彙・範囲に収まるかの検証は fields 宣言 × field-kinds を走査する汎用ルート
+    # （check_vocabulary）へ一本化され、種別ごとの語彙を名指しする箇所が無くなったため。
+    # ここに残るのは「語彙の一覧」ではなく、ロジックが直接使う判定材料だけ。
+    STAGES,
+    FICTIONAL_CAP,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR,
     EVIDENCE_FLOOR_MIN_CONFIDENCE, EVIDENCE_AUX,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD, STAGE_FOCUS, STAGE_ORDER,
-    IMPORTANCE_FOCUS, FIELDS, FIELDS_BY_NAME, ENUM_REFS, PROVENANCE,
+    IMPORTANCE_FOCUS, ENUM_REFS, PROVENANCE,
     DATA_FIELD, DATA_REAL, DATA_KINDS,
     STALENESS_CONFIDENCE_DAYS, STALENESS_TEST_DAYS, ENTITY_INFIXES,
-    ID_RE, NODE_FIELDS_BY_NAME, IMMUTABLE,
+    ID_RE, NODE_FIELDS_BY_NAME, NODE_SUBTYPES, FIELD_KINDS, RANGE_REFS, IMMUTABLE,
     STRUCTURED_FIELDS, STRUCTURED_BY_ENTITY, TRUTH_OUTCOMES,
     OUTCOME_SUPPORTED, OUTCOME_REFUTED, satisfies,
 )
@@ -38,6 +42,28 @@ from project import resolve_current_project  # noqa: E402
 import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の算出）
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# 本文の見出し節を取り出す／文字列を書式差を無視して比べる、の2つは複数のチェックが共有する
+# （二重表現の照合＝ frontmatter と本文・仮説の反証条件と実験計画への逐語コピー）。
+_NORMALIZE_RE = re.compile(r"[\s*`_~]")
+
+
+def _same_text(a: str, b: str) -> bool:
+    """空白と強調記号の差を無視して比較する（書式の揺れでは鳴らさない）。"""
+    return _NORMALIZE_RE.sub("", a) == _NORMALIZE_RE.sub("", b)
+
+
+def body_section(text: str, name: str):
+    """本文の `## <name>` 節（見出しレベルは2〜6のいずれでも可）の中身を返す。無ければ None。
+
+    records.card_section はテストカード内の `### 節` と `- **節**:` を対象にした別文法なので
+    共有しない（あちらは凍結範囲の特定用で、終端の扱いが違う）。"""
+    m = re.search(rf"^#{{2,6}}\s*{re.escape(name)}\s*$", text, re.MULTILINE)
+    if not m:
+        return None
+    rest = text[m.end():]
+    nxt = re.search(r"^#{1,6}\s", rest, re.MULTILINE)
+    return (rest[:nxt.start()] if nxt else rest).strip()
 
 
 @dataclass
@@ -55,6 +81,8 @@ def check_id_matches_filename(project) -> list:
     （ファイル名が親レコードID + suffix になっているか）は check_attachment_id が見る。"""
     problems = []
     for stem, (path, fm, _) in project.nodes.items():
+        if stem in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み
         fid = fm.get("id", "")
         if fid != stem:
             problems.append(Problem("error", stem, "id-filename",
@@ -66,6 +94,55 @@ def check_id_matches_filename(project) -> list:
     return problems
 
 
+def check_frontmatter(project) -> list:
+    """frontmatter が YAML として読めること（error）。
+
+    読めない frontmatter は parse_frontmatter が空 dict にして寛容に流すので、下流には
+    「全フィールドが未指定」に見え、**本当の原因を一言も言わない大量の error** になる
+    （実測: 日本語の散文フィールドにコロンを1つ入れただけで11件）。原因を1件で名指しし、
+    スキーマ系のチェック（fields・vocab・id-filename）はこのノードを飛ばす。
+
+    現実的な壊れ方は「日本語の一文をそのまま書いたら `: ` が入っていた」なので、直し方まで書く。"""
+    return [Problem("error", stem, "frontmatter",
+                    f"frontmatter が YAML として読めない（{reason}）。"
+                    "日本語の一文をそのまま書くと `: ` が入りやすい — 値に `: ` や "
+                    "先頭の `#`・`[` が入るときは \"引用符\" で囲む"
+                    "（このノードのスキーマ系チェックは巻き添えを避けて飛ばしている）")
+            for stem, reason in sorted(project.broken_frontmatter.items())]
+
+
+def check_field_body_section(project) -> list:
+    """二重表現（`must-body-section`）: frontmatter の値が本文の指定節にも置かれていること（warning）。
+
+    関係の `must-wikilink`・出典の `must-body-link` と同じ層。宣言だけして機械が守らないと、
+    「二重表現である」という規約が規約文の中にしか存在しなくなる（実際 `falsifier` は
+    導入直後そうなっていた — 本文節を丸ごと消しても文言を食い違わせても lint は無言だった）。
+
+    error にしない理由: 本文は読み手のための面で、節の言い回しを整える自由は残す。
+    比較は空白・強調記号の差を無視する（書式の揺れでは鳴らさない）。"""
+    problems = []
+    for stem, (_, fm, body) in project.nodes.items():
+        if stem in project.broken_frontmatter:
+            continue
+        text = strip_comments(body)
+        for name, f in NODE_FIELDS_BY_NAME.get(node_kind(stem), {}).items():
+            if not f.must_body_section:
+                continue
+            value = fm.get(name, "").strip()
+            if not value:
+                continue                      # 欠落は check_fields の担当
+            section = body_section(text, f.must_body_section)
+            if section is None:
+                problems.append(Problem("warning", stem, "field-body-section",
+                    f"frontmatter `{name}` に対応する本文節 `## {f.must_body_section}` が無い"
+                    "（二重表現: 機械が読む場所と読み手が出会う場所の両方に置く）"))
+            elif not _same_text(value, section):
+                problems.append(Problem("warning", stem, "field-body-section",
+                    f"本文の `{f.must_body_section}` 節が frontmatter `{name}` と食い違う"
+                    f"（frontmatter: {value}／本文: {section}）"))
+    return problems
+
+
 def check_fields(project) -> list:
     """スキーマ＝契約: frontmatter のキー構成を ontology.yaml の fields 宣言に照らす。
 
@@ -73,7 +150,12 @@ def check_fields(project) -> list:
     entity/relation/state-machine は宣言済みでもフィールド自体の宣言が無かったため、
     必須キーの欠落も未知キー（タイポ）の混入も機械検出できなかった穴を塞ぐ。
 
+    ここが見るのは**形**（在るか・知らないキーでないか・書式）で、**値が語彙・範囲に収まるか**は
+    check_vocabulary が見る（両方が同じ違反を報告すると二重報告になる）:
+
     - required なフィールドの欠落／空 → error（例: date 欠落は Project.stage のソートを静かに壊す）
+    - required-when（条件付き必須）で `when: always` のもの → 宣言した severity
+      （`enforced-by` のあるものは専用チェックが担うのでここでは評価しない）
     - 宣言に無いキー → warning（タイポ・旧スキーマの残骸）
     - kind: date が YYYY-MM-DD でない → error
 
@@ -84,79 +166,95 @@ def check_fields(project) -> list:
     for stem, (_, fm, _) in project.nodes.items():
         ent = node_kind(stem)
         declared = NODE_FIELDS_BY_NAME.get(ent)
-        if not declared:
+        # frontmatter が読めないノードは check_frontmatter が1件で報告済み。ここで全キーを
+        # 「未指定」として並べると、原因でない error が本当の原因を埋める。
+        if not declared or stem in project.broken_frontmatter:
             continue
         for name, f in declared.items():
-            if f.required and not fm.get(name, "").strip():
+            value = fm.get(name, "").strip()
+            if not value:
+                if f.required:
+                    problems.append(Problem("error", stem, "fields",
+                        f"必須フィールド {name}（{f.kind}）が未指定/空"))
+                elif f.required_when and f.required_when.checkable:
+                    problems.append(Problem(f.required_when.severity, stem, "required-when",
+                        f"{name} が未指定（条件: {f.required_when.condition}）"))
+                continue
+            if FIELD_KINDS[f.kind].validate == "date" and not DATE_RE.match(value):
                 problems.append(Problem("error", stem, "fields",
-                    f"必須フィールド {name}（{f.kind}）が未指定/空"))
+                    f"{name} '{value}' は YYYY-MM-DD 形式でない"))
         for key in fm:
             if key not in declared:
                 problems.append(Problem("warning", stem, "fields",
                     f"ontology.yaml の {ent}.fields に宣言の無いキー '{key}'"
                     f"（タイポか、スキーマへの宣言漏れ）"))
-        for name, f in declared.items():
-            value = fm.get(name, "").strip()
-            if not value:
-                continue
-            if f.kind == "date" and not DATE_RE.match(value):
-                problems.append(Problem("error", stem, "fields",
-                    f"{name} '{value}' は YYYY-MM-DD 形式でない"))
     return problems
+
+
+def _vocabulary_problem(ent: str, f, value: str) -> str:
+    """フィールド値が kind の宣言する語彙・範囲に収まらなければ理由を返す（収まれば空文字）。
+
+    検証器の選択は ontology.yaml の field-kinds が持つ（`validate`）。ここに kind ごとの
+    分岐を書き足さない — 語彙を1つ足すたびに linter を触る、が以前の姿だった。"""
+    fk = FIELD_KINDS[f.kind]
+    v = fk.validate
+    if v == "enum":
+        vocab = ENUM_REFS.get(f.enum_ref, set())
+        return "" if value in vocab else f"{f.name} '{value}' は規約外（{'・'.join(sorted(vocab))}）"
+    if v == "subtype":
+        vocab = NODE_SUBTYPES.get(ent, set())
+        return "" if value in vocab else f"{f.name} '{value}' は規約外（{'・'.join(sorted(vocab))}）"
+    if v == "flag":
+        return "" if value in ("true", "false") else f"{f.name} '{value}' は true か false"
+    if v in ("int-range", "auto-or-int-range"):
+        lo, hi = RANGE_REFS[fk.range_ref]
+        if v == "auto-or-int-range" and value == "auto":
+            return ""
+        if value.isdigit() and lo <= int(value) <= hi:
+            return ""
+        allowed = f"{lo}-{hi} の整数" + ("か auto" if v == "auto-or-int-range" else "")
+        return f"{f.name} '{value}' は {allowed} でない"
+    return ""
 
 
 def check_vocabulary(project) -> list:
-    """status・type・stage・confidence・outcome の語彙/範囲を規約に照らして検証する。"""
+    """フィールド値が宣言した語彙・範囲に収まることを検証する（status・type・stage・confidence・outcome…）。
+
+    かつては `if "-H-" in stem:` のような種別ごとのハードコード分岐で、フィールドを1つ足すたびに
+    ここへ手書きの枝を生やしていた（`kind: enum` と `enum-ref` の宣言は事実上飾りで、検証を
+    駆動していなかった。`kind: flag` の core はどこでも検証されていなかった）。いまは fields 宣言と
+    field-kinds を走査する — 付随物も同じループで見るので、種別ごとの検査漏れが構造的に起きない。
+
+    **値の空/欠落はここでは報告しない**（それは check_fields の担当。二重報告を作らない）。"""
     problems = []
-    for stem, (_, fm, _) in project.records.items():
-        if "-H-" in stem:
-            if fm.get("status") not in STATUSES:
-                problems.append(Problem("error", stem, "vocab", f"status '{fm.get('status')}' は規約外"))
-            c = fm.get("confidence", "")
-            if not (c.isdigit() and CONFIDENCE_MIN <= int(c) <= CONFIDENCE_MAX):
-                problems.append(Problem("error", stem, "vocab",
-                    f"confidence '{c}' は {CONFIDENCE_MIN}-{CONFIDENCE_MAX} の整数でない"))
-            if fm.get("type") not in H_TYPES:
-                problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
-            imp = fm.get("importance", "auto")
-            if imp != "auto" and not (imp.isdigit() and CONFIDENCE_MIN <= int(imp) <= CONFIDENCE_MAX):
-                problems.append(Problem("error", stem, "vocab",
-                    f"importance '{imp}' は auto か {CONFIDENCE_MIN}-{CONFIDENCE_MAX}"))
-        if "-TEST-" in stem and fm.get("type") not in TEST_TYPES:
-            problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
-        if "-LEARN-" in stem and fm.get("type") not in LEARN_TYPES:
-            problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
-        # LEARN の outcome（検証判定）。board サマリへ射影される正本なので誤記を弾く
-        if "-LEARN-" in stem and fm.get("outcome") and fm.get("outcome") not in OUTCOMES:
-            problems.append(Problem("error", stem, "vocab",
-                f"outcome '{fm.get('outcome')}' は規約外（{'・'.join(sorted(OUTCOMES))}）"))
-        # TEST/LEARN のデータ種別（省略可・書くなら語彙内）。架空判定の正本なので誤記は黙って
-        # 「未宣言」に落ちる＝推論に戻る。それを防ぐために弾く
-        data = fm.get(DATA_FIELD, "").strip()
-        if ("-TEST-" in stem or "-LEARN-" in stem) and data and data not in DATA_KINDS:
-            problems.append(Problem("error", stem, "vocab",
-                f"{DATA_FIELD} '{data}' は規約外（{'・'.join(sorted(DATA_KINDS))}）"))
-        if "-DEC-" in stem and fm.get("type") not in DEC_TYPES:
-            problems.append(Problem("error", stem, "vocab", f"type '{fm.get('type')}' は規約外"))
-        # DEC の to-stage（記入されていれば）は正規のステージ名。現在ステージ導出の正本なので誤記を弾く
-        if "-DEC-" in stem and fm.get("to-stage") and fm.get("to-stage") not in STAGES:
-            problems.append(Problem("error", stem, "vocab", f"to-stage '{fm.get('to-stage')}' は規約外"))
-        if "-H-" in stem or "-TEST-" in stem or "-LEARN-" in stem:
-            st = fm.get("stage")
-            if st is None:
-                problems.append(Problem("error", stem, "vocab", "必須フィールド stage が未指定"))
-            elif st not in STAGES:
-                problems.append(Problem("error", stem, "vocab", f"stage '{st}' は規約外"))
+    for stem, (_, fm, _) in project.nodes.items():
+        if stem in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み
+        ent = node_kind(stem)
+        for name, f in NODE_FIELDS_BY_NAME.get(ent, {}).items():
+            value = fm.get(name, "").strip()
+            if not value:
+                continue
+            reason = _vocabulary_problem(ent, f, value)
+            if reason:
+                problems.append(Problem("error", stem, "vocab", reason))
     return problems
 
 
-EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:TEST|LEARN|DEC)-\d+)\]\]")
+# 確信度履歴の「活動」列が指せるレコード種別（＝仮説そのもの以外＝根拠になりうる出来事）。
+# 種別名を直書きすると、エンティティを1つ足したときにここだけ静かに取りこぼす
+# （SOURCE_LINK_RE と同じく ENTITY_INFIXES から導出する）。
+_EVIDENCE_INFIXES = [e for e in ENTITY_INFIXES if e != "H"]
+EVIDENCE_RE = re.compile(r"\[\[([A-Z0-9]+-(?:" + "|".join(map(re.escape, _EVIDENCE_INFIXES))
+                         + r")-\d+)\]\]")
 
 
 def check_history_consistency(project) -> list:
     """不変ルール2: frontmatter の confidence/status は確信度履歴テーブルの最終行と一致する。"""
     problems = []
     for stem, fm, _, rows in project.hyp_records():
+        if stem in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み（巻き添えを出さない）
         if not rows:
             problems.append(Problem("error", stem, "history", "確信度履歴テーブルが無い/パースできない"))
             continue
@@ -511,20 +609,6 @@ def check_attachment_id(project) -> list:
     return problems
 
 
-def check_attachment_vocabulary(project) -> list:
-    """付随物の type がサブタイプ語彙（＝基にした雛形）に収まること。
-
-    check_vocabulary はエンティティ種別ごとの分岐で書かれており付随物を見ないので、
-    ここが無いと type は「空でないか」しか検証されない（check_fields の required 判定のみ）。"""
-    problems = []
-    for stem, fm, _, a, _ in project.iter_attachments():
-        value = fm.get("type", "").strip()
-        if value and value not in a.subtypes:
-            problems.append(Problem("error", stem, "attachment-vocab",
-                f"type '{value}' は {a.name} の語彙にない（{'・'.join(a.subtypes)}）"))
-    return problems
-
-
 def check_attachment_refs(project) -> list:
     """付随物固有の参照制約。型・実在・cardinality の一般検証は check_frontmatter_refs が済ませている。
 
@@ -607,12 +691,17 @@ def check_source_links(project) -> list:
 
 
 def check_stage_doc(project) -> list:
-    """stage.md 内の playbook 参照が current-stage と一致すること（warning）。
+    """stage.md が現在ステージと食い違っていないこと（warning）。2つ見る。
 
-    `/deciding` は「stage.md の移行基準の上書き（あれば優先）」を読むため、
-    current-stage と別ステージの playbook を指していると**現在ステージと違う基準で判断される**。
-    巻き戻し（rollback）で current-stage だけを直し、本文の playbook 参照が前ステージのまま
-    取り残されると起きる。"""
+    1. **stage.md の current-stage が、DEC から導いた現在ステージと違う** — ステージの正本は
+       `to-stage` を持つ最新 DEC で、stage.md はそれが無いときのフォールバック。`/deciding` が
+       DEC を作ったあと stage.md の更新を忘れると、**stage.md だけが古いステージを主張する**。
+       `/planning` も `/formulating` も「現在ステージ」を stage.md から読むので、読んだ側は
+       前ステージの playbook（中心の問い・重点仮説タイプ・移行基準）で動いてしまう。
+    2. **stage.md 内の playbook 参照が current-stage と一致しない** — `/deciding` は
+       「stage.md の移行基準の上書き（あれば優先）」を読むため、current-stage と別ステージの
+       playbook を指していると現在ステージと違う基準で判断される。巻き戻し（rollback）で
+       current-stage だけを直し、本文の playbook 参照が取り残されると起きる。"""
     problems = []
     p = project.wiki / "stage.md"
     if not p.exists():
@@ -622,6 +711,12 @@ def check_stage_doc(project) -> list:
     if not m:
         return problems
     current = m.group(1)
+    canonical = project.stage       # to-stage を持つ最新 DEC（無ければ stage.md 自身）
+    if canonical and canonical != current:
+        problems.append(Problem("warning", "stage.md", "stage-doc",
+            f"current-stage は {current} だが、ステージの正本（to-stage を持つ最新 DEC）は {canonical}。"
+            f"stage.md を {canonical} に更新する（現在ステージを stage.md から読むスキルが"
+            f"前ステージの playbook で動いてしまう）"))
     referenced = {s.upper() for s in re.findall(r"playbooks/(\w+)\.md", text)}
     stray = {s for s in referenced if s in STAGES and s != current}
     for s in sorted(stray):
@@ -695,6 +790,8 @@ def check_index_sync(project) -> list:
         if not m:
             continue
         rid, conf, status = m.group(1), m.group(2), m.group(3)
+        if rid in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み
         if rid not in project.records:
             problems.append(Problem("error", "index.md", "index-sync", f"[[{rid}]] のレコードが存在しない"))
             continue
@@ -950,18 +1047,6 @@ def check_evidence_floor(project) -> list:
     return problems
 
 
-def check_dec_based_on(project) -> list:
-    """DEC は根拠となる活動（based-on）に紐づく。根拠なき意思決定を検出する（warning）。"""
-    problems = []
-    for stem, (_, fm, _) in project.records.items():
-        if "-DEC-" not in stem:
-            continue
-        if not parse_id_array(fm.get("based-on", "")):
-            problems.append(Problem("warning", stem, "dec-based-on",
-                "DEC に based-on（根拠活動）が無い（意思決定は実験計画/学び [[TEST-NNN]]・[[LEARN-NNN]] に紐づける）"))
-    return problems
-
-
 def check_untested_focus(project) -> list:
     """OI-F1: 重点仮説なのに検証活動(TEST)の hypotheses 入次数が0のものを検出する（warning）。
 
@@ -1118,6 +1203,43 @@ def check_testcard_sections(project) -> list:
     return problems
 
 
+# 反証条件の逐語コピー（実験計画の本文に事前登録された表）を拾うための文法。
+# 見出しに「反証条件」を含む節の中の `| [[<H-ID>]] | <文言> |` 行を対象にする。
+FALSIFIER_HEADING_RE = re.compile(r"^#{2,6}\s*.*反証条件.*$", re.MULTILINE)
+FALSIFIER_ROW_RE = re.compile(r"^\|\s*\[\[([A-Z0-9]+-H-\d+)\]\]\s*\|\s*(.+?)\s*\|\s*$", re.MULTILINE)
+
+
+def check_falsifier_copy(project) -> list:
+    """実験計画(TEST)に逐語コピーされた反証条件が、仮説側の falsifier とずれていないか（warning）。
+
+    反証条件は仮説(H)の frontmatter `falsifier` が正本だが、実験計画の本文には「開始前に
+    事前登録し、開始後は変更しない」ものとして**逐語で写す**運用がある（後知恵バイアス防止。
+    実験の現場では手元の1枚だけを見るので、写しそのものは正当）。写しである以上ドリフトしうるが、
+    かつては誰も照合していなかった — 原本を直したのに写しが古い（あるいはその逆）に気づけない。
+
+    error にしない理由: 抜粋・要約された写しも実務では正当で、一律に弾くと現場の書き方を縛る。
+    ここは「原本と写しが食い違っている」を可視化する計器。"""
+    problems = []
+    for stem, (_, _, body) in project.records.items():
+        if entity_of(stem) != "TEST":
+            continue
+        text = strip_comments(body)
+        for h in FALSIFIER_HEADING_RE.finditer(text):
+            nxt = re.search(r"^#{1,6}\s", text[h.end():], re.MULTILINE)
+            section = text[h.end(): h.end() + nxt.start()] if nxt else text[h.end():]
+            for hid, copied in FALSIFIER_ROW_RE.findall(section):
+                rec = project.records.get(hid)
+                if not rec:
+                    continue                      # リンク切れは check_wikilinks の担当
+                original = rec[1].get("falsifier", "").strip()
+                if original and not _same_text(original, copied):
+                    problems.append(Problem("warning", stem, "falsifier-copy",
+                        f"事前登録した {hid} の反証条件が仮説側の falsifier と一致しない"
+                        f"（原本: {original}／写し: {copied}）。"
+                        "原本を直したなら写しも合わせる。意図的な抜粋ならこの警告は無視してよい"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """H→H 関係（derived-from / leads-to）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -1160,7 +1282,8 @@ def check_relation_cycles(project) -> list:
     return problems
 
 
-CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
+CHECKS = [check_frontmatter, check_id_matches_filename, check_fields, check_vocabulary,
+          check_field_body_section,
           check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_provenance_paths, check_provenance_presence, check_provenance_body_link,
@@ -1169,12 +1292,12 @@ CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
           check_id_sequence, check_log_sync, check_index_sync,
           check_data_provenance, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
-          check_dec_based_on, check_untested_focus, check_addresses_gaps,
+          check_untested_focus, check_addresses_gaps,
           check_isolated_hypothesis, check_stale_confidence, check_stale_test,
-          check_relation_cycles, check_testcard_sections,
+          check_relation_cycles, check_testcard_sections, check_falsifier_copy,
           check_struct_shape, check_judgment_coverage,
           check_measurement_match, check_judgment_mismatch,
-          check_attachment_id, check_attachment_vocabulary, check_attachment_refs,
+          check_attachment_id, check_attachment_refs,
           check_attachment_backlink]
 
 

@@ -274,6 +274,17 @@ def gen_board(project) -> str:
             "",
             target,
             f"- **最もリスクの高い前提**: {e['risk']}",
+        ]
+        # 対象仮説の反証条件（仮説の frontmatter falsifier が正本）。実験の現場で見るのは
+        # 「何が観測されれば崩れるか」なので、実験ブロックへ射影して1枚に揃える
+        # （テストカード本文への逐語コピーは残してよいが、機械側でも読めるようにする）。
+        falsifiers = [(h, project.records[h][1].get("falsifier", "").strip())
+                      for h in e["ids"] if h in project.records]
+        falsifiers = [(h, f) for h, f in falsifiers if f]
+        if falsifiers:
+            L.append("- **反証条件（対象仮説の falsifier より）**:")
+            L += [f"    - [[{h}]]: {f}" for h, f in falsifiers]
+        L += [
             f"- **検証方法**: {e['method']}",
             f"- **成功基準**: {e['criteria']}",
         ]
@@ -330,8 +341,13 @@ def mermaid_id(stem: str) -> str:
     return stem.replace("-", "_")
 
 
+# レコードIDから接頭辞を落とした短縮形（表示用）。種別一覧はオントロジーから導出する
+# （直書きするとエンティティ追加時にここだけ静かに取りこぼす）。
+SHORT_ID_RE = re.compile(r"((?:" + "|".join(map(re.escape, ENTITY_INFIXES)) + r")-\d+)$")
+
+
 def short_id(stem: str) -> str:
-    m = re.search(r"((?:H|TEST|LEARN|DEC)-\d+)$", stem)
+    m = SHORT_ID_RE.search(stem)
     return m.group(1) if m else stem
 
 

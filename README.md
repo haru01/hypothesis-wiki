@@ -144,13 +144,14 @@ flowchart LR
 hypothesis-wiki/
 ├── ontology.yaml           # 型・関係・状態機械の正本（SSoT・全案件で共有）
 ├── ontology.md             # 上記の人間可読版（gen_ontology_doc.pyで生成・手編集禁止）
+├── schema/                 # 上記の機械可読版 JSON Schema（gen_schema.pyで生成・手編集禁止。他エージェント/エディタ向けの可搬な契約）
 ├── CLAUDE.md               # スキーマ層（規約・レコードスキーマ・ワークフロー）
 ├── AGENTS.md               # 非Claudeエージェント向けの入口（正典はCLAUDE.md）
 ├── README.md               # このファイル（目的・使い方）
 ├── .claude/skills/         # AgentSkills 10（new-project/desk-research/formulating/planning/building/learning/deciding/chabudai/lean-canvas/lint・共有）
 ├── .claude/settings.json   # Claude Codeフック（sourcesガード・Stop時lint/view再生成・hooksPath自動設定）
 ├── .githooks/              # git pre-commitフック（有効化: git config core.hooksPath .githooks）
-├── tools/                  # オントロジーローダ（ontology.py）・決定論lint（hwlint.py）・ビュー生成（gen_views.py）・関係グラフ走査（graph.py）・ontology.md生成（gen_ontology_doc.py）・テストカード不変チェック・フック実体
+├── tools/                  # オントロジーローダ（ontology.py）・決定論lint（hwlint.py）・ビュー生成（gen_views.py）・関係グラフ走査（graph.py）・ontology.md生成（gen_ontology_doc.py）・JSON Schema生成（gen_schema.py）・テストカード不変チェック・フック実体
 ├── tests/                  # 上記ツールのunittest
 ├── templates/              # 雛形（hypothesis/activity/learning/decision/problem-interview-script/solution-interview-script/demo-script/building-lp.html/building-mockup.html/project・共有）
 ├── playbooks/              # ステージプレイブック（cpf/fpf/psf/spf/pmf）＋インタビュー心得（interviewing・共有）
@@ -231,11 +232,11 @@ bash tools/build_site.sh --check    # 壊れた内部リンクが 0 件かを機
 | The Schema（設定層） | `ontology.yaml`（型・関係の正本）・`CLAUDE.md`・`AGENTS.md`・`playbooks/`・`templates/`・`.claude/skills/` | 人間が合意の上で変更（全案件で共有） |
 
 **オントロジー（型・関係の正本）** — レコードの型（仮説 H／実験計画 TEST＝テストカード／学び LEARN＝学習カード／意思決定 DEC とサブタイプ）、
-各レコードの frontmatter フィールド（必須／省略可と値の種別）、レコード間の型付きリンク
+各レコードの frontmatter フィールド（必須／省略可・値の種別に加えて、何を書くか／なぜそう書くか／例／既定値を宣言側に持つ＝**自己記述的**）、レコード間の型付きリンク
 （`derived-from`／`leads-to`／`addresses`／`hypotheses`／`script-for`／`learns-from`／`based-on` の7関係）、
 行の集まりを持つ構造化フィールド（`judgments`＝仮説ごとの判定／`success-criteria`＝成功基準の機械可読な背骨／`measurements`＝実測）、
 検証の状態機械（ステージ・ステータス・確信度・検証判定・証拠の階梯）は、[ontology.yaml](ontology.yaml) を唯一の正本（SSoT）とする。
-人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）。
+人間可読な要約は [ontology.md](ontology.md)（`python3 tools/gen_ontology_doc.py` で生成・手編集禁止）、機械可読な契約は `schema/*.schema.json`（`python3 tools/gen_schema.py` で生成。Claude Code 以外のエージェント・エディタ向け。ただし**検証の正本は `hwlint.py`** で、JSON Schema が表せるのは1レコード内の形だけ）。
 lint やビュー生成ツールは `tools/ontology.py` 経由でここを読むため、語彙をコードや規約に再定義しない（二重管理・ドリフト防止）。
 
 **5ステージ** — 顧客と課題から市場まで、段階的に確信度を上げる。詳細は `playbooks/<stage>.md`。

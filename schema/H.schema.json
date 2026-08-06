@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/haru01/hypothesis-wiki/schema/H.schema.json",
+  "title": "H（仮説）",
+  "description": "反証可能な仮説文。追記専用の確信度履歴テーブルを正本として持ち、TEST/LEARN/DEC から検証・更新される。事業の前提を1つずつ言語化した検証の起点。",
+  "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "ファイル名と一致する接頭辞つきID。三者一致（ファイル名＝id＝本文の参照先）が規約。",
+      "type": "string",
+      "pattern": "^[A-Z0-9]+-H-\\d+$",
+      "examples": [
+        "SELF-H-001"
+      ]
+    },
+    "title": {
+      "description": "仮説の内容が一読で分かる短いタイトル。本文 H1 と一致させる。",
+      "type": "string",
+      "examples": [
+        "実践者は作る前に顧客と話し、検証をセット単位で反復している"
+      ]
+    },
+    "short-title": {
+      "description": "list ビューの mermaid ノード用の短ラベル（8字程度）。省略時はタイトルを機械切り詰め。",
+      "type": "string",
+      "examples": [
+        "検証を反復"
+      ]
+    },
+    "falsifier": {
+      "description": "何が観測されればこの仮説が反証されるか。仮説文と対で、検証を始める前に確定する。",
+      "$comment": "反証条件を言えない文は仮説ではない（/formulating の鉄則）。ここが機械可読だと\n「この仮説は何が起きたら崩れるか」を frontmatter から直接引ける — 実験計画(TEST)の\n成功基準に事前登録する文言の出どころであり、board が実験ブロックへ射影する。\n本文 `## 反証条件` 節にも同じ文言を置く（二重表現）。文言の変更は仮説の意味の変更なので、\n確信度履歴に影響する見直しと同じ重さで扱う。\n二重表現: 本文 `## 反証条件` 節にも同じ文言を置く",
+      "type": "string",
+      "examples": [
+        "実践者の多くが作る前の顧客接点を持たない、または検証を一度きりで終えて反復していない。"
+      ]
+    },
+    "type": {
+      "description": "価値連鎖上のどの仮説か。ステージごとの重点タイプ（stage-focus）と照合され importance に効く。",
+      "type": "string",
+      "enum": [
+        "ソリューション仮説",
+        "市場スケール仮説",
+        "状況・行動仮説",
+        "自分たち仮説",
+        "課題仮説"
+      ],
+      "examples": [
+        "状況・行動仮説"
+      ]
+    },
+    "status": {
+      "description": "検証の進捗。確信度とは別軸で、確信度履歴テーブル最終行の同期キャッシュ。",
+      "type": "string",
+      "enum": [
+        "反証",
+        "未検証",
+        "検証中",
+        "検証済み"
+      ],
+      "default": "未検証"
+    },
+    "confidence": {
+      "description": "証拠の強さの目安。確信度履歴テーブル最終行の同期キャッシュ（正本は本文の表）。",
+      "$comment": "直接書き換えない。変更は必ず学び(LEARN)か意思決定(DEC)に紐づけ、本文の確信度履歴に\n1行追記してからその値をここへ写す（不変ルール1・2）。",
+      "type": [
+        "string",
+        "integer"
+      ],
+      "pattern": "^(1|2|3|4|5|6|7|8|9|10)$",
+      "default": "1"
+    },
+    "stage": {
+      "description": "この仮説を主に検証するステージ。プロジェクトの現在ステージとは独立に持つ。",
+      "type": "string",
+      "enum": [
+        "CPF",
+        "FPF",
+        "PMF",
+        "PSF",
+        "SPF"
+      ],
+      "default": "CPF"
+    },
+    "importance": {
+      "description": "検証の優先度。auto なら現在ステージの stage-focus から importance-weights で解決する。",
+      "type": [
+        "string",
+        "integer"
+      ],
+      "pattern": "^(auto|1|2|3|4|5|6|7|8|9|10)$",
+      "default": "auto"
+    },
+    "derived-from": {
+      "description": "枝分かれ元の仮説（1件）。ピボット・巻き戻しの再出発点を系譜として残す。",
+      "$comment": "本文「系譜」節にも wikilink を併記する（frontmatter だけでは Obsidian グラフに辺が出ない）。",
+      "type": [
+        "string",
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "SELF-H-003"
+      ]
+    },
+    "leads-to": {
+      "description": "この仮説が成り立つと次に導かれる仮説（複数可）。list ビューの mermaid 矢印になる。",
+      "$comment": "本文「系譜」節にも wikilink を併記する。この辺の推移閉包が「崩れると波及が大きい背骨」＝\nboard の「次に検証すべき仮説」の下流依存度になる。",
+      "type": [
+        "array",
+        "string",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "[SELF-H-004, SELF-H-005]"
+      ]
+    },
+    "addresses": {
+      "description": "このソリューション仮説が解こうとする課題仮説（複数可）。relations のフィット表になる。",
+      "$comment": "本文 wikilink は不要（must-wikilink: false）。フィット表は frontmatter から射影する。",
+      "type": [
+        "array",
+        "string",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "[SELF-H-003]"
+      ]
+    },
+    "core": {
+      "description": "核心仮説なら true（list ビューで ★ 表示）。未記入は false 扱い。",
+      "type": [
+        "string",
+        "boolean"
+      ],
+      "enum": [
+        "true",
+        "false",
+        true,
+        false
+      ],
+      "examples": [
+        "true"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "falsifier",
+    "type",
+    "status",
+    "confidence",
+    "stage"
+  ],
+  "additionalProperties": false
+}

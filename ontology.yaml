@@ -7,7 +7,10 @@
 #
 # 用語（Ontology-Playground 流）:
 #   entity   = レコード種別（H / TEST / LEARN / DEC）とそのサブタイプ（frontmatter type の enum）
-#   field    = レコードの frontmatter キー。required（必須か）と kind（値の種別）を宣言する。
+#   field    = レコードの frontmatter キー。required（必須か）・kind（値の種別）に加えて、
+#              description（何を書くか）・guidance（なぜそう書くか）・example・default・
+#              required-when（条件付き必須）を宣言する。**フィールドは自己記述的であること** —
+#              説明を雛形や CLAUDE.md に置くと四重管理になり、AI は散文を読まないと書けない。
 #              「スキーマが契約」＝宣言に無いキーはタイポ、required の欠落は error として lint が弾く。
 #   relation = レコード間の型付きリンク。domain（始点の型）→ range（終点の型）、
 #              cardinality（one=単一 / many=配列）、inverse（逆方向の呼称）を宣言する。
@@ -21,20 +24,74 @@
 
 # スキーマ版。生成ビューのヘッダに ontology-version として刻まれる（どの版で射影した生成物かを追える）。
 # 3: 判定の粒度と成功基準を機械可読にした（judgments / success-criteria / measurements・data 必須化）
-version: 3
+# 4: フィールド宣言を自己記述化した（field-kinds のデータ化・全フィールドに description・
+#    required-when・反証条件 falsifier の正式化）。JSON Schema 出力 schema/*.schema.json を追加。
+version: 4
 
-# ── フィールドの kind（値の種別）の意味 ─────────────────────────────
-# id          … ファイル名と一致する接頭辞つきID（check_id_matches_filename が検証）
-# text        … 自由記述の一行
-# subtype     … 当該 entity の subtypes 名（check_vocabulary が検証）
-# enum        … enum-ref が指す状態機械の語彙（stages / statuses / outcomes）
-# date        … YYYY-MM-DD
-# confidence  … confidence.min〜max の整数
-# importance  … auto または 1-10（auto は stage-focus から解決）
-# flag        … 真偽（true のときだけ意味を持つ省略可フィールド）
-# relation    … 関係キー。型の正本は下記 relations 節（ここでは required/存在だけを宣言）
-# provenance  … 出典キー。仕様の正本は下記 provenance 節
-# structured  … 行の集まり（配列 of マッピング）。行の形の正本は下記 structured-fields 節
+# ── フィールドの kind（値の種別） ───────────────────────────────────
+# かつてはここに `#` コメントで書いていたが、コメントは機械にも AI にも読めない。
+# データにして `check_fields` の汎用検証を駆動させる（kind ごとに手書きの分岐を持たない）。
+#
+# validate = hwlint の check_fields が適用する検証器:
+#   none              … check_fields では検証しない（別の専用チェックが担う。下記 owner を参照）
+#   id / subtype / enum / date / flag / int-range / auto-or-int-range
+# range-ref = int-range 系が参照する数値域（state-machines 配下のキー名）
+# owner     = validate: none のとき、その値を実際に検証しているチェック（説明のためだけに書く）
+field-kinds:
+  id:
+    description: ファイル名と一致する接頭辞つきID（例 SELF-H-001）
+    validate: none
+    owner: id-filename
+  text:
+    description: 自由記述の一行
+    validate: none
+  subtype:
+    description: 当該 entity の subtypes 名
+    validate: subtype
+  enum:
+    description: enum-ref が指す状態機械の語彙（stages / statuses / outcomes / data-kinds）
+    validate: enum
+  date:
+    description: YYYY-MM-DD
+    validate: date
+  confidence:
+    description: confidence.min〜max の整数
+    validate: int-range
+    range-ref: confidence
+  importance:
+    description: auto、または confidence.min〜max の整数（auto は stage-focus から解決する）
+    validate: auto-or-int-range
+    range-ref: confidence
+  flag:
+    description: true / false。true のときだけ意味を持つ省略可フィールド（未記入＝false 扱い）
+    validate: flag
+  relation:
+    description: 関係キー。型（domain/range/cardinality）の正本は下記 relations 節
+    validate: none
+    owner: refs
+  provenance:
+    description: 出典キー。仕様の正本は下記 provenance 節
+    validate: none
+    owner: provenance
+  structured:
+    description: 行の集まり（配列 of マッピング）。行の形の正本は下記 structured-fields 節
+    validate: none
+    owner: struct-shape
+
+# ── 条件付き必須（required-when）の書き方 ───────────────────────────
+# required: false だが「ある条件では書かれているべき」フィールドの宣言。かつては Python の
+# 専用チェックにしか存在せず、スキーマを読んだだけでは条件が分からなかった。
+#   condition   … 人間・AI 向けの条件文（必須）
+#   severity    … 満たさないときの重さ（warning / error）
+#   when        … 機械が評価できる形。現在 `always` のみ。省略時は check_fields は評価しない
+#   enforced-by … 別チェックが担うならその名前。書かれていれば check_fields は評価しない
+#                 （二重報告を避ける。宣言は「AI に見せる」ためだけに置く）
+#
+# ── 二重表現（must-body-section） ───────────────────────────────────
+# frontmatter と本文の**両方**に同じ内容を置くフィールドの宣言。関係の must-wikilink・
+# 出典の must-body-link と同じ思想で、値は機械が読める場所に、読み手が出会う場所にも置く。
+# 宣言しただけでは守られないので `hwlint` の `field-body-section`（warning）が照合する:
+# 節が無い／本文と frontmatter が食い違う（空白・強調記号の差は無視する）。
 
 # ── エンティティ（レコード種別とサブタイプ） ─────────────────────────────
 entities:
@@ -43,18 +100,90 @@ entities:
     dir: hypotheses
     description: 反証可能な仮説文。追記専用の確信度履歴テーブルを正本として持ち、TEST/LEARN/DEC から検証・更新される。事業の前提を1つずつ言語化した検証の起点。
     fields:
-      - {name: id,           required: true,  kind: id}
-      - {name: title,        required: true,  kind: text}
-      - {name: short-title,  required: false, kind: text}
-      - {name: type,         required: true,  kind: subtype}
-      - {name: status,       required: true,  kind: enum, enum-ref: statuses}
-      - {name: confidence,   required: true,  kind: confidence}
-      - {name: stage,        required: true,  kind: enum, enum-ref: stages}
-      - {name: importance,   required: false, kind: importance}
-      - {name: derived-from, required: false, kind: relation}
-      - {name: leads-to,     required: false, kind: relation}
-      - {name: addresses,    required: false, kind: relation}
-      - {name: core,         required: false, kind: flag}
+      - name: id
+        required: true
+        kind: id
+        description: ファイル名と一致する接頭辞つきID。三者一致（ファイル名＝id＝本文の参照先）が規約。
+        example: SELF-H-001
+      - name: title
+        required: true
+        kind: text
+        description: 仮説の内容が一読で分かる短いタイトル。本文 H1 と一致させる。
+        example: 実践者は作る前に顧客と話し、検証をセット単位で反復している
+      - name: short-title
+        required: false
+        kind: text
+        description: list ビューの mermaid ノード用の短ラベル（8字程度）。省略時はタイトルを機械切り詰め。
+        example: 検証を反復
+      - name: falsifier
+        required: true
+        kind: text
+        # 二重表現（frontmatter ＋ 本文節）。relations の must-wikilink・provenance の
+        # must-body-link と同じ思想で、宣言したものを機械が守る。
+        must-body-section: 反証条件
+        description: 何が観測されればこの仮説が反証されるか。仮説文と対で、検証を始める前に確定する。
+        guidance: |
+          反証条件を言えない文は仮説ではない（/formulating の鉄則）。ここが機械可読だと
+          「この仮説は何が起きたら崩れるか」を frontmatter から直接引ける — 実験計画(TEST)の
+          成功基準に事前登録する文言の出どころであり、board が実験ブロックへ射影する。
+          本文 `## 反証条件` 節にも同じ文言を置く（二重表現）。文言の変更は仮説の意味の変更なので、
+          確信度履歴に影響する見直しと同じ重さで扱う。
+        example: 実践者の多くが作る前の顧客接点を持たない、または検証を一度きりで終えて反復していない。
+      - name: type
+        required: true
+        kind: subtype
+        description: 価値連鎖上のどの仮説か。ステージごとの重点タイプ（stage-focus）と照合され importance に効く。
+        example: 状況・行動仮説
+      - name: status
+        required: true
+        kind: enum
+        enum-ref: statuses
+        description: 検証の進捗。確信度とは別軸で、確信度履歴テーブル最終行の同期キャッシュ。
+        default: 未検証
+      - name: confidence
+        required: true
+        kind: confidence
+        description: 証拠の強さの目安。確信度履歴テーブル最終行の同期キャッシュ（正本は本文の表）。
+        guidance: |
+          直接書き換えない。変更は必ず学び(LEARN)か意思決定(DEC)に紐づけ、本文の確信度履歴に
+          1行追記してからその値をここへ写す（不変ルール1・2）。
+        default: 1
+      - name: stage
+        required: true
+        kind: enum
+        enum-ref: stages
+        description: この仮説を主に検証するステージ。プロジェクトの現在ステージとは独立に持つ。
+        default: CPF
+      - name: importance
+        required: false
+        kind: importance
+        description: 検証の優先度。auto なら現在ステージの stage-focus から importance-weights で解決する。
+        default: auto
+      - name: derived-from
+        required: false
+        kind: relation
+        description: 枝分かれ元の仮説（1件）。ピボット・巻き戻しの再出発点を系譜として残す。
+        guidance: 本文「系譜」節にも wikilink を併記する（frontmatter だけでは Obsidian グラフに辺が出ない）。
+        example: SELF-H-003
+      - name: leads-to
+        required: false
+        kind: relation
+        description: この仮説が成り立つと次に導かれる仮説（複数可）。list ビューの mermaid 矢印になる。
+        guidance: |
+          本文「系譜」節にも wikilink を併記する。この辺の推移閉包が「崩れると波及が大きい背骨」＝
+          board の「次に検証すべき仮説」の下流依存度になる。
+        example: "[SELF-H-004, SELF-H-005]"
+      - name: addresses
+        required: false
+        kind: relation
+        description: このソリューション仮説が解こうとする課題仮説（複数可）。relations のフィット表になる。
+        guidance: "本文 wikilink は不要（must-wikilink: false）。フィット表は frontmatter から射影する。"
+        example: "[SELF-H-003]"
+      - name: core
+        required: false
+        kind: flag
+        description: 核心仮説なら true（list ビューで ★ 表示）。未記入は false 扱い。
+        example: "true"
     # サブタイプは価値連鎖（行動→課題→解決→市場スケール／自分たち）の順。
     # key        = list の mermaid subgraph ID / chain-label = その表示名 / role = 価値連鎖上の役割
     subtypes:
@@ -89,18 +218,65 @@ entities:
     dir: tests
     description: テストカード。検証前に記入する計画で、「動いて検証する(Act)→学ぶ(Learn)」の計画側として目的・方法・指標・成功基準・riskiest-assumption を宣言する。学び(LEARN)が紐づくまでは自由に直してよく、紐づいた後は下記 immutable の範囲だけを凍結する（後知恵バイアス防止）。検証後の学びは LEARN（別レコード）に積む。
     fields:
-      - {name: id,                   required: true, kind: id}
-      - {name: title,                required: true, kind: text}
-      - {name: type,                 required: true, kind: subtype}
-      - {name: date,                 required: true, kind: date}
-      - {name: stage,                required: true, kind: enum, enum-ref: stages}
-      - {name: hypotheses,           required: true, kind: relation}
-      - {name: riskiest-assumption,  required: true, kind: text}
-      # data は必須。未宣言を許すと本文マーカー語の推論に黙って落ち、宣言漏れが静かに
-      # 「実データ」扱いになって fictional-cap が効かない（＝架空由来の確信度が上限なく上がる）。
-      # 黙って劣化させるくらいなら書かせて弾く。推論経路自体は他 vault・旧レコードのために残す。
-      - {name: data,                 required: true, kind: enum, enum-ref: data-kinds}
-      - {name: success-criteria,     required: false, kind: structured}
+      - name: id
+        required: true
+        kind: id
+        description: ファイル名と一致する接頭辞つきID。
+        example: SELF-TEST-001
+      - name: title
+        required: true
+        kind: text
+        description: 何を誰にどう当てる実験かが一読で分かる短いタイトル。
+        example: 実践者5名への問題インタビュー（CPF 5仮説の一次検証）
+      - name: type
+        required: true
+        kind: subtype
+        description: 活動種別。スクリプト雛形の選択（/planning）と log.md の type に対応する。
+        example: interview
+      - name: date
+        required: true
+        kind: date
+        description: 計画日。実施日ではない（実施日は紐づく学び LEARN の date が正本）。
+        example: "2026-08-02"
+      - name: stage
+        required: true
+        kind: enum
+        enum-ref: stages
+        description: この実験がどのステージの問いを検証するか。
+        default: CPF
+      - name: hypotheses
+        required: true
+        kind: relation
+        description: この実験が検証する仮説（複数可）。仮説側からは「検証活動」として逆引きされる。
+        guidance: 本文にも wikilink を書く（must-wikilink。frontmatter だけでは Obsidian グラフに辺が出ない）。
+        example: "[SELF-H-001, SELF-H-002]"
+      - name: riskiest-assumption
+        required: true
+        kind: text
+        description: この実験で崩れたら全体が崩れる一点を一文で。board の背骨になる。
+        guidance: |
+          検証前に確定し、学び(LEARN)が紐づいた後は凍結される（immutable.fields）。
+          後知恵で「もともとそこは狙っていなかった」と書き換えられないようにするための凍結。
+        example: 「作る前に検証を反復する実践者」が実在し、記録の課題にすでに実コストを払っている
+      - name: data
+        required: true
+        kind: enum
+        enum-ref: data-kinds
+        description: この実験が「何のデータで作られるか」（何について書いてあるかではない）。架空判定 fictional-cap の正本。
+        guidance: |
+          未宣言を許すと本文マーカー語の推論に黙って落ち、宣言漏れが静かに「実データ」扱いになって
+          fictional-cap が効かない（＝架空由来の確信度が上限なく上がる）。黙って劣化させるくらいなら
+          書かせて弾く。推論経路自体は他 vault・旧レコードのために残す。
+        example: real
+      - name: success-criteria
+        required: false
+        kind: structured
+        description: 成功基準のうち数えられるものを機械可読にした背骨。本文の散文と二重表現。
+        guidance: |
+          散文を置き換えるものではない（ニュアンスは散文が担う）。数を決めていない基準は載せない
+          ＝ここに無いものは人が判定する、という契約。検証前に確定し、実施後は riskiest-assumption と
+          同格で凍結される（数値だけ後から動かせるなら節を凍らせた意味が無い）。
+        example: "[{hypothesis: SELF-H-001, metric: 反復を語った人数, op: '>=', threshold: 3, of: 5}]"
     # 凍結（不変ルール6）の適用範囲。「実験が実施された」＝trigger-relation でこの TEST を指すレコードが
     # 在る、とみなし、以後ここに挙げた本文節・frontmatter キー**だけ**を書き換え禁止にする。
     # 目的・方法・指標の補正／スクリプト・プロトタイプへのリンク追加／誤字修正は実施後も許す
@@ -125,18 +301,93 @@ entities:
     dir: learnings
     description: 学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。1つの学びが複数の仮説を動かすときは judgments で仮説ごとの判定を、実験計画の success-criteria に対する実測は measurements で持つ（outcome だけでは「どの仮説が崩れたか」がグラフから消える）。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。
     fields:
-      - {name: id,          required: true,  kind: id}
-      - {name: title,       required: true,  kind: text}
-      - {name: type,        required: true,  kind: subtype}
-      - {name: date,        required: true,  kind: date}
-      - {name: stage,       required: true,  kind: enum, enum-ref: stages}
-      - {name: learns-from, required: false, kind: relation}
-      - {name: hypotheses,  required: true,  kind: relation}
-      - {name: outcome,     required: true,  kind: enum, enum-ref: outcomes}
-      - {name: judgments,   required: false, kind: structured}
-      - {name: measurements, required: false, kind: structured}
-      - {name: sources,     required: false, kind: provenance}
-      - {name: data,        required: true,  kind: enum, enum-ref: data-kinds}   # 必須の理由は TEST.data 参照
+      - name: id
+        required: true
+        kind: id
+        description: ファイル名と一致する接頭辞つきID。
+        example: SELF-LEARN-001
+      - name: title
+        required: true
+        kind: text
+        description: 何から何を学んだかが一読で分かる短いタイトル。
+        example: 企業の仮説検証の状況・課題のデスクリサーチ
+      - name: type
+        required: true
+        kind: subtype
+        description: 活動種別（TEST と同じ語彙）。回顧型（desk-research/self-reflection）はここで自身の種別を名乗る。
+        example: interview
+      - name: date
+        required: true
+        kind: date
+        description: 実施日。計画型ではこちらが実施日の正本で、TEST の date は計画日。
+        example: "2026-07-16"
+      - name: stage
+        required: true
+        kind: enum
+        enum-ref: stages
+        description: この学びがどのステージの問いに答えたか。
+        default: CPF
+      - name: learns-from
+        required: false
+        kind: relation
+        description: 実施した実験計画(TEST)を1つ指す。board が「1実験＝計画＋学び」を1行に束ねる。
+        guidance: |
+          回顧型（desk-research / self-reflection / chabudai）は事前の計画を立てないので持たない。
+          持たない学びは board で「—（回顧型・事前の実験計画なし）」として表示される。
+        example: SELF-TEST-001
+      - name: hypotheses
+        required: true
+        kind: relation
+        description: この学びが確信度を動かした仮説（複数可）。
+        guidance: 本文にも wikilink を書く（must-wikilink）。
+        example: "[SELF-H-001, SELF-H-002]"
+      - name: outcome
+        required: true
+        kind: enum
+        enum-ref: outcomes
+        description: レコード全体の判定を1語で。board サマリの判定列へ射影される。
+        guidance: |
+          対象仮説ごとに結論が違うときは、これだけでは「どの仮説が崩れたか」がグラフから消える。
+          その場合は judgments に仮説ごとの判定を書く。
+        example: 支持
+      - name: judgments
+        required: false
+        kind: structured
+        description: 仮説ごとの判定。hypotheses が複数で結論が分かれるときのレコード内訳。
+        required-when:
+          condition: outcome が真偽判定（judgment-check.truth-outcomes）で、hypotheses が2件以上のとき
+          severity: warning
+          enforced-by: judgment-coverage
+        example: "[{hypothesis: SELF-H-001, outcome: 反証}]"
+      - name: measurements
+        required: false
+        kind: structured
+        description: 実験計画(TEST)の success-criteria に対して実際に観測した値。metric 名で基準と対応させる。
+        guidance: |
+          これがあると lint が判定を検算でき、「基準を割ったのに支持」＝ゴールポストの事後移動を
+          error で弾ける（judgment-mismatch）。慎重側（判断保留）へ倒すのは常に許される。
+        example: "[{metric: 反復を語った人数, value: 3, n: 5}]"
+      - name: sources
+        required: false
+        kind: provenance
+        description: 根拠となった生データ（不変層 sources/ 基準の相対パス）。確信度の根拠鎖の末端。
+        guidance: |
+          本文にも相対mdリンクを置く（二重表現。生データは接頭辞つきノートでないので wikilink は解決しない）。
+          生データ冒頭の架空/シミュレーション宣言はここから読まれる。
+        required-when:
+          condition: type が provenance.required-for-types（観測を伴う活動種別）のとき
+          severity: warning
+          enforced-by: provenance
+        example: "[2026-07-16-desk-research-corporate-hypothesis-testing.md]"
+      - name: data
+        required: true
+        kind: enum
+        enum-ref: data-kinds
+        description: この学びが「何のデータで作られたか」（何について書いてあるかではない）。架空判定 fictional-cap の正本。
+        guidance: |
+          必須の理由は TEST.data と同じ。架空データを**論じた**是正・監査レコードは real である
+          （混同すると実データの実験が架空に誤分類される）。
+        example: real
     subtypes:
       - {name: interview}
       - {name: demo}
@@ -150,14 +401,45 @@ entities:
     dir: decisions
     description: ステージ移行・ピボット・撤退・巻き戻しなどの節目の判断。based-on で根拠の LEARN/TEST に結び、to-stage を持つ最新 DEC が現在ステージの正本になる。巻き戻しポイントと次の一手を残す。
     fields:
-      # based-on は「根拠なき意思決定」を専用チェック（check_dec_based_on・warning）で扱うため
-      # ここでは required: false とし、error での二重報告を避ける。
-      - {name: id,       required: true,  kind: id}
-      - {name: title,    required: true,  kind: text}
-      - {name: date,     required: true,  kind: date}
-      - {name: type,     required: true,  kind: subtype}
-      - {name: based-on, required: false, kind: relation}
-      - {name: to-stage, required: false, kind: enum, enum-ref: stages}
+      - name: id
+        required: true
+        kind: id
+        description: ファイル名と一致する接頭辞つきID。
+        example: SELF-DEC-001
+      - name: title
+        required: true
+        kind: text
+        description: 何をどう決めたかが一読で分かる短いタイトル。
+        example: CPF の一次検証を終え FPF へ移行する
+      - name: date
+        required: true
+        kind: date
+        description: 判断した日。to-stage を持つ DEC の最新性はこの日付で決まる。
+        example: "2026-08-20"
+      - name: type
+        required: true
+        kind: subtype
+        description: 判断の種類。ステージを動かすのは主に stage-transition と rollback。
+        example: stage-transition
+      - name: based-on
+        required: false
+        kind: relation
+        description: 根拠にした学び(LEARN)・実験計画(TEST)（複数可）。判定を持つ LEARN を優先する。
+        guidance: 本文にも wikilink を書く（must-wikilink）。
+        required-when:
+          condition: 常に（根拠なき意思決定を作らない）
+          severity: warning
+          when: always
+        example: "[SELF-LEARN-002]"
+      - name: to-stage
+        required: false
+        kind: enum
+        enum-ref: stages
+        description: この判断の結果ステージ。to-stage を持つ最新 DEC が現在ステージの正本になる。
+        guidance: |
+          ステージを動かす判断（stage-transition・rollback 等）だけが持つ。空だとビュー・ツールが
+          現ステージを導出できず、wiki/stage.md のフォールバックに落ちる。
+        example: FPF
     subtypes:
       - {name: stage-transition}
       - {name: pivot}
@@ -185,11 +467,35 @@ attachments:
     suffix: -script         # ファイル名 = <親レコードID><suffix>.md
     description: interview/demo の実験計画(TEST)の「方法」を現場の会話に落とした台本。/planning がテストカードと対で生成する。事前登録した反証条件・記録シートを載せ、観測をそのまま受け止める器になる。確信度は動かさない（学びは LEARN に積む）。
     fields:
-      - {name: id,         required: true,  kind: id}
-      - {name: title,      required: true,  kind: text}
-      - {name: type,       required: true,  kind: subtype}
-      - {name: script-for, required: true,  kind: relation}
-      - {name: hypotheses, required: false, kind: relation}
+      - name: id
+        required: true
+        kind: id
+        description: ファイル名と一致する。付随物なので独自の採番を持たず「親レコードID + suffix」。
+        example: SELF-TEST-001-script
+      - name: title
+        required: true
+        kind: text
+        description: どの実験の台本かが分かる短いタイトル。
+        example: 実践者5名への問題インタビュー スクリプト
+      - name: type
+        required: true
+        kind: subtype
+        description: 基にした雛形（templates/<type>-script.md）。/planning の雛形選択がこの語彙に対応する。
+        example: problem-interview
+      - name: script-for
+        required: true
+        kind: relation
+        description: 台本化した実験計画(TEST)。ファイル名から導ける対応を frontmatter にも明示する。
+        example: SELF-TEST-001
+      - name: hypotheses
+        required: false
+        kind: relation
+        description: 台本が実際に当てる仮説。親 TEST の検証対象の部分集合でなければならない。
+        guidance: |
+          省略可なのは**発見型のスクリプトが既存仮説を相手に語らない**設計だから。仮説を宣言すると
+          台本の意図と食い違う。本文で背景として別の仮説に言及するのは正当なので、逆向き
+          （本文の wikilink をすべて宣言せよ）は課さない。
+        example: "[SELF-H-001, SELF-H-002]"
     # サブタイプ = 基にした雛形（templates/）。/planning の雛形選択はこの語彙に対応する。
     # date・stage は持たせない（親 TEST から導けるので二重管理になる）。
     subtypes:
@@ -332,30 +638,42 @@ structured-fields:
     label: 仮説ごとの判定
     description: この学びが対象仮説それぞれをどう判定したか。hypotheses が複数のとき、レコード単位の outcome では表せない結論の違いをここに残す。board が仮説単位に射影し、「反証されたのに誰も判断していない」の機械判定の材料になる。
     keys:
-      - {name: hypothesis, required: true,  kind: ref, ref-field: hypotheses}
-      - {name: outcome,    required: true,  kind: enum, enum-ref: outcomes}
-      - {name: note,       required: false, kind: text}
+      - {name: hypothesis, required: true,  kind: ref, ref-field: hypotheses,
+         description: 判定した仮説。この学びの hypotheses に含まれていること}
+      - {name: outcome,    required: true,  kind: enum, enum-ref: outcomes,
+         description: その仮説に対する判定}
+      - {name: note,       required: false, kind: text,
+         description: 判定の一言理由（詳細は本文に書く）}
 
   success-criteria:
     domain: [TEST]
     label: 成功基準（機械可読な背骨）
     description: 本文「成功基準」節の散文を置き換えるものではなく、検算できる骨だけを取り出したもの。実施前に確定し、実施後は凍結する（immutable.fields）。実測（measurements）と突き合わせて、数値と真逆の判定を弾くために使う。
     keys:
-      - {name: hypothesis, required: true,  kind: ref, ref-field: hypotheses}
-      - {name: metric,     required: true,  kind: text}    # 測る対象の名前。measurements.metric と一致させる
-      - {name: op,         required: true,  kind: enum, enum-ref: criteria-ops}
-      - {name: threshold,  required: true,  kind: number}
-      - {name: of,         required: false, kind: number}  # 母数（「5名中3名」の5）。実測 n と食い違えば warning
+      - {name: hypothesis, required: true,  kind: ref, ref-field: hypotheses,
+         description: この基準が判定する仮説。この実験の hypotheses に含まれていること}
+      - {name: metric,     required: true,  kind: text,
+         description: 測る対象の名前。学び(LEARN)の measurements.metric と文字列一致させる}
+      - {name: op,         required: true,  kind: enum, enum-ref: criteria-ops,
+         description: 比較演算子。実測値を左辺に置いて評価する}
+      - {name: threshold,  required: true,  kind: number,
+         description: 満たすべき閾値}
+      - {name: of,         required: false, kind: number,
+         description: 母数（「5名中3名」の5）。実測の n と食い違えば warning}
 
   measurements:
     domain: [LEARN]
     label: 実測
     description: 実験計画(TEST)の success-criteria に対して実際に観測した値。metric 名で基準と突き合わせる。判定（judgments・outcome）が実測と真逆でないことを lint が検算する＝ゴールポストの事後移動を数値で弾く。
     keys:
-      - {name: metric, required: true,  kind: text}
-      - {name: value,  required: true,  kind: number}
-      - {name: n,      required: false, kind: number}      # 母集団（何人・何件を見たか）
-      - {name: note,   required: false, kind: text}
+      - {name: metric, required: true,  kind: text,
+         description: 実験計画(TEST)の success-criteria.metric と一致させる名前}
+      - {name: value,  required: true,  kind: number,
+         description: 実際に観測した値}
+      - {name: n,      required: false, kind: number,
+         description: 母集団（何人・何件を見たか）。基準の of と食い違えば warning}
+      - {name: note,   required: false, kind: text,
+         description: 観測条件の補足（詳細は本文に書く）}
 
 # ── 状態機械 ────────────────────────────────────────────────────────
 state-machines:
@@ -435,6 +753,12 @@ state-machines:
       - {range: "9",    meaning: 反証を試みても崩れなかった}
       - {range: "10",   meaning: 事実（観測された確定事項）}
     fictional-cap: 8          # 架空/シミュレーションデータ由来の確信度は上限8
+    # 二次情報（自分で観測していない外部の調査・記事＝〈二次〉タグ）だけを根拠にした確信度の上限。
+    # 帯 3-4「二次情報・状況証拠あり」の上端に対応する。/desk-research が起票時に守る規律で、
+    # かつてスキルの散文にしか存在せず（オントロジー側に無く）何も強制していなかった。
+    # 現時点では宣言と可視化まで（lint 化していない）— 複数の独立出典が同じ事実を指すときの
+    # 上げ幅は解釈を伴い、機械で一律に弾くと正当な起票まで止めてしまうため。
+    secondary-source-cap: 4
     # 架空データを示すマーカー語彙。用途は2つで、**強さが違う**:
     #   (1) 生データ(sources/)冒頭 N 行の宣言を読む一次情報（provenance.fictional-header-scan-lines）
     #   (2) TEST/LEARN 本文の後方互換フォールバック — **data 未宣言 かつ 出典を1件も持たない**

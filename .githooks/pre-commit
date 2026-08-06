@@ -8,10 +8,18 @@ if git diff --cached --name-only | grep -qE '^(tools|tests)/'; then
   python3 -m unittest discover -s tests || exit 1
 fi
 
-# 2) ontology.yaml を触ったら人間可読版 ontology.md の再生成漏れを弾く（SSoT ドリフト防止）。
-#    テストの鮮度チェックは tools/tests を staged したときだけ走るので、ontology.yaml 単独編集の穴を塞ぐ。
+# 2) ontology.yaml を触ったら生成物（人間可読 ontology.md・機械可読 schema/*.schema.json）の
+#    再生成漏れを弾く（SSoT ドリフト防止）。テストの鮮度チェックは tools/tests を staged した
+#    ときだけ走るので、ontology.yaml 単独編集の穴を塞ぐ。
 if git diff --cached --name-only | grep -qx 'ontology.yaml'; then
   python3 tools/gen_ontology_doc.py --check || exit 1
+  python3 tools/gen_schema.py --check || exit 1
+fi
+
+# 2b) 雛形と fields 宣言のドリフト（雛形に宣言済みキーが無い／宣言に無いキーがある）。
+#     雛形は人が書く説明を含むので生成しない。照合だけする。
+if git diff --cached --name-only | grep -qE '^(ontology\.yaml|templates/)'; then
+  python3 tools/gen_schema.py --check-templates || exit 1
 fi
 
 # 3) 決定論 lint（全プロジェクト）
