@@ -59,6 +59,27 @@ def parse_frontmatter(text: str) -> dict:
     return fm
 
 
+def frontmatter_error(text: str) -> str:
+    """frontmatter が YAML として壊れていればその理由を返す（健全なら空文字）。
+
+    parse_frontmatter は壊れた frontmatter を空 dict にして寛容に流すが、そのままだと
+    下流には「全フィールドが未指定」に見え、**本当の原因を一言も言わない大量の error** が出る
+    （実測: 1つのコロンで11件）。原因を名指しできるように、失敗の理由だけを別経路で取る。
+
+    日本語の散文フィールド（title・falsifier・riskiest-assumption）に `: ` や 先頭 `#` が
+    入るのが現実的な壊れ方なので、呼び手はそれを直せる形でメッセージにする。"""
+    m = re.match(r"^---\n(.*?)\n---(?:\n|$)", text, re.DOTALL)
+    if not m:
+        return ""                       # frontmatter が無いのは別の問題（check_fields が必須欠落で拾う）
+    try:
+        data = yaml.load(m.group(1), Loader=yaml.BaseLoader)
+    except yaml.YAMLError as e:
+        return " ".join(str(e).split())
+    if not isinstance(data, dict):
+        return "frontmatter がマッピング（key: value の集合）になっていない"
+    return ""
+
+
 def parse_id_array(value: str) -> list:
     return [x.strip() for x in value.strip("[]").split(",") if x.strip()]
 
@@ -283,6 +304,9 @@ class Project:
         self.wiki = root / "wiki"
         self.records = {}
         self.attachments = {}    # 付随物。records と分ける理由は node_kind の docstring を見よ
+        # frontmatter が YAML として壊れているノード {stem: 理由}。スキーマ系のチェックは
+        # ここに載ったものを飛ばす（「全フィールド未指定」の誤誘導を出さない）。
+        self.broken_frontmatter = {}
         self.history = {}   # H レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
         for sub in RECORD_DIRS:            # 置き場の正本は ontology.yaml の entities.*.dir
@@ -295,17 +319,24 @@ class Project:
                     if kind and ATTACHMENT_DIRS[kind] == sub:
                         text = p.read_text(encoding="utf-8")
                         self.attachments[p.stem] = (p, parse_frontmatter(text), text)
+                        self._note_broken(p.stem, text)
                     else:
                         self.stray.append(p)
                     continue
                 text = p.read_text(encoding="utf-8")
                 self.records[p.stem] = (p, parse_frontmatter(text), text)
+                self._note_broken(p.stem, text)
                 if "-H-" in p.stem:
                     self.history[p.stem] = parse_history(text)
         # レコード ∪ 付随物。**リンク系のチェックだけ**がこれを使う（射影・集計は records のみ）。
         self.nodes = {**self.records, **self.attachments}
         log_path = self.wiki / "log.md"
         self.log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
+
+    def _note_broken(self, stem: str, text: str) -> None:
+        reason = frontmatter_error(text)
+        if reason:
+            self.broken_frontmatter[stem] = reason
 
     @cached_property
     def stage(self) -> str:

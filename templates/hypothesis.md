@@ -3,6 +3,8 @@ id: <PREFIX>-H-NNN          # ファイル名と一致させる（接頭辞つ�
 title: 短いタイトル
 short-title:                # 省略可。list の mermaid ノード用の短ラベル（8字程度）。省略時はタイトルを機械切り詰め
 falsifier: 何が観測されればこの仮説が反証されるか（下の「反証条件」節と同じ文言を一文で）
+# ↑ title・falsifier のような日本語の散文は `: ` を含みやすい。含むなら "引用符" で囲む
+#   （囲まないと frontmatter 全体が YAML として読めなくなる。lint の `frontmatter` が検出する）
 type: 状況・行動仮説 | 課題仮説 | ソリューション仮説 | 市場スケール仮説 | 自分たち仮説
 status: 未検証
 confidence: 1

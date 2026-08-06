@@ -93,9 +93,13 @@ def _value_schema(node: str, f) -> dict:
         s["examples"] = [f.example]
     if f.default:
         s["default"] = f.default
-    if f.required_when:
-        s["$comment"] = ((s.get("$comment", "") + "\n") if s.get("$comment") else "") + \
-            f"条件付き必須（{f.required_when.severity}）: {f.required_when.condition}"
+    for extra in (
+        (f"二重表現: 本文 `## {f.must_body_section}` 節にも同じ文言を置く" if f.must_body_section else ""),
+        (f"条件付き必須（{f.required_when.severity}）: {f.required_when.condition}"
+         if f.required_when else ""),
+    ):
+        if extra:
+            s["$comment"] = ((s.get("$comment", "") + "\n") if s.get("$comment") else "") + extra
     return s
 
 

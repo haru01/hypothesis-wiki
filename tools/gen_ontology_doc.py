@@ -40,6 +40,9 @@ def _fields_table(fields) -> list:
     # 補足（guidance／条件付き必須の条件）は表に収まらないので下に注記として出す。
     notes = []
     for f in fields:
+        if f.must_body_section:
+            notes.append(f"- `{f.name}` は**二重表現** — 本文 `## {f.must_body_section}` 節にも同じ文言を置く"
+                         f"（`field-body-section`・warning が照合する）")
         if f.required_when:
             notes.append(f"- `{f.name}` の条件付き必須 — {_cell(f.required_when.condition)}"
                          f"（{f.required_when.severity}"

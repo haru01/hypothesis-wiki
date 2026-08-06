@@ -84,8 +84,11 @@ frontmatter: `id` `title` `short-title` **`falsifier`** `type` `status` `confide
 `derived-from` `leads-to` `addresses` `core`（各キーの意味・語彙・既定値は [ontology.md](ontology.md)「frontmatter フィールド > `H`」）。
 
 **`falsifier`（反証条件）は必須**。何が観測されればこの仮説が崩れるかを一文で書き、本文 `## 反証条件` 節にも
-同じ文言を置く（二重表現）。反証条件を言えない文は仮説ではない。board が実験ブロックへ射影し、実験計画(TEST)に
-逐語コピーされた事前登録との食い違いを `/lint`（`falsifier-copy`）が検出する。
+同じ文言を置く（二重表現。宣言は `ontology.yaml` の `must-body-section` で、`/lint` の `field-body-section` が
+節の欠落と食い違いを検出する）。反証条件を言えない文は仮説ではない。board が実験ブロックへ射影し、実験計画(TEST)に
+逐語コピーされた事前登録との食い違いは `falsifier-copy` が検出する。
+日本語の一文は `: ` を含みやすい — 含むなら値を `"引用符"` で囲む（囲まないと frontmatter 全体が YAML として
+読めなくなり、`/lint` の `frontmatter` が **error** で止める）。
 
 本文: 反証可能な仮説文／反証条件／前提／系譜リンク／確信度履歴テーブル（日付・確信度・ステータス・根拠・`[[LEARN-NNN]]`）。
 **この確信度履歴テーブルが確信度・ステータスの正本（追記専用）**。frontmatter の `confidence`/`status` は最新行の同期キャッシュ。

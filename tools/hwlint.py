@@ -43,6 +43,28 @@ import graph  # noqa: E402  関係グラフの走査層（孤立・連結性の�
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# 本文の見出し節を取り出す／文字列を書式差を無視して比べる、の2つは複数のチェックが共有する
+# （二重表現の照合＝ frontmatter と本文・仮説の反証条件と実験計画への逐語コピー）。
+_NORMALIZE_RE = re.compile(r"[\s*`_~]")
+
+
+def _same_text(a: str, b: str) -> bool:
+    """空白と強調記号の差を無視して比較する（書式の揺れでは鳴らさない）。"""
+    return _NORMALIZE_RE.sub("", a) == _NORMALIZE_RE.sub("", b)
+
+
+def body_section(text: str, name: str):
+    """本文の `## <name>` 節（見出しレベルは2〜6のいずれでも可）の中身を返す。無ければ None。
+
+    records.card_section はテストカード内の `### 節` と `- **節**:` を対象にした別文法なので
+    共有しない（あちらは凍結範囲の特定用で、終端の扱いが違う）。"""
+    m = re.search(rf"^#{{2,6}}\s*{re.escape(name)}\s*$", text, re.MULTILINE)
+    if not m:
+        return None
+    rest = text[m.end():]
+    nxt = re.search(r"^#{1,6}\s", rest, re.MULTILINE)
+    return (rest[:nxt.start()] if nxt else rest).strip()
+
 
 @dataclass
 class Problem:
@@ -59,6 +81,8 @@ def check_id_matches_filename(project) -> list:
     （ファイル名が親レコードID + suffix になっているか）は check_attachment_id が見る。"""
     problems = []
     for stem, (path, fm, _) in project.nodes.items():
+        if stem in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み
         fid = fm.get("id", "")
         if fid != stem:
             problems.append(Problem("error", stem, "id-filename",
@@ -67,6 +91,55 @@ def check_id_matches_filename(project) -> list:
         problems.append(Problem("warning", str(p), "id-filename",
                                 "レコード名が ID 規約（<PREFIX>-H/TEST/DEC-NNN）にも"
                                 "付随物の命名（<親レコードID>-script.md 等）にも合わない"))
+    return problems
+
+
+def check_frontmatter(project) -> list:
+    """frontmatter が YAML として読めること（error）。
+
+    読めない frontmatter は parse_frontmatter が空 dict にして寛容に流すので、下流には
+    「全フィールドが未指定」に見え、**本当の原因を一言も言わない大量の error** になる
+    （実測: 日本語の散文フィールドにコロンを1つ入れただけで11件）。原因を1件で名指しし、
+    スキーマ系のチェック（fields・vocab・id-filename）はこのノードを飛ばす。
+
+    現実的な壊れ方は「日本語の一文をそのまま書いたら `: ` が入っていた」なので、直し方まで書く。"""
+    return [Problem("error", stem, "frontmatter",
+                    f"frontmatter が YAML として読めない（{reason}）。"
+                    "日本語の一文をそのまま書くと `: ` が入りやすい — 値に `: ` や "
+                    "先頭の `#`・`[` が入るときは \"引用符\" で囲む"
+                    "（このノードのスキーマ系チェックは巻き添えを避けて飛ばしている）")
+            for stem, reason in sorted(project.broken_frontmatter.items())]
+
+
+def check_field_body_section(project) -> list:
+    """二重表現（`must-body-section`）: frontmatter の値が本文の指定節にも置かれていること（warning）。
+
+    関係の `must-wikilink`・出典の `must-body-link` と同じ層。宣言だけして機械が守らないと、
+    「二重表現である」という規約が規約文の中にしか存在しなくなる（実際 `falsifier` は
+    導入直後そうなっていた — 本文節を丸ごと消しても文言を食い違わせても lint は無言だった）。
+
+    error にしない理由: 本文は読み手のための面で、節の言い回しを整える自由は残す。
+    比較は空白・強調記号の差を無視する（書式の揺れでは鳴らさない）。"""
+    problems = []
+    for stem, (_, fm, body) in project.nodes.items():
+        if stem in project.broken_frontmatter:
+            continue
+        text = strip_comments(body)
+        for name, f in NODE_FIELDS_BY_NAME.get(node_kind(stem), {}).items():
+            if not f.must_body_section:
+                continue
+            value = fm.get(name, "").strip()
+            if not value:
+                continue                      # 欠落は check_fields の担当
+            section = body_section(text, f.must_body_section)
+            if section is None:
+                problems.append(Problem("warning", stem, "field-body-section",
+                    f"frontmatter `{name}` に対応する本文節 `## {f.must_body_section}` が無い"
+                    "（二重表現: 機械が読む場所と読み手が出会う場所の両方に置く）"))
+            elif not _same_text(value, section):
+                problems.append(Problem("warning", stem, "field-body-section",
+                    f"本文の `{f.must_body_section}` 節が frontmatter `{name}` と食い違う"
+                    f"（frontmatter: {value}／本文: {section}）"))
     return problems
 
 
@@ -93,7 +166,9 @@ def check_fields(project) -> list:
     for stem, (_, fm, _) in project.nodes.items():
         ent = node_kind(stem)
         declared = NODE_FIELDS_BY_NAME.get(ent)
-        if not declared:
+        # frontmatter が読めないノードは check_frontmatter が1件で報告済み。ここで全キーを
+        # 「未指定」として並べると、原因でない error が本当の原因を埋める。
+        if not declared or stem in project.broken_frontmatter:
             continue
         for name, f in declared.items():
             value = fm.get(name, "").strip()
@@ -153,6 +228,8 @@ def check_vocabulary(project) -> list:
     **値の空/欠落はここでは報告しない**（それは check_fields の担当。二重報告を作らない）。"""
     problems = []
     for stem, (_, fm, _) in project.nodes.items():
+        if stem in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み
         ent = node_kind(stem)
         for name, f in NODE_FIELDS_BY_NAME.get(ent, {}).items():
             value = fm.get(name, "").strip()
@@ -176,6 +253,8 @@ def check_history_consistency(project) -> list:
     """不変ルール2: frontmatter の confidence/status は確信度履歴テーブルの最終行と一致する。"""
     problems = []
     for stem, fm, _, rows in project.hyp_records():
+        if stem in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み（巻き添えを出さない）
         if not rows:
             problems.append(Problem("error", stem, "history", "確信度履歴テーブルが無い/パースできない"))
             continue
@@ -612,12 +691,17 @@ def check_source_links(project) -> list:
 
 
 def check_stage_doc(project) -> list:
-    """stage.md 内の playbook 参照が current-stage と一致すること（warning）。
+    """stage.md が現在ステージと食い違っていないこと（warning）。2つ見る。
 
-    `/deciding` は「stage.md の移行基準の上書き（あれば優先）」を読むため、
-    current-stage と別ステージの playbook を指していると**現在ステージと違う基準で判断される**。
-    巻き戻し（rollback）で current-stage だけを直し、本文の playbook 参照が前ステージのまま
-    取り残されると起きる。"""
+    1. **stage.md の current-stage が、DEC から導いた現在ステージと違う** — ステージの正本は
+       `to-stage` を持つ最新 DEC で、stage.md はそれが無いときのフォールバック。`/deciding` が
+       DEC を作ったあと stage.md の更新を忘れると、**stage.md だけが古いステージを主張する**。
+       `/planning` も `/formulating` も「現在ステージ」を stage.md から読むので、読んだ側は
+       前ステージの playbook（中心の問い・重点仮説タイプ・移行基準）で動いてしまう。
+    2. **stage.md 内の playbook 参照が current-stage と一致しない** — `/deciding` は
+       「stage.md の移行基準の上書き（あれば優先）」を読むため、current-stage と別ステージの
+       playbook を指していると現在ステージと違う基準で判断される。巻き戻し（rollback）で
+       current-stage だけを直し、本文の playbook 参照が取り残されると起きる。"""
     problems = []
     p = project.wiki / "stage.md"
     if not p.exists():
@@ -627,6 +711,12 @@ def check_stage_doc(project) -> list:
     if not m:
         return problems
     current = m.group(1)
+    canonical = project.stage       # to-stage を持つ最新 DEC（無ければ stage.md 自身）
+    if canonical and canonical != current:
+        problems.append(Problem("warning", "stage.md", "stage-doc",
+            f"current-stage は {current} だが、ステージの正本（to-stage を持つ最新 DEC）は {canonical}。"
+            f"stage.md を {canonical} に更新する（現在ステージを stage.md から読むスキルが"
+            f"前ステージの playbook で動いてしまう）"))
     referenced = {s.upper() for s in re.findall(r"playbooks/(\w+)\.md", text)}
     stray = {s for s in referenced if s in STAGES and s != current}
     for s in sorted(stray):
@@ -700,6 +790,8 @@ def check_index_sync(project) -> list:
         if not m:
             continue
         rid, conf, status = m.group(1), m.group(2), m.group(3)
+        if rid in project.broken_frontmatter:
+            continue                      # 原因は check_frontmatter が1件で報告済み
         if rid not in project.records:
             problems.append(Problem("error", "index.md", "index-sync", f"[[{rid}]] のレコードが存在しない"))
             continue
@@ -1115,12 +1207,6 @@ def check_testcard_sections(project) -> list:
 # 見出しに「反証条件」を含む節の中の `| [[<H-ID>]] | <文言> |` 行を対象にする。
 FALSIFIER_HEADING_RE = re.compile(r"^#{2,6}\s*.*反証条件.*$", re.MULTILINE)
 FALSIFIER_ROW_RE = re.compile(r"^\|\s*\[\[([A-Z0-9]+-H-\d+)\]\]\s*\|\s*(.+?)\s*\|\s*$", re.MULTILINE)
-_NORMALIZE_RE = re.compile(r"[\s*`_~]")
-
-
-def _same_falsifier(a: str, b: str) -> bool:
-    """空白と強調記号の差を無視して比較する（書式の揺れでは鳴らさない）。"""
-    return _NORMALIZE_RE.sub("", a) == _NORMALIZE_RE.sub("", b)
 
 
 def check_falsifier_copy(project) -> list:
@@ -1146,7 +1232,7 @@ def check_falsifier_copy(project) -> list:
                 if not rec:
                     continue                      # リンク切れは check_wikilinks の担当
                 original = rec[1].get("falsifier", "").strip()
-                if original and not _same_falsifier(original, copied):
+                if original and not _same_text(original, copied):
                     problems.append(Problem("warning", stem, "falsifier-copy",
                         f"事前登録した {hid} の反証条件が仮説側の falsifier と一致しない"
                         f"（原本: {original}／写し: {copied}）。"
@@ -1196,7 +1282,8 @@ def check_relation_cycles(project) -> list:
     return problems
 
 
-CHECKS = [check_id_matches_filename, check_fields, check_vocabulary,
+CHECKS = [check_frontmatter, check_id_matches_filename, check_fields, check_vocabulary,
+          check_field_body_section,
           check_history_consistency, check_evidence_links,
           check_frontmatter_refs, check_wikilinks, check_relation_wikilinks,
           check_provenance_paths, check_provenance_presence, check_provenance_body_link,

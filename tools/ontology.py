@@ -79,7 +79,7 @@ class Field:
     ontology.md と schema/*.schema.json の両方へ流すことで、正本を1つにする。
 
     kind の語彙と検証器は ontology.yaml の field-kinds 節が正本（FIELD_KINDS）。"""
-    __slots__ = ("name", "required", "kind", "enum_ref",
+    __slots__ = ("name", "required", "kind", "enum_ref", "must_body_section",
                  "description", "guidance", "example", "default", "required_when")
 
     def __init__(self, d: dict):
@@ -87,6 +87,8 @@ class Field:
         self.required = bool(d.get("required", False))
         self.kind = d.get("kind", "text")
         self.enum_ref = d.get("enum-ref", "")
+        # 二重表現: 同じ内容を置く本文節の見出し名（relations の must-wikilink と同じ思想）
+        self.must_body_section = d.get("must-body-section", "")
         self.description = d.get("description", "")
         self.guidance = (d.get("guidance", "") or "").strip()
         # example / default は YAML の型強制（int 化等）を避けて文字列で保つ。
@@ -484,6 +486,11 @@ def _selfcheck() -> int:
             if f.enum_ref:
                 assert FIELD_KINDS[f.kind].validate == "enum", \
                     f"{ent}.{f.name} は kind '{f.kind}' なのに enum-ref を持っている"
+            if f.must_body_section:
+                # 二重表現は「本文に写せる値」にだけ意味がある。関係・出典・構造化フィールドは
+                # それぞれ専用の二重表現規約（must-wikilink / must-body-link）を持つので混ぜない。
+                assert f.kind == "text", \
+                    f"{ent}.{f.name} の must-body-section は kind: text にだけ書ける（今は {f.kind}）"
             if f.required_when:
                 assert not f.required, f"{ent}.{f.name} は required なのに required-when を持っている"
                 assert f.required_when.condition, f"{ent}.{f.name} の required-when に condition が無い"

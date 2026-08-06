@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -2087,6 +2088,130 @@ class FalsifierTest(unittest.TestCase):
             board = gen_views.gen_board(records.Project(root))
             self.assertIn("反証条件（対象仮説の falsifier より）", board)
             self.assertIn(self.FAL, board)
+
+
+class BrokenFrontmatterTest(unittest.TestCase):
+    """壊れた frontmatter は原因を1件で名指しし、スキーマ系チェックの巻き添えを出さない。
+
+    日本語の散文フィールド（title・falsifier・riskiest-assumption）に `: ` が入るのが
+    現実的な壊れ方。かつては parse_frontmatter が空 dict を返して寛容に流し、
+    「全フィールドが未指定」という原因を一言も言わない error が大量に出ていた。"""
+
+    def _broken(self):
+        return hyp().replace("falsifier: 対象者が", "falsifier: 反証条件: 対象者が")
+
+    def test_parse_failure_is_reported_once_with_the_cause(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": self._broken()})
+            probs = hwlint.lint_project(root)
+            hits = [p for p in probs if p.check == "frontmatter"]
+            self.assertEqual(len(hits), 1, probs)
+            self.assertEqual(hits[0].level, "error")
+            self.assertIn("引用符", hits[0].message)
+
+    def test_no_cascade_from_schema_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": self._broken()})
+            noisy = [p for p in hwlint.lint_project(root)
+                     if p.check in ("fields", "vocab", "id-filename", "history")
+                     or (p.check == "index-sync" and "DEMO-H-001" in p.message)]
+            self.assertEqual(noisy, [], f"巻き添えが出ている: {noisy}")
+
+    def test_quoted_value_with_colon_is_fine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("falsifier: 対象者が課題を自認せず、実コストも払っていない。",
+                                'falsifier: "反証条件: 対象者が課題を自認していない。"')
+            rec = rec.replace("## 反証条件\n\n対象者が課題を自認せず、実コストも払っていない。",
+                              "## 反証条件\n\n反証条件: 対象者が課題を自認していない。")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            probs = hwlint.lint_project(root)
+            self.assertEqual([p for p in probs if p.check in ("frontmatter", "field-body-section")], [],
+                             probs)
+
+
+class FieldBodySectionTest(unittest.TestCase):
+    """二重表現（must-body-section）: frontmatter の値が本文の指定節にも置かれていること。
+
+    関係の must-wikilink・出典の must-body-link と同じ層。宣言だけして機械が守らないと、
+    「二重表現である」という規約が規約文の中にしか存在しなくなる。"""
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "field-body-section"]
+
+    def test_declaration_exists(self):
+        self.assertEqual(ontology.FIELDS_BY_NAME["H"]["falsifier"].must_body_section, "反証条件")
+
+    def test_matching_body_is_silent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp()})
+            self.assertEqual(self._hits(root), [])
+
+    def test_missing_section_is_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = re.sub(r"## 反証条件\n\n.*?\n\n", "", hyp(), flags=re.DOTALL)
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            hits = self._hits(root)
+            self.assertEqual(len(hits), 1, hits)
+            self.assertEqual(hits[0].level, "warning")
+
+    def test_drifted_body_is_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("## 反証条件\n\n対象者が課題を自認せず、実コストも払っていない。",
+                                "## 反証条件\n\n対象者が課題を自認している。")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            self.assertEqual(len(self._hits(root)), 1)
+
+    def test_formatting_differences_do_not_fire(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("## 反証条件\n\n対象者が課題を自認せず、実コストも払っていない。",
+                                "## 反証条件\n\n**対象者が課題を自認せず、実コストも払っていない。**")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            self.assertEqual(self._hits(root), [])
+
+
+class StageDocSyncTest(unittest.TestCase):
+    """stage.md の current-stage が、DEC から導いた正本ステージと食い違っていないこと。
+
+    ステージの正本は `to-stage` を持つ最新 DEC。stage.md はそのフォールバックだが、
+    `/planning`・`/formulating` は現在ステージを stage.md から読むので、DEC を作ったあと
+    stage.md の更新を忘れると前ステージの playbook で動いてしまう。"""
+
+    def _dec(self, to_stage):
+        return (f"---\nid: DEMO-DEC-001\ntitle: ステージ移行\ndate: 2026-07-03\n"
+                f"type: stage-transition\nbased-on: [DEMO-TEST-001]\nto-stage: {to_stage}\n---\n\n"
+                f"# ステージ移行\n\n根拠: [[DEMO-TEST-001]]\n")
+
+    def _files(self, stage_md_stage, to_stage):
+        return {
+            "wiki/hypotheses/DEMO-H-001.md": hyp(),
+            "wiki/tests/DEMO-TEST-001.md": act(),
+            "wiki/decisions/DEMO-DEC-001.md": self._dec(to_stage),
+            "wiki/stage.md": f"```yaml\ncurrent-stage: {stage_md_stage}\n```\n",
+        }
+
+    def _hits(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "stage-doc"]
+
+    def test_stale_stage_md_is_warned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, self._files("CPF", "FPF"))
+            hits = self._hits(root)
+            self.assertEqual(len(hits), 1, hits)
+            self.assertIn("FPF", hits[0].message)
+
+    def test_synced_stage_md_is_silent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, self._files("FPF", "FPF"))
+            self.assertEqual(self._hits(root), [])
+
+    def test_no_dec_falls_back_without_warning(self):
+        # to-stage を持つ DEC が無いプロジェクトでは stage.md 自身が正本。鳴らしてはいけない。
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(),
+                "wiki/stage.md": "```yaml\ncurrent-stage: CPF\n```\n",
+            })
+            self.assertEqual(self._hits(root), [])
 
 
 class VocabularyKindTest(unittest.TestCase):

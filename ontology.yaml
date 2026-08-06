@@ -86,6 +86,12 @@ field-kinds:
 #   when        … 機械が評価できる形。現在 `always` のみ。省略時は check_fields は評価しない
 #   enforced-by … 別チェックが担うならその名前。書かれていれば check_fields は評価しない
 #                 （二重報告を避ける。宣言は「AI に見せる」ためだけに置く）
+#
+# ── 二重表現（must-body-section） ───────────────────────────────────
+# frontmatter と本文の**両方**に同じ内容を置くフィールドの宣言。関係の must-wikilink・
+# 出典の must-body-link と同じ思想で、値は機械が読める場所に、読み手が出会う場所にも置く。
+# 宣言しただけでは守られないので `hwlint` の `field-body-section`（warning）が照合する:
+# 節が無い／本文と frontmatter が食い違う（空白・強調記号の差は無視する）。
 
 # ── エンティティ（レコード種別とサブタイプ） ─────────────────────────────
 entities:
@@ -112,6 +118,9 @@ entities:
       - name: falsifier
         required: true
         kind: text
+        # 二重表現（frontmatter ＋ 本文節）。relations の must-wikilink・provenance の
+        # must-body-link と同じ思想で、宣言したものを機械が守る。
+        must-body-section: 反証条件
         description: 何が観測されればこの仮説が反証されるか。仮説文と対で、検証を始める前に確定する。
         guidance: |
           反証条件を言えない文は仮説ではない（/formulating の鉄則）。ここが機械可読だと
