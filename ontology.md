@@ -31,66 +31,107 @@
 
 ### frontmatter フィールド（スキーマ＝契約）
 
-各レコードが持つ frontmatter キーの宣言。**必須の欠落は error、宣言に無いキーは warning** として `hwlint.py` の `check_fields` が検出する（`kind` の意味は `ontology.yaml` 冒頭のコメントが正本）。
+各レコードが持つ frontmatter キーの宣言。**必須の欠落は error、宣言に無いキーは warning** として `hwlint.py` の `check_fields` が検出し、値が語彙・範囲に収まるかは `check_vocabulary` が見る。同じ宣言から機械可読な JSON Schema（`schema/*.schema.json`）も生成される（`tools/gen_schema.py`。Claude Code 以外のエージェント・エディタ向けの可搬な契約で、検証の正本は `hwlint.py` のまま）。
+
+**kind（値の種別）**:
+
+| kind | 意味 | check_fields / check_vocabulary の検証 |
+|---|---|---|
+| `id` | ファイル名と一致する接頭辞つきID（例 SELF-H-001） | （`id-filename` が担当） |
+| `text` | 自由記述の一行 | — |
+| `subtype` | 当該 entity の subtypes 名 | `subtype` |
+| `enum` | enum-ref が指す状態機械の語彙（stages / statuses / outcomes / data-kinds） | `enum` |
+| `date` | YYYY-MM-DD | `date` |
+| `confidence` | confidence.min〜max の整数 | `int-range`（1-10） |
+| `importance` | auto、または confidence.min〜max の整数（auto は stage-focus から解決する） | `auto-or-int-range`（1-10） |
+| `flag` | true / false。true のときだけ意味を持つ省略可フィールド（未記入＝false 扱い） | `flag` |
+| `relation` | 関係キー。型（domain/range/cardinality）の正本は下記 relations 節 | （`refs` が担当） |
+| `provenance` | 出典キー。仕様の正本は下記 provenance 節 | （`provenance` が担当） |
+| `structured` | 行の集まり（配列 of マッピング）。行の形の正本は下記 structured-fields 節 | （`struct-shape` が担当） |
 
 **`H`（仮説）**
 
-| フィールド | 必須 | kind | 語彙(enum-ref) |
-|---|---|---|---|
-| `id` | 必須 | id | — |
-| `title` | 必須 | text | — |
-| `short-title` | 省略可 | text | — |
-| `type` | 必須 | subtype | — |
-| `status` | 必須 | enum | `statuses` |
-| `confidence` | 必須 | confidence | — |
-| `stage` | 必須 | enum | `stages` |
-| `importance` | 省略可 | importance | — |
-| `derived-from` | 省略可 | relation | — |
-| `leads-to` | 省略可 | relation | — |
-| `addresses` | 省略可 | relation | — |
-| `core` | 省略可 | flag | — |
+| フィールド | 必須 | kind | 語彙(enum-ref) | 既定値 | 説明 |
+|---|---|---|---|---|---|
+| `id` | 必須 | id | — | — | ファイル名と一致する接頭辞つきID。三者一致（ファイル名＝id＝本文の参照先）が規約。 |
+| `title` | 必須 | text | — | — | 仮説の内容が一読で分かる短いタイトル。本文 H1 と一致させる。 |
+| `short-title` | 省略可 | text | — | — | list ビューの mermaid ノード用の短ラベル（8字程度）。省略時はタイトルを機械切り詰め。 |
+| `falsifier` | 必須 | text | — | — | 何が観測されればこの仮説が反証されるか。仮説文と対で、検証を始める前に確定する。 |
+| `type` | 必須 | subtype | — | — | 価値連鎖上のどの仮説か。ステージごとの重点タイプ（stage-focus）と照合され importance に効く。 |
+| `status` | 必須 | enum | `statuses` | `未検証` | 検証の進捗。確信度とは別軸で、確信度履歴テーブル最終行の同期キャッシュ。 |
+| `confidence` | 必須 | confidence | — | `1` | 証拠の強さの目安。確信度履歴テーブル最終行の同期キャッシュ（正本は本文の表）。 |
+| `stage` | 必須 | enum | `stages` | `CPF` | この仮説を主に検証するステージ。プロジェクトの現在ステージとは独立に持つ。 |
+| `importance` | 省略可 | importance | — | `auto` | 検証の優先度。auto なら現在ステージの stage-focus から importance-weights で解決する。 |
+| `derived-from` | 省略可 | relation | — | — | 枝分かれ元の仮説（1件）。ピボット・巻き戻しの再出発点を系譜として残す。 |
+| `leads-to` | 省略可 | relation | — | — | この仮説が成り立つと次に導かれる仮説（複数可）。list ビューの mermaid 矢印になる。 |
+| `addresses` | 省略可 | relation | — | — | このソリューション仮説が解こうとする課題仮説（複数可）。relations のフィット表になる。 |
+| `core` | 省略可 | flag | — | — | 核心仮説なら true（list ビューで ★ 表示）。未記入は false 扱い。 |
+
+- `falsifier` — 反証条件を言えない文は仮説ではない（/formulating の鉄則）。ここが機械可読だと 「この仮説は何が起きたら崩れるか」を frontmatter から直接引ける — 実験計画(TEST)の 成功基準に事前登録する文言の出どころであり、board が実験ブロックへ射影する。 本文 `## 反証条件` 節にも同じ文言を置く（二重表現）。文言の変更は仮説の意味の変更なので、 確信度履歴に影響する見直しと同じ重さで扱う。
+- `confidence` — 直接書き換えない。変更は必ず学び(LEARN)か意思決定(DEC)に紐づけ、本文の確信度履歴に 1行追記してからその値をここへ写す（不変ルール1・2）。
+- `derived-from` — 本文「系譜」節にも wikilink を併記する（frontmatter だけでは Obsidian グラフに辺が出ない）。
+- `leads-to` — 本文「系譜」節にも wikilink を併記する。この辺の推移閉包が「崩れると波及が大きい背骨」＝ board の「次に検証すべき仮説」の下流依存度になる。
+- `addresses` — 本文 wikilink は不要（must-wikilink: false）。フィット表は frontmatter から射影する。
 
 **`TEST`（実験計画）**
 
-| フィールド | 必須 | kind | 語彙(enum-ref) |
-|---|---|---|---|
-| `id` | 必須 | id | — |
-| `title` | 必須 | text | — |
-| `type` | 必須 | subtype | — |
-| `date` | 必須 | date | — |
-| `stage` | 必須 | enum | `stages` |
-| `hypotheses` | 必須 | relation | — |
-| `riskiest-assumption` | 必須 | text | — |
-| `data` | 必須 | enum | `data-kinds` |
-| `success-criteria` | 省略可 | structured | — |
+| フィールド | 必須 | kind | 語彙(enum-ref) | 既定値 | 説明 |
+|---|---|---|---|---|---|
+| `id` | 必須 | id | — | — | ファイル名と一致する接頭辞つきID。 |
+| `title` | 必須 | text | — | — | 何を誰にどう当てる実験かが一読で分かる短いタイトル。 |
+| `type` | 必須 | subtype | — | — | 活動種別。スクリプト雛形の選択（/planning）と log.md の type に対応する。 |
+| `date` | 必須 | date | — | — | 計画日。実施日ではない（実施日は紐づく学び LEARN の date が正本）。 |
+| `stage` | 必須 | enum | `stages` | `CPF` | この実験がどのステージの問いを検証するか。 |
+| `hypotheses` | 必須 | relation | — | — | この実験が検証する仮説（複数可）。仮説側からは「検証活動」として逆引きされる。 |
+| `riskiest-assumption` | 必須 | text | — | — | この実験で崩れたら全体が崩れる一点を一文で。board の背骨になる。 |
+| `data` | 必須 | enum | `data-kinds` | — | この実験が「何のデータで作られるか」（何について書いてあるかではない）。架空判定 fictional-cap の正本。 |
+| `success-criteria` | 省略可 | structured | — | — | 成功基準のうち数えられるものを機械可読にした背骨。本文の散文と二重表現。 |
+
+- `hypotheses` — 本文にも wikilink を書く（must-wikilink。frontmatter だけでは Obsidian グラフに辺が出ない）。
+- `riskiest-assumption` — 検証前に確定し、学び(LEARN)が紐づいた後は凍結される（immutable.fields）。 後知恵で「もともとそこは狙っていなかった」と書き換えられないようにするための凍結。
+- `data` — 未宣言を許すと本文マーカー語の推論に黙って落ち、宣言漏れが静かに「実データ」扱いになって fictional-cap が効かない（＝架空由来の確信度が上限なく上がる）。黙って劣化させるくらいなら 書かせて弾く。推論経路自体は他 vault・旧レコードのために残す。
+- `success-criteria` — 散文を置き換えるものではない（ニュアンスは散文が担う）。数を決めていない基準は載せない ＝ここに無いものは人が判定する、という契約。検証前に確定し、実施後は riskiest-assumption と 同格で凍結される（数値だけ後から動かせるなら節を凍らせた意味が無い）。
 
 **`LEARN`（学び）**
 
-| フィールド | 必須 | kind | 語彙(enum-ref) |
-|---|---|---|---|
-| `id` | 必須 | id | — |
-| `title` | 必須 | text | — |
-| `type` | 必須 | subtype | — |
-| `date` | 必須 | date | — |
-| `stage` | 必須 | enum | `stages` |
-| `learns-from` | 省略可 | relation | — |
-| `hypotheses` | 必須 | relation | — |
-| `outcome` | 必須 | enum | `outcomes` |
-| `judgments` | 省略可 | structured | — |
-| `measurements` | 省略可 | structured | — |
-| `sources` | 省略可 | provenance | — |
-| `data` | 必須 | enum | `data-kinds` |
+| フィールド | 必須 | kind | 語彙(enum-ref) | 既定値 | 説明 |
+|---|---|---|---|---|---|
+| `id` | 必須 | id | — | — | ファイル名と一致する接頭辞つきID。 |
+| `title` | 必須 | text | — | — | 何から何を学んだかが一読で分かる短いタイトル。 |
+| `type` | 必須 | subtype | — | — | 活動種別（TEST と同じ語彙）。回顧型（desk-research/self-reflection）はここで自身の種別を名乗る。 |
+| `date` | 必須 | date | — | — | 実施日。計画型ではこちらが実施日の正本で、TEST の date は計画日。 |
+| `stage` | 必須 | enum | `stages` | `CPF` | この学びがどのステージの問いに答えたか。 |
+| `learns-from` | 省略可 | relation | — | — | 実施した実験計画(TEST)を1つ指す。board が「1実験＝計画＋学び」を1行に束ねる。 |
+| `hypotheses` | 必須 | relation | — | — | この学びが確信度を動かした仮説（複数可）。 |
+| `outcome` | 必須 | enum | `outcomes` | — | レコード全体の判定を1語で。board サマリの判定列へ射影される。 |
+| `judgments` | 条件付き（warning） | structured | — | — | 仮説ごとの判定。hypotheses が複数で結論が分かれるときのレコード内訳。 |
+| `measurements` | 省略可 | structured | — | — | 実験計画(TEST)の success-criteria に対して実際に観測した値。metric 名で基準と対応させる。 |
+| `sources` | 条件付き（warning） | provenance | — | — | 根拠となった生データ（不変層 sources/ 基準の相対パス）。確信度の根拠鎖の末端。 |
+| `data` | 必須 | enum | `data-kinds` | — | この学びが「何のデータで作られたか」（何について書いてあるかではない）。架空判定 fictional-cap の正本。 |
+
+- `learns-from` — 回顧型（desk-research / self-reflection / chabudai）は事前の計画を立てないので持たない。 持たない学びは board で「—（回顧型・事前の実験計画なし）」として表示される。
+- `hypotheses` — 本文にも wikilink を書く（must-wikilink）。
+- `outcome` — 対象仮説ごとに結論が違うときは、これだけでは「どの仮説が崩れたか」がグラフから消える。 その場合は judgments に仮説ごとの判定を書く。
+- `judgments` の条件付き必須 — outcome が真偽判定（judgment-check.truth-outcomes）で、hypotheses が2件以上のとき（warning・judgment-coverage が検出）
+- `measurements` — これがあると lint が判定を検算でき、「基準を割ったのに支持」＝ゴールポストの事後移動を error で弾ける（judgment-mismatch）。慎重側（判断保留）へ倒すのは常に許される。
+- `sources` の条件付き必須 — type が provenance.required-for-types（観測を伴う活動種別）のとき（warning・provenance が検出）
+- `sources` — 本文にも相対mdリンクを置く（二重表現。生データは接頭辞つきノートでないので wikilink は解決しない）。 生データ冒頭の架空/シミュレーション宣言はここから読まれる。
+- `data` — 必須の理由は TEST.data と同じ。架空データを**論じた**是正・監査レコードは real である （混同すると実データの実験が架空に誤分類される）。
 
 **`DEC`（意思決定）**
 
-| フィールド | 必須 | kind | 語彙(enum-ref) |
-|---|---|---|---|
-| `id` | 必須 | id | — |
-| `title` | 必須 | text | — |
-| `date` | 必須 | date | — |
-| `type` | 必須 | subtype | — |
-| `based-on` | 省略可 | relation | — |
-| `to-stage` | 省略可 | enum | `stages` |
+| フィールド | 必須 | kind | 語彙(enum-ref) | 既定値 | 説明 |
+|---|---|---|---|---|---|
+| `id` | 必須 | id | — | — | ファイル名と一致する接頭辞つきID。 |
+| `title` | 必須 | text | — | — | 何をどう決めたかが一読で分かる短いタイトル。 |
+| `date` | 必須 | date | — | — | 判断した日。to-stage を持つ DEC の最新性はこの日付で決まる。 |
+| `type` | 必須 | subtype | — | — | 判断の種類。ステージを動かすのは主に stage-transition と rollback。 |
+| `based-on` | 条件付き（warning） | relation | — | — | 根拠にした学び(LEARN)・実験計画(TEST)（複数可）。判定を持つ LEARN を優先する。 |
+| `to-stage` | 省略可 | enum | `stages` | — | この判断の結果ステージ。to-stage を持つ最新 DEC が現在ステージの正本になる。 |
+
+- `based-on` の条件付き必須 — 常に（根拠なき意思決定を作らない）（warning）
+- `based-on` — 本文にも wikilink を書く（must-wikilink）。
+- `to-stage` — ステージを動かす判断（stage-transition・rollback 等）だけが持つ。空だとビュー・ツールが 現ステージを導出できず、wiki/stage.md のフォールバックに落ちる。
 
 ### 仮説（H）サブタイプの価値連鎖上の役割
 
@@ -116,13 +157,15 @@
 
 **`SCRIPT` の frontmatter フィールド**
 
-| フィールド | 必須 | kind | 語彙(enum-ref) |
-|---|---|---|---|
-| `id` | 必須 | id | — |
-| `title` | 必須 | text | — |
-| `type` | 必須 | subtype | — |
-| `script-for` | 必須 | relation | — |
-| `hypotheses` | 省略可 | relation | — |
+| フィールド | 必須 | kind | 語彙(enum-ref) | 既定値 | 説明 |
+|---|---|---|---|---|---|
+| `id` | 必須 | id | — | — | ファイル名と一致する。付随物なので独自の採番を持たず「親レコードID + suffix」。 |
+| `title` | 必須 | text | — | — | どの実験の台本かが分かる短いタイトル。 |
+| `type` | 必須 | subtype | — | — | 基にした雛形（templates/<type>-script.md）。/planning の雛形選択がこの語彙に対応する。 |
+| `script-for` | 必須 | relation | — | — | 台本化した実験計画(TEST)。ファイル名から導ける対応を frontmatter にも明示する。 |
+| `hypotheses` | 省略可 | relation | — | — | 台本が実際に当てる仮説。親 TEST の検証対象の部分集合でなければならない。 |
+
+- `hypotheses` — 省略可なのは**発見型のスクリプトが既存仮説を相手に語らない**設計だから。仮説を宣言すると 台本の意図と食い違う。本文で背景として別の仮説に言及するのは正当なので、逆向き （本文の wikilink をすべて宣言せよ）は課さない。
 
 **`SCRIPT` のサブタイプと雛形**
 
@@ -176,30 +219,30 @@
 
 **`judgments` の行のキー**
 
-| キー | 必須 | kind | 参照/語彙 |
-|---|---|---|---|
-| `hypothesis` | 必須 | ref | frontmatter `hypotheses` の要素 |
-| `outcome` | 必須 | enum | `outcomes` |
-| `note` | 省略可 | text | — |
+| キー | 必須 | kind | 参照/語彙 | 説明 |
+|---|---|---|---|---|
+| `hypothesis` | 必須 | ref | frontmatter `hypotheses` の要素 | 判定した仮説。この学びの hypotheses に含まれていること |
+| `outcome` | 必須 | enum | `outcomes` | その仮説に対する判定 |
+| `note` | 省略可 | text | — | 判定の一言理由（詳細は本文に書く） |
 
 **`success-criteria` の行のキー**
 
-| キー | 必須 | kind | 参照/語彙 |
-|---|---|---|---|
-| `hypothesis` | 必須 | ref | frontmatter `hypotheses` の要素 |
-| `metric` | 必須 | text | — |
-| `op` | 必須 | enum | `criteria-ops` |
-| `threshold` | 必須 | number | — |
-| `of` | 省略可 | number | — |
+| キー | 必須 | kind | 参照/語彙 | 説明 |
+|---|---|---|---|---|
+| `hypothesis` | 必須 | ref | frontmatter `hypotheses` の要素 | この基準が判定する仮説。この実験の hypotheses に含まれていること |
+| `metric` | 必須 | text | — | 測る対象の名前。学び(LEARN)の measurements.metric と文字列一致させる |
+| `op` | 必須 | enum | `criteria-ops` | 比較演算子。実測値を左辺に置いて評価する |
+| `threshold` | 必須 | number | — | 満たすべき閾値 |
+| `of` | 省略可 | number | — | 母数（「5名中3名」の5）。実測の n と食い違えば warning |
 
 **`measurements` の行のキー**
 
-| キー | 必須 | kind | 参照/語彙 |
-|---|---|---|---|
-| `metric` | 必須 | text | — |
-| `value` | 必須 | number | — |
-| `n` | 省略可 | number | — |
-| `note` | 省略可 | text | — |
+| キー | 必須 | kind | 参照/語彙 | 説明 |
+|---|---|---|---|---|
+| `metric` | 必須 | text | — | 実験計画(TEST)の success-criteria.metric と一致させる名前 |
+| `value` | 必須 | number | — | 実際に観測した値 |
+| `n` | 省略可 | number | — | 母集団（何人・何件を見たか）。基準の of と食い違えば warning |
+| `note` | 省略可 | text | — | 観測条件の補足（詳細は本文に書く） |
 
 **成功基準の演算子**: `>=`・`>`・`<=`・`<`・`==`・`!=`（実測 `value` を左辺、`threshold` を右辺に置いて評価する）。
 

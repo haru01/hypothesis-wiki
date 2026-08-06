@@ -16,11 +16,20 @@
   ```
 
 - 型・関係・状態機械の正本は [ontology.yaml](ontology.yaml)（人間可読は `ontology.md`）。ツールは
-  `tools/ontology.py` 経由でこれを読む。`ontology.yaml` を変更したら人間可読版を再生成する:
+  `tools/ontology.py` 経由でこれを読む。**frontmatter の各フィールドは宣言側に `description`・`guidance`・
+  `example`・既定値を持つ**ので、書き方を知るのに散文を読む必要はない — `ontology.md`「frontmatter フィールド」か
+  `schema/*.schema.json` を読む。`ontology.yaml` を変更したら両方の生成物を再生成する:
 
   ```bash
-  python3 tools/gen_ontology_doc.py         # ontology.yaml → ontology.md
+  python3 tools/gen_ontology_doc.py         # ontology.yaml → ontology.md（人間可読）
+  python3 tools/gen_schema.py               # ontology.yaml → schema/*.schema.json（機械可読）
   ```
+
+- `schema/*.schema.json` は **JSON Schema 2020-12 の可搬な契約**で、スキル機構も `hwlint` も持たない
+  エージェント・エディタが frontmatter をそのまま検証できる。ただし**検証の正本は `tools/hwlint.py`**で、
+  JSON Schema が表せるのは1レコード内の形だけ（確信度履歴テーブルとの一致・関係の実在・凍結・根拠鎖は
+  レコードをまたぐので lint にしかない）。雛形と宣言のドリフト検査は
+  `python3 tools/gen_schema.py --check-templates`。
 
 - 機械生成ビュー（`board`・`list`・`relations`・`index`）はレコードから決定論射影する。レコード（H/TEST/LEARN/DEC）を
   変更したら再生成する（Claude Code では Stop フックが自動再生成。他エージェントは手動で）:

@@ -32,6 +32,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ontology import ENTITY_INFIXES  # noqa: E402  レコード種別の一覧はオントロジーが正本
+
 # ---- 公開範囲（wiki + schema 層）------------------------------------------------
 # schema 層の単体ファイル。ontology.yaml は非 md だが CLAUDE.md から 12 箇所参照されており、
 # Quartz が静的アセットとして出すのでリンクとして機能する。
@@ -53,11 +56,15 @@ EXCLUDE_DIR_NAMES = {".obsidian", "__pycache__", ".git", ".claude", "node_module
 NON_PUBLIC_RE = re.compile(r"^projects/[^/]+/sources/")
 
 # プレースホルダらしさ（未解決でも警告しない）。
-# 接頭辞なしのレコードID（`H-001`・`LEARN-NNN`・`ACT` など）は、実IDが必ずプロジェクト接頭辞つき
+# 接頭辞なしのレコードID（`H-001`・`LEARN-NNN` など）は、実IDが必ずプロジェクト接頭辞つき
 # である以上、雛形・設計メモの中の例示でしかありえない。
+# 種別一覧はオントロジーから導出する（かつてここに直書きされ、廃止済みの `ACT` が残っていた）。
+# `ACT` は TEST/LEARN へ分割される前の旧種別で、いまも git 履歴・設計メモの散文に現れるため
+# 導出した一覧に足して黙らせる（実IDとしては存在しない）。
+_LEGACY_INFIXES = ["ACT"]
 PLACEHOLDER_RE = re.compile(
     r"NNN|<[^>]*>|\{[^}]*\}|YYYY-MM-DD|\.\.\.|…"
-    r"|^(?:H|TEST|LEARN|DEC|ACT)(?:[-/]|$)")
+    r"|^(?:" + "|".join(map(re.escape, ENTITY_INFIXES + _LEGACY_INFIXES)) + r")(?:[-/]|$)")
 
 
 # ---- ステージング対象の列挙 -----------------------------------------------------

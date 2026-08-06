@@ -69,28 +69,25 @@ AIはこのファイルの規約に従って「規律あるWikiの保守者」�
 **wikilinkではなく相対mdリンク**で書く。`../` の深さは参照元ファイルの位置で変わる（上記「スキル共通規約」3を参照。
 `wiki/` 直下は `../../../`、`wiki/<種別>/` 配下の H・TEST・LEARN・DEC は `../../../../`）。
 
-> **フィールド定義の正本は [ontology.yaml](ontology.yaml) の `entities.*.fields`**（人間可読は [ontology.md](ontology.md)
-> 「frontmatter フィールド」）。以下の各節の YAML ブロックは**読み手向けの例示**であり、必須／省略可・語彙の判定は
-> オントロジー側が持つ。`/lint`（`check_fields`）が必須キーの欠落を **error**、宣言に無いキー（タイポ）を warning で弾く。
+> **フィールド定義の正本は [ontology.yaml](ontology.yaml) の `entities.*.fields`**。各フィールドは**自己記述的**で、
+> 必須／省略可・kind（値の種別）・語彙・既定値に加えて **`description`（何を書くか）・`guidance`（なぜそう書くか）・
+> `example`** を宣言側に持つ。人間可読な一覧は [ontology.md](ontology.md)「frontmatter フィールド」、機械可読な契約は
+> `schema/*.schema.json`（`python3 tools/gen_schema.py` が生成。Claude Code 以外のエージェント・エディタ向け）。
+>
+> **以下の各節はフィールドの一覧と本文の書き方だけを示す**。書き方の説明をここに写さない（写した瞬間、
+> `ontology.yaml`・`templates/`・本ファイル・各 `SKILL.md` の四重管理に戻る）。`/lint` が必須キーの欠落を
+> **error**（`check_fields`）、値の語彙外を **error**（`check_vocabulary`）、宣言に無いキー（タイポ）を warning で弾く。
 
 ### 仮説レコード `projects/<slug>/wiki/hypotheses/<PREFIX>-H-NNN.md`
 
-```yaml
-id: <PREFIX>-H-001                   # ファイル名と一致（接頭辞つき。例 SELF-H-001）
-title: 短いタイトル
-short-title: 短ラベル                 # 省略可。list の mermaid ノード用（8字程度）。省略時はタイトルを機械切り詰め
-type: 状況・行動仮説 | 課題仮説 | ソリューション仮説 | 市場スケール仮説 | 自分たち仮説
-status: 未検証 | 検証中 | 検証済み | 反証
-confidence: 1-10
-stage: CPF | FPF | PSF | SPF | PMF   # この仮説を主に検証するステージ
-importance: auto | 1-10              # auto = 現在ステージから自動決定
-derived-from: H-NNN                  # 省略可。派生・ピボット・巻き戻し再出発の系譜
-leads-to: [H-NNN, ...]               # 省略可。因果的に導く先の仮説（list の mermaid 矢印。本文「系譜」にも wikilink 併記）
-addresses: [H-NNN, ...]              # 省略可（ソリューション仮説）。対応する課題仮説（relations のフィット表に使う）
-core: true                           # 省略可。核心仮説なら true（list で ★ 表示）
-```
+frontmatter: `id` `title` `short-title` **`falsifier`** `type` `status` `confidence` `stage` `importance`
+`derived-from` `leads-to` `addresses` `core`（各キーの意味・語彙・既定値は [ontology.md](ontology.md)「frontmatter フィールド > `H`」）。
 
-本文: 反証可能な仮説文／前提／系譜リンク／確信度履歴テーブル（日付・確信度・ステータス・根拠・`[[LEARN-NNN]]`）。
+**`falsifier`（反証条件）は必須**。何が観測されればこの仮説が崩れるかを一文で書き、本文 `## 反証条件` 節にも
+同じ文言を置く（二重表現）。反証条件を言えない文は仮説ではない。board が実験ブロックへ射影し、実験計画(TEST)に
+逐語コピーされた事前登録との食い違いを `/lint`（`falsifier-copy`）が検出する。
+
+本文: 反証可能な仮説文／反証条件／前提／系譜リンク／確信度履歴テーブル（日付・確信度・ステータス・根拠・`[[LEARN-NNN]]`）。
 **この確信度履歴テーブルが確信度・ステータスの正本（追記専用）**。frontmatter の `confidence`/`status` は最新行の同期キャッシュ。
 
 > **出来事の記録（イベントログ）としての設計**: 「仮説を立てた(H)→実験計画を立てた(TEST)→実施して学びを得た(LEARN)→意思決定した(DEC)」を
@@ -100,40 +97,18 @@ core: true                           # 省略可。核心仮説なら true（lis
 
 ### 実験計画レコード（テストカード） `projects/<slug>/wiki/tests/<PREFIX>-TEST-NNN.md`
 
-```yaml
-id: <PREFIX>-TEST-001                 # ファイル名と一致（接頭辞つき。例 SELF-TEST-001）
-title: 短いタイトル
-type: interview | demo | survey | mvp-test | desk-research | self-reflection
-date: YYYY-MM-DD
-stage: CPF | FPF | PSF | SPF | PMF
-hypotheses: [H-NNN, ...]              # この実験が検証する仮説
-riskiest-assumption: 一文                  # 最もリスクの高い前提（この実験で崩れたら全体が崩れる一点）。検証前に記入し実施後は凍結（不変ルール6）。board の背骨
-data: real | simulated                # 必須。この実験が何のデータで作られるか（架空判定の正本。下記「確信度とステータス」）
-success-criteria:                     # 省略可。成功基準のうち数えられるものを機械可読に（本文の散文と二重表現）
-  - {hypothesis: H-NNN, metric: 指標名, op: ">=", threshold: 3, of: 5}
-```
+frontmatter: `id` `title` `type` `date` `stage` `hypotheses` `riskiest-assumption` `data` `success-criteria`
+（各キーの意味・語彙は [ontology.md](ontology.md)「frontmatter フィールド > `TEST`」。`success-criteria` の行の形は
+同じく「構造化フィールド」）。
 
 本文＝**テストカード**（検証前に記入）: 目的／方法／指標／成功基準。実施後（学び LEARN が紐づいた後）に凍結されるのは**成功基準（本文の節と frontmatter `success-criteria`）と `riskiest-assumption` だけ**で、目的・方法・指標の補正やリンク追加は後からでもよい（不変ルール6）。
 検証後の学びは別レコード LEARN に積む（この TEST には学習カードを持たせない）。
 
 ### 学びレコード（学習カード） `projects/<slug>/wiki/learnings/<PREFIX>-LEARN-NNN.md`
 
-```yaml
-id: <PREFIX>-LEARN-001               # ファイル名と一致（接頭辞つき。例 SELF-LEARN-001）
-title: 短いタイトル
-type: interview | demo | survey | mvp-test | desk-research | self-reflection
-date: YYYY-MM-DD
-stage: CPF | FPF | PSF | SPF | PMF
-learns-from: <PREFIX>-TEST-NNN        # 省略可。実施した実験計画(TEST)。回顧型（desk-research/self-reflection 等）は持たない
-hypotheses: [H-NNN, ...]             # この学びが確信度を動かした仮説
-outcome: <判定>                       # 検証の判定。語彙の正本は ontology.md「検証判定」。board サマリへ射影
-judgments:                           # 省略可（対象仮説が複数で真偽判定を名乗るなら実質必須）。仮説ごとの判定
-  - {hypothesis: H-NNN, outcome: 反証}
-measurements:                        # 省略可。TEST の success-criteria に対する実測（metric 名で対応）
-  - {metric: 指標名, value: 3, n: 5}
-sources: [YYYY-MM-DD-....md, ...]    # 根拠となった生データ（sources/ 基準の相対パス）。下記「出典（プロヴェナンス）」参照
-data: real | simulated               # 必須。この学びが何のデータで作られたか（架空判定の正本。下記「確信度とステータス」）
-```
+frontmatter: `id` `title` `type` `date` `stage` `learns-from` `hypotheses` `outcome` `judgments` `measurements`
+`sources` `data`（各キーの意味・語彙・条件付き必須は [ontology.md](ontology.md)「frontmatter フィールド > `LEARN`」。
+`judgments`・`measurements` の行の形は同じく「構造化フィールド」）。
 
 本文＝**学習カード**（検証後に記入・新規作成で積む）: **学びの要点**（board へ射影する一行の見出し的学び）／事実（observed）／解釈（inference）／驚き・想定外／確信度の更新テーブル／次のアクション。
 **1つの学びが複数仮説を別々に判定したときは `judgments` に仮説ごとの判定を書く**（`outcome` はレコード全体の要約1語なので、書かないと「どの仮説が崩れたか」がグラフから消えて散文にしか残らない。board は judgments があれば仮説単位に展開する）。
@@ -156,14 +131,9 @@ LEARN に出典が無い**（根拠鎖の断絶）／どの学びからも参照
 
 ### 意思決定レコード `projects/<slug>/wiki/decisions/<PREFIX>-DEC-NNN.md`
 
-```yaml
-id: <PREFIX>-DEC-001                 # ファイル名と一致（接頭辞つき。例 SELF-DEC-001）
-title: 短いタイトル
-date: YYYY-MM-DD
-type: stage-transition | pivot | persevere | rollback | kill
-based-on: [LEARN-NNN, ...]           # 根拠となった学び(LEARN)を優先。実験計画(TEST)も可
-to-stage: CPF|FPF|PSF|SPF|PMF        # ステージを動かす判断（stage-transition・rollback 等）のみ。結果ステージ（現在ステージの正本＝to-stage を持つ最新DEC）
-```
+frontmatter: `id` `title` `date` `type` `based-on` `to-stage`
+（各キーの意味・語彙は [ontology.md](ontology.md)「frontmatter フィールド > `DEC`」。
+`to-stage` を持つ最新 DEC が現在ステージの正本。`based-on` は条件付き必須＝根拠なき意思決定を作らない）。
 
 本文: 確信度スナップショット（全重要仮説の当時の値）／選択肢と判断理由／巻き戻しポイント
 （この判断が誤りと判明したときどの仮説状態・どの問いに戻るか）／次の一手（前向きの戦略的現在地。board の「現在地」へ射影）。
@@ -174,13 +144,8 @@ to-stage: CPF|FPF|PSF|SPF|PMF        # ステージを動かす判断（stage-tr
 付随物（attachments）**で、独自のID体系を持たない（ファイル名＝`<親テストカードID>-script.md`・置き場は親と同じ
 `wiki/tests/`）。それでいて**型付きリンクには参加する**ので `/lint` がリンク切れ・型違反を検出する。
 
-```yaml
-id: <PREFIX>-TEST-NNN-script          # ファイル名と一致（＝親テストカードID + -script）
-title: 短いタイトル
-type: problem-interview | solution-interview | demo   # 基にした雛形（templates/<type>-script.md）
-script-for: <PREFIX>-TEST-NNN         # 親テストカード（必須・単一）
-hypotheses: [<PREFIX>-H-NNN, ...]     # 省略可。台本が実際に当てる仮説（親の検証対象の部分集合）
-```
+frontmatter: `id` `title` `type` `script-for` `hypotheses`
+（各キーの意味・語彙は [ontology.md](ontology.md)「付随物」。`id` はファイル名＝親テストカードID + `-script`）。
 
 `date`・`stage` は持たない（親テストカードから導ける＝二重管理を作らない）。`hypotheses` を省略可にしているのは、
 **発見型のスクリプトは既存仮説を相手に語らない**設計で、仮説を宣言すると台本の意図と食い違うため。

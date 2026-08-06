@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/haru01/hypothesis-wiki/schema/SCRIPT.schema.json",
+  "title": "SCRIPT（スクリプト）",
+  "description": "interview/demo の実験計画(TEST)の「方法」を現場の会話に落とした台本。/planning がテストカードと対で生成する。事前登録した反証条件・記録シートを載せ、観測をそのまま受け止める器になる。確信度は動かさない（学びは LEARN に積む）。",
+  "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "ファイル名と一致する。付随物なので独自の採番を持たず「親レコードID + suffix」。",
+      "type": "string",
+      "pattern": "^[A-Z0-9]+-TEST-\\d+\\-script$",
+      "examples": [
+        "SELF-TEST-001-script"
+      ]
+    },
+    "title": {
+      "description": "どの実験の台本かが分かる短いタイトル。",
+      "type": "string",
+      "examples": [
+        "実践者5名への問題インタビュー スクリプト"
+      ]
+    },
+    "type": {
+      "description": "基にした雛形（templates/<type>-script.md）。/planning の雛形選択がこの語彙に対応する。",
+      "type": "string",
+      "enum": [
+        "demo",
+        "problem-interview",
+        "solution-interview"
+      ],
+      "examples": [
+        "problem-interview"
+      ]
+    },
+    "script-for": {
+      "description": "台本化した実験計画(TEST)。ファイル名から導ける対応を frontmatter にも明示する。",
+      "type": [
+        "string",
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "SELF-TEST-001"
+      ]
+    },
+    "hypotheses": {
+      "description": "台本が実際に当てる仮説。親 TEST の検証対象の部分集合でなければならない。",
+      "$comment": "省略可なのは**発見型のスクリプトが既存仮説を相手に語らない**設計だから。仮説を宣言すると\n台本の意図と食い違う。本文で背景として別の仮説に言及するのは正当なので、逆向き\n（本文の wikilink をすべて宣言せよ）は課さない。",
+      "type": [
+        "array",
+        "string",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "[SELF-H-001, SELF-H-002]"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "type",
+    "script-for"
+  ],
+  "additionalProperties": false
+}

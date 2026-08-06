@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-08-04（ステージ CPF） / ontology-version: 3 -->
+<!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-08-06（ステージ CPF） / ontology-version: 4 -->
 
 # 全仮説リスト（ai-reskilling）
 

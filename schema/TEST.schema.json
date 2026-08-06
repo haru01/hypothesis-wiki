@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/haru01/hypothesis-wiki/schema/TEST.schema.json",
+  "title": "TEST（実験計画）",
+  "description": "テストカード。検証前に記入する計画で、「動いて検証する(Act)→学ぶ(Learn)」の計画側として目的・方法・指標・成功基準・riskiest-assumption を宣言する。学び(LEARN)が紐づくまでは自由に直してよく、紐づいた後は下記 immutable の範囲だけを凍結する（後知恵バイアス防止）。検証後の学びは LEARN（別レコード）に積む。",
+  "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "ファイル名と一致する接頭辞つきID。",
+      "type": "string",
+      "pattern": "^[A-Z0-9]+-TEST-\\d+$",
+      "examples": [
+        "SELF-TEST-001"
+      ]
+    },
+    "title": {
+      "description": "何を誰にどう当てる実験かが一読で分かる短いタイトル。",
+      "type": "string",
+      "examples": [
+        "実践者5名への問題インタビュー（CPF 5仮説の一次検証）"
+      ]
+    },
+    "type": {
+      "description": "活動種別。スクリプト雛形の選択（/planning）と log.md の type に対応する。",
+      "type": "string",
+      "enum": [
+        "demo",
+        "desk-research",
+        "interview",
+        "mvp-test",
+        "self-reflection",
+        "survey"
+      ],
+      "examples": [
+        "interview"
+      ]
+    },
+    "date": {
+      "description": "計画日。実施日ではない（実施日は紐づく学び LEARN の date が正本）。",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "examples": [
+        "2026-08-02"
+      ]
+    },
+    "stage": {
+      "description": "この実験がどのステージの問いを検証するか。",
+      "type": "string",
+      "enum": [
+        "CPF",
+        "FPF",
+        "PMF",
+        "PSF",
+        "SPF"
+      ],
+      "default": "CPF"
+    },
+    "hypotheses": {
+      "description": "この実験が検証する仮説（複数可）。仮説側からは「検証活動」として逆引きされる。",
+      "$comment": "本文にも wikilink を書く（must-wikilink。frontmatter だけでは Obsidian グラフに辺が出ない）。",
+      "type": [
+        "array",
+        "string",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "[SELF-H-001, SELF-H-002]"
+      ]
+    },
+    "riskiest-assumption": {
+      "description": "この実験で崩れたら全体が崩れる一点を一文で。board の背骨になる。",
+      "$comment": "検証前に確定し、学び(LEARN)が紐づいた後は凍結される（immutable.fields）。\n後知恵で「もともとそこは狙っていなかった」と書き換えられないようにするための凍結。",
+      "type": "string",
+      "examples": [
+        "「作る前に検証を反復する実践者」が実在し、記録の課題にすでに実コストを払っている"
+      ]
+    },
+    "data": {
+      "description": "この実験が「何のデータで作られるか」（何について書いてあるかではない）。架空判定 fictional-cap の正本。",
+      "$comment": "未宣言を許すと本文マーカー語の推論に黙って落ち、宣言漏れが静かに「実データ」扱いになって\nfictional-cap が効かない（＝架空由来の確信度が上限なく上がる）。黙って劣化させるくらいなら\n書かせて弾く。推論経路自体は他 vault・旧レコードのために残す。",
+      "type": "string",
+      "enum": [
+        "real",
+        "simulated"
+      ],
+      "examples": [
+        "real"
+      ]
+    },
+    "success-criteria": {
+      "description": "成功基準のうち数えられるものを機械可読にした背骨。本文の散文と二重表現。",
+      "$comment": "散文を置き換えるものではない（ニュアンスは散文が担う）。数を決めていない基準は載せない\n＝ここに無いものは人が判定する、という契約。検証前に確定し、実施後は riskiest-assumption と\n同格で凍結される（数値だけ後から動かせるなら節を凍らせた意味が無い）。",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "hypothesis": {
+            "description": "この基準が判定する仮説。この実験の hypotheses に含まれていること",
+            "type": "string",
+            "$comment": "同じレコードの hypotheses が指す集合の要素であること"
+          },
+          "metric": {
+            "description": "測る対象の名前。学び(LEARN)の measurements.metric と文字列一致させる",
+            "type": "string"
+          },
+          "op": {
+            "description": "比較演算子。実測値を左辺に置いて評価する",
+            "type": "string",
+            "enum": [
+              "!=",
+              "<",
+              "<=",
+              "==",
+              ">",
+              ">="
+            ]
+          },
+          "threshold": {
+            "description": "満たすべき閾値",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "of": {
+            "description": "母数（「5名中3名」の5）。実測の n と食い違えば warning",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "hypothesis",
+          "metric",
+          "op",
+          "threshold"
+        ]
+      },
+      "examples": [
+        "[{hypothesis: SELF-H-001, metric: 反復を語った人数, op: '>=', threshold: 3, of: 5}]"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "type",
+    "date",
+    "stage",
+    "hypotheses",
+    "riskiest-assumption",
+    "data"
+  ],
+  "additionalProperties": false
+}

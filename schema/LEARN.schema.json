@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/haru01/hypothesis-wiki/schema/LEARN.schema.json",
+  "title": "LEARN（学び）",
+  "description": "学習カード。検証後に新規作成する「実施して学びを得た」出来事。事実(observed)と解釈(inference)を分け、outcome（判定）と確信度更新を記録する。1つの学びが複数の仮説を動かすときは judgments で仮説ごとの判定を、実験計画の success-criteria に対する実測は measurements で持つ（outcome だけでは「どの仮説が崩れたか」がグラフから消える）。計画型は learns-from で TEST を参照し、回顧型（desk-research/self-reflection 等）は TEST を持たず自身が活動種別を名乗る。サブタイプは活動種別（TEST と同じ語彙）。sources で根拠となった生データ（不変層）を指し、確信度の根拠鎖を端まで辿れるようにする。",
+  "$comment": "ontology.yaml から機械生成（tools/gen_schema.py）。手編集禁止。検証の正本は tools/hwlint.py で、これは1レコード内の形の射影にすぎない。",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "ファイル名と一致する接頭辞つきID。",
+      "type": "string",
+      "pattern": "^[A-Z0-9]+-LEARN-\\d+$",
+      "examples": [
+        "SELF-LEARN-001"
+      ]
+    },
+    "title": {
+      "description": "何から何を学んだかが一読で分かる短いタイトル。",
+      "type": "string",
+      "examples": [
+        "企業の仮説検証の状況・課題のデスクリサーチ"
+      ]
+    },
+    "type": {
+      "description": "活動種別（TEST と同じ語彙）。回顧型（desk-research/self-reflection）はここで自身の種別を名乗る。",
+      "type": "string",
+      "enum": [
+        "demo",
+        "desk-research",
+        "interview",
+        "mvp-test",
+        "self-reflection",
+        "survey"
+      ],
+      "examples": [
+        "interview"
+      ]
+    },
+    "date": {
+      "description": "実施日。計画型ではこちらが実施日の正本で、TEST の date は計画日。",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "examples": [
+        "2026-07-16"
+      ]
+    },
+    "stage": {
+      "description": "この学びがどのステージの問いに答えたか。",
+      "type": "string",
+      "enum": [
+        "CPF",
+        "FPF",
+        "PMF",
+        "PSF",
+        "SPF"
+      ],
+      "default": "CPF"
+    },
+    "learns-from": {
+      "description": "実施した実験計画(TEST)を1つ指す。board が「1実験＝計画＋学び」を1行に束ねる。",
+      "$comment": "回顧型（desk-research / self-reflection / chabudai）は事前の計画を立てないので持たない。\n持たない学びは board で「—（回顧型・事前の実験計画なし）」として表示される。",
+      "type": [
+        "string",
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "SELF-TEST-001"
+      ]
+    },
+    "hypotheses": {
+      "description": "この学びが確信度を動かした仮説（複数可）。",
+      "$comment": "本文にも wikilink を書く（must-wikilink）。",
+      "type": [
+        "array",
+        "string",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "[SELF-H-001, SELF-H-002]"
+      ]
+    },
+    "outcome": {
+      "description": "レコード全体の判定を1語で。board サマリの判定列へ射影される。",
+      "$comment": "対象仮説ごとに結論が違うときは、これだけでは「どの仮説が崩れたか」がグラフから消える。\nその場合は judgments に仮説ごとの判定を書く。",
+      "type": "string",
+      "enum": [
+        "判断保留",
+        "反証",
+        "支持",
+        "是正",
+        "起票"
+      ],
+      "examples": [
+        "支持"
+      ]
+    },
+    "judgments": {
+      "description": "仮説ごとの判定。hypotheses が複数で結論が分かれるときのレコード内訳。",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "hypothesis": {
+            "description": "判定した仮説。この学びの hypotheses に含まれていること",
+            "type": "string",
+            "$comment": "同じレコードの hypotheses が指す集合の要素であること"
+          },
+          "outcome": {
+            "description": "その仮説に対する判定",
+            "type": "string",
+            "enum": [
+              "判断保留",
+              "反証",
+              "支持",
+              "是正",
+              "起票"
+            ]
+          },
+          "note": {
+            "description": "判定の一言理由（詳細は本文に書く）",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "hypothesis",
+          "outcome"
+        ]
+      },
+      "examples": [
+        "[{hypothesis: SELF-H-001, outcome: 反証}]"
+      ],
+      "$comment": "条件付き必須（warning）: outcome が真偽判定（judgment-check.truth-outcomes）で、hypotheses が2件以上のとき"
+    },
+    "measurements": {
+      "description": "実験計画(TEST)の success-criteria に対して実際に観測した値。metric 名で基準と対応させる。",
+      "$comment": "これがあると lint が判定を検算でき、「基準を割ったのに支持」＝ゴールポストの事後移動を\nerror で弾ける（judgment-mismatch）。慎重側（判断保留）へ倒すのは常に許される。",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "metric": {
+            "description": "実験計画(TEST)の success-criteria.metric と一致させる名前",
+            "type": "string"
+          },
+          "value": {
+            "description": "実際に観測した値",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "n": {
+            "description": "母集団（何人・何件を見たか）。基準の of と食い違えば warning",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "note": {
+            "description": "観測条件の補足（詳細は本文に書く）",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "value"
+        ]
+      },
+      "examples": [
+        "[{metric: 反復を語った人数, value: 3, n: 5}]"
+      ]
+    },
+    "sources": {
+      "description": "根拠となった生データ（不変層 sources/ 基準の相対パス）。確信度の根拠鎖の末端。",
+      "$comment": "本文にも相対mdリンクを置く（二重表現。生データは接頭辞つきノートでないので wikilink は解決しない）。\n生データ冒頭の架空/シミュレーション宣言はここから読まれる。\n条件付き必須（warning）: type が provenance.required-for-types（観測を伴う活動種別）のとき",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        "[2026-07-16-desk-research-corporate-hypothesis-testing.md]"
+      ]
+    },
+    "data": {
+      "description": "この学びが「何のデータで作られたか」（何について書いてあるかではない）。架空判定 fictional-cap の正本。",
+      "$comment": "必須の理由は TEST.data と同じ。架空データを**論じた**是正・監査レコードは real である\n（混同すると実データの実験が架空に誤分類される）。",
+      "type": "string",
+      "enum": [
+        "real",
+        "simulated"
+      ],
+      "examples": [
+        "real"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "type",
+    "date",
+    "stage",
+    "hypotheses",
+    "outcome",
+    "data"
+  ],
+  "additionalProperties": false
+}

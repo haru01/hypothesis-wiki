@@ -41,11 +41,15 @@ def make_project(tmp: str, files: dict) -> Path:
     return root
 
 
-def hyp(id="DEMO-H-001", status="未検証", confidence="1", rows=None, type="課題仮説"):
+def hyp(id="DEMO-H-001", status="未検証", confidence="1", rows=None, type="課題仮説",
+        falsifier="対象者が課題を自認せず、実コストも払っていない。"):
+    # falsifier は必須フィールド。既定を埋めて「妥当なレコード」の雛形を保つ
+    # （falsifier="" を渡せば未記入の壊れたレコードを作れる＝必須化そのもののテストに使う）。
     rows_text = "\n".join(rows or ["| 2026-07-01 | 1 | 未検証 | 初期作成 | — |"])
     return f"""---
 id: {id}
 title: テスト仮説
+falsifier: {falsifier}
 type: {type}
 status: {status}
 confidence: {confidence}
@@ -58,6 +62,10 @@ importance: auto
 ## 仮説文（反証可能な形式で）
 
 > テスト。
+
+## 反証条件
+
+{falsifier}
 
 ## 確信度履歴
 
@@ -150,7 +158,10 @@ class VocabularyTest(unittest.TestCase):
             self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "vocab"], [])
 
     def test_missing_stage_reported_as_missing_not_invalid(self):
-        # agent-platform #2: 必須フィールド stage 欠落は「未指定」と報告し、'None は規約外' の誤誘導を出さない
+        """agent-platform #2: stage 欠落は「未指定」と報告し、'None は規約外' の誤誘導を出さない。
+
+        欠落（形の契約）は check_fields が1度だけ報告し、check_vocabulary は空値を見ない
+        （両方が鳴ると同じ違反が二重報告になる）。"""
         with tempfile.TemporaryDirectory() as tmp:
             rec = learn().replace("stage: CPF\n", "")
             root = make_project(tmp, {
@@ -158,9 +169,12 @@ class VocabularyTest(unittest.TestCase):
                 "wiki/tests/DEMO-TEST-001.md": act(),
                 "wiki/learnings/DEMO-LEARN-001.md": rec,
             })
-            msgs = [p.message for p in hwlint.lint_project(root) if p.check == "vocab"]
-            self.assertTrue(any("stage" in m and "未指定" in m for m in msgs))
-            self.assertFalse(any("None" in m for m in msgs))
+            probs = hwlint.lint_project(root)
+            self.assertTrue(any(p.check == "fields" and "stage" in p.message and "未指定" in p.message
+                                for p in probs), probs)
+            self.assertFalse(any("None" in p.message for p in probs))
+            # 二重報告しない（語彙チェックは空値に口を出さない）
+            self.assertEqual([p for p in probs if p.check == "vocab" and "stage" in p.message], [])
 
     def test_invalid_stage_value_still_reported(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1252,10 +1266,34 @@ class OntologyLoaderTest(unittest.TestCase):
         self.assertFalse(ontology.ID_RE.match("SELF-X-001"))
 
     def test_hwlint_uses_ontology_values(self):
-        # 二重管理をやめ ontology を単一の真実源にしている
-        self.assertEqual(hwlint.H_TYPES, ontology.H_TYPES)
-        self.assertEqual(hwlint.STATUSES, ontology.STATUSES)
+        # 二重管理をやめ ontology を単一の真実源にしている。語彙そのもの（H_TYPES/STATUSES）は
+        # もう hwlint に import されない — 値の検証は fields 宣言と field-kinds を走査する
+        # 汎用ルートに一本化され、種別ごとの語彙を名指しする箇所が無くなったため。
         self.assertIs(hwlint.RELATIONS, ontology.RELATIONS)
+        self.assertIs(hwlint.NODE_SUBTYPES, ontology.NODE_SUBTYPES)
+        self.assertIs(hwlint.FIELD_KINDS, ontology.FIELD_KINDS)
+        self.assertEqual(hwlint.NODE_SUBTYPES["H"], ontology.H_TYPES)
+        self.assertEqual(hwlint.ENUM_REFS["statuses"], ontology.STATUSES)
+
+    def test_every_field_is_self_describing(self):
+        """全フィールド宣言が description を持つこと（AI がスキーマだけで書けるための前提）。
+
+        説明を雛形や CLAUDE.md に置くと四重管理になり、宣言は検証にしか使えなくなる。"""
+        declared = list(ontology.FIELDS.items()) + \
+            [(a.name, a.fields) for a in ontology.ATTACHMENTS.values()]
+        missing = [f"{ent}.{f.name}" for ent, fields in declared for f in fields if not f.description]
+        self.assertEqual(missing, [], f"description の無いフィールド: {missing}")
+        missing_keys = [f"{n}.{k.name}" for n, sf in ontology.STRUCTURED_FIELDS.items()
+                        for k in sf.keys if not k.description]
+        self.assertEqual(missing_keys, [], f"description の無い構造化キー: {missing_keys}")
+
+    def test_field_kinds_drive_validation(self):
+        """kind の検証器が宣言側にあること（linter に kind ごとの分岐を書き足さない）。"""
+        self.assertEqual(ontology.FIELD_KINDS["enum"].validate, "enum")
+        self.assertEqual(ontology.FIELD_KINDS["flag"].validate, "flag")
+        self.assertEqual(ontology.FIELD_KINDS["confidence"].range_ref, "confidence")
+        self.assertEqual(ontology.RANGE_REFS["confidence"],
+                         (ontology.CONFIDENCE_MIN, ontology.CONFIDENCE_MAX))
 
 
 class RelationOntologyTest(unittest.TestCase):
@@ -1722,6 +1760,9 @@ class StageDocTest(unittest.TestCase):
 
 
 class DecBasedOnTest(unittest.TestCase):
+    """根拠なき意思決定の検出。条件は DEC.based-on の required-when 宣言が持ち、
+    専用チェックではなく check_fields が汎用に評価する（条件がスキーマから読めるようになった）。"""
+
     def _dec(self, based):
         return (f"---\nid: DEMO-DEC-001\ntitle: テスト決定\ndate: 2026-07-02\n"
                 f"type: pivot\nbased-on: {based}\n---\n\n# テスト決定\n\n"
@@ -1730,7 +1771,9 @@ class DecBasedOnTest(unittest.TestCase):
     def test_missing_based_on_warned(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, {"wiki/decisions/DEMO-DEC-001.md": self._dec("")})
-            self.assertTrue(any(p.check == "dec-based-on" for p in hwlint.lint_project(root)))
+            probs = hwlint.lint_project(root)
+            self.assertTrue(any(p.check == "required-when" and p.level == "warning"
+                                and "based-on" in p.message for p in probs), probs)
 
     def test_present_based_on_ok(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1738,7 +1781,16 @@ class DecBasedOnTest(unittest.TestCase):
                 "wiki/decisions/DEMO-DEC-001.md": self._dec("[DEMO-TEST-001]"),
                 "wiki/tests/DEMO-TEST-001.md": act(),
             })
-            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "dec-based-on"], [])
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "required-when"], [])
+
+    def test_condition_is_declared_in_schema(self):
+        """条件が Python でなく宣言側にあること（AI がスキーマを読めば分かる）。"""
+        f = ontology.FIELDS_BY_NAME["DEC"]["based-on"]
+        self.assertFalse(f.required)
+        self.assertIsNotNone(f.required_when)
+        self.assertTrue(f.required_when.checkable)
+        self.assertEqual(f.required_when.severity, "warning")
+        self.assertTrue(f.required_when.condition)
 
 
 class RelationCycleTest(unittest.TestCase):
@@ -1820,9 +1872,11 @@ class OntologyDerivationTest(unittest.TestCase):
 
     def test_hwlint_uses_ontology_vocab(self):
         # hwlint はローカル再定義でなく ontology の定数を参照する。
+        # 単なる語彙の一覧（OUTCOMES・FICTIONAL_MARKERS）はもう import していない — 値の検証が
+        # fields 宣言 × field-kinds の汎用ルートに一本化され、名指しする必要が消えたため。
+        # ここで見るのは「ロジックが直接使う判定材料」が再定義されていないこと。
         self.assertIs(hwlint.EVIDENCE_TAGS, ontology.EVIDENCE_TAGS)
-        self.assertIs(hwlint.FICTIONAL_MARKERS, ontology.FICTIONAL_MARKERS)
-        self.assertIs(hwlint.OUTCOMES, ontology.OUTCOMES)
+        self.assertIs(hwlint.TRUTH_OUTCOMES, ontology.TRUTH_OUTCOMES)
         self.assertIs(hwlint.PROVENANCE, ontology.PROVENANCE)
 
     def test_record_dirs_derived_from_entity_dir(self):
@@ -1927,6 +1981,140 @@ class OntologyDocGenTest(unittest.TestCase):
         finally:
             sys.argv = argv
             out.write_text(original, encoding="utf-8")
+
+
+class SchemaGenTest(unittest.TestCase):
+    """JSON Schema 生成（gen_schema）。可搬な契約を宣言から機械生成し、鮮度を守る。
+
+    検証の正本は hwlint のまま — ここで見るのは「宣言が漏れなく射影されているか」だけ。"""
+
+    def _mod(self):
+        import gen_schema
+        return gen_schema
+
+    def test_every_node_kind_gets_a_schema(self):
+        built = self._mod().build()
+        for node in ontology.NODE_FIELDS_BY_NAME:
+            self.assertIn(f"{node}.schema.json", built)
+
+    def test_descriptions_and_enums_are_projected(self):
+        h = json.loads(self._mod().build()["H.schema.json"])
+        props = h["properties"]
+        # 説明が全フィールドに乗っている（宣言の自己記述がそのまま契約になる）
+        for name, p in props.items():
+            self.assertTrue(p.get("description"), f"{name} に description が無い")
+        self.assertEqual(sorted(props["status"]["enum"]), sorted(ontology.STATUSES))
+        self.assertEqual(sorted(props["type"]["enum"]), sorted(ontology.H_TYPES))
+        self.assertIn("falsifier", h["required"])
+        self.assertEqual(props["status"]["default"], "未検証")
+        # frontmatter は「素の文字列」契約で読まれるので、数値も string を許す
+        self.assertIn("string", props["confidence"]["type"])
+
+    def test_structured_field_rows_are_projected(self):
+        learn = json.loads(self._mod().build()["LEARN.schema.json"])
+        row = learn["properties"]["judgments"]["items"]
+        self.assertEqual(sorted(row["required"]), ["hypothesis", "outcome"])
+        self.assertEqual(sorted(row["properties"]["outcome"]["enum"]), sorted(ontology.OUTCOMES))
+
+    def test_generated_schema_is_fresh(self):
+        gen = self._mod()
+        for name, text in gen.build().items():
+            path = gen.OUT_DIR / name
+            self.assertTrue(path.is_file(), f"{name} が無い。`python3 tools/gen_schema.py` で生成せよ")
+            self.assertEqual(path.read_text(encoding="utf-8"), text,
+                             f"{name} が古い。`python3 tools/gen_schema.py` で再生成してコミットせよ")
+
+    def test_templates_match_field_declarations(self):
+        # 雛形本文は生成しないが、frontmatter のキー集合は宣言と一致していること
+        self.assertEqual(self._mod().check_templates(), 0)
+
+
+class FalsifierTest(unittest.TestCase):
+    """反証条件（H.falsifier）の必須化と、実験計画への逐語コピーのドリフト検出。"""
+
+    FAL = "対象者が課題を自認せず、実コストも払っていない。"
+
+    def _test_with_table(self, copied):
+        return act(body=(
+            "対象仮説: [[DEMO-H-001]]\n\n"
+            "## テストカード（検証前に記入・後から書き換えない）\n\n"
+            "### 成功基準\n\n"
+            "#### 反証条件（各仮説レコードから逐語・開始後に変更しない）\n\n"
+            "| 仮説 | 反証条件 |\n|---|---|\n"
+            f"| [[DEMO-H-001]] | {copied} |\n"))
+
+    def test_missing_falsifier_is_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": hyp(falsifier="")})
+            self.assertTrue(any(p.level == "error" and p.check == "fields" and "falsifier" in p.message
+                                for p in hwlint.lint_project(root)))
+
+    def test_matching_copy_is_silent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(falsifier=self.FAL),
+                "wiki/tests/DEMO-TEST-001.md": self._test_with_table(self.FAL),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "falsifier-copy"], [])
+
+    def test_formatting_differences_do_not_fire(self):
+        # 強調記号・空白の揺れでは鳴らさない（書式を縛るのが目的ではない）
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(falsifier=self.FAL),
+                "wiki/tests/DEMO-TEST-001.md": self._test_with_table(f"**{self.FAL}**"),
+            })
+            self.assertEqual([p for p in hwlint.lint_project(root) if p.check == "falsifier-copy"], [])
+
+    def test_drifted_copy_is_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(falsifier=self.FAL),
+                "wiki/tests/DEMO-TEST-001.md": self._test_with_table("対象者が課題を自認している。"),
+            })
+            hits = [p for p in hwlint.lint_project(root) if p.check == "falsifier-copy"]
+            self.assertEqual(len(hits), 1, hits)
+            self.assertEqual(hits[0].level, "warning")
+
+    def test_board_projects_falsifier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/hypotheses/DEMO-H-001.md": hyp(falsifier=self.FAL),
+                "wiki/tests/DEMO-TEST-001.md": act(),
+                "wiki/stage.md": "```yaml\ncurrent-stage: CPF\n```\n",
+            })
+            import gen_views
+            board = gen_views.gen_board(records.Project(root))
+            self.assertIn("反証条件（対象仮説の falsifier より）", board)
+            self.assertIn(self.FAL, board)
+
+
+class VocabularyKindTest(unittest.TestCase):
+    """kind ごとの汎用検証（check_vocabulary）。宣言を足すだけで新しい語彙が守られること。"""
+
+    def _vocab(self, root):
+        return [p for p in hwlint.lint_project(root) if p.check == "vocab"]
+
+    def test_flag_kind_is_validated(self):
+        # core（kind: flag）はかつてどこでも検証されていなかった
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("importance: auto", "importance: auto\ncore: yes")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            self.assertTrue(any("core" in p.message for p in self._vocab(root)), self._vocab(root))
+
+    def test_flag_true_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rec = hyp().replace("importance: auto", "importance: auto\ncore: true")
+            root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+            self.assertEqual(self._vocab(root), [])
+
+    def test_importance_accepts_auto_and_range(self):
+        for value, ok in [("auto", True), ("8", True), ("0", False), ("11", False), ("high", False)]:
+            with tempfile.TemporaryDirectory() as tmp:
+                rec = hyp().replace("importance: auto", f"importance: {value}")
+                root = make_project(tmp, {"wiki/hypotheses/DEMO-H-001.md": rec})
+                hits = [p for p in self._vocab(root) if "importance" in p.message]
+                self.assertEqual(not hits, ok, f"importance={value}: {hits}")
 
 
 class UntestedFocusTest(unittest.TestCase):
@@ -2394,9 +2582,13 @@ class AttachmentTest(unittest.TestCase):
                                 for p in self._checks(root)))
 
     def test_unknown_type_detected(self):
+        # 付随物の type も他のフィールドと同じ汎用の語彙検証（check_vocabulary）で見る。
+        # 専用の attachment-vocab を持っていた頃は、check_vocabulary が種別ごとの
+        # ハードコード分岐で書かれていて付随物を見られなかったのが理由だった。
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(tmp, self._base(type="interview"))   # TEST の語彙であって SCRIPT の語彙でない
-            self.assertTrue(any(p.check == "attachment-vocab" for p in self._checks(root)))
+            self.assertTrue(any(p.check == "vocab" and "type" in p.message
+                                for p in hwlint.lint_project(root)))
 
     def test_script_for_disagreeing_with_filename_detected(self):
         with tempfile.TemporaryDirectory() as tmp:

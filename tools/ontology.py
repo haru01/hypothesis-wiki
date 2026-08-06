@@ -70,17 +70,67 @@ class Relation:
 
 
 class Field:
-    """frontmatter フィールド1件。required（必須か）と kind（値の種別）を保持する。
+    """frontmatter フィールド1件の宣言。**自己記述的であること**が設計上の要点。
 
-    kind の意味は ontology.yaml 冒頭のコメントが正本。`enum` は enum-ref が指す
-    状態機械の語彙（stages/statuses/outcomes）で検証する。"""
-    __slots__ = ("name", "required", "kind", "enum_ref")
+    required（必須か）・kind（値の種別）に加えて description（何を書くか）・guidance（なぜそう
+    書くか）・example・default・required_when（条件付き必須）を持つ。かつては required と kind
+    しか無く、フィールドの意味は ontology.yaml の `#` コメント・templates/*.md・CLAUDE.md・
+    各 SKILL.md に四重化していた（コメントは機械にも AI にも読めない）。宣言に説明を持たせて
+    ontology.md と schema/*.schema.json の両方へ流すことで、正本を1つにする。
+
+    kind の語彙と検証器は ontology.yaml の field-kinds 節が正本（FIELD_KINDS）。"""
+    __slots__ = ("name", "required", "kind", "enum_ref",
+                 "description", "guidance", "example", "default", "required_when")
 
     def __init__(self, d: dict):
         self.name = d["name"]
         self.required = bool(d.get("required", False))
         self.kind = d.get("kind", "text")
         self.enum_ref = d.get("enum-ref", "")
+        self.description = d.get("description", "")
+        self.guidance = (d.get("guidance", "") or "").strip()
+        # example / default は YAML の型強制（int 化等）を避けて文字列で保つ。
+        # frontmatter 側の契約（records.parse_frontmatter の「素の文字列」）と揃えるため。
+        self.example = "" if d.get("example") is None else str(d["example"])
+        self.default = "" if d.get("default") is None else str(d["default"])
+        self.required_when = RequiredWhen(d["required-when"]) if d.get("required-when") else None
+
+
+class RequiredWhen:
+    """条件付き必須（required: false だが、ある条件では書かれているべき）の宣言。
+
+    かつてこの条件は Python の専用チェックにしか存在せず、スキーマを読んだだけでは分からなかった
+    （例: DEC.based-on は required: false ＋ check_dec_based_on）。宣言に載せて AI から見えるようにする。
+
+    `when == "always"` かつ `enforced_by` が空のときだけ check_fields が自分で評価する。
+    別チェックが担う条件（enforced_by あり）は説明のためだけに置く＝二重報告を作らない。"""
+    __slots__ = ("condition", "severity", "when", "enforced_by")
+
+    def __init__(self, d: dict):
+        self.condition = d.get("condition", "")
+        self.severity = d.get("severity", "warning")
+        self.when = d.get("when", "")
+        self.enforced_by = d.get("enforced-by", "")
+
+    @property
+    def checkable(self) -> bool:
+        """check_fields がこの条件を自分で評価してよいか。"""
+        return self.when == "always" and not self.enforced_by
+
+
+class FieldKind:
+    """フィールドの kind（値の種別）1件の宣言。
+
+    `validate` が hwlint の check_fields が適用する検証器名で、`none` は「check_fields では
+    検証しない」（`owner` が指す専用チェックが担う）。`range_ref` は int-range 系が参照する数値域。"""
+    __slots__ = ("name", "description", "validate", "range_ref", "owner")
+
+    def __init__(self, name: str, d: dict):
+        self.name = name
+        self.description = d.get("description", "")
+        self.validate = d.get("validate", "none")
+        self.range_ref = d.get("range-ref", "")
+        self.owner = d.get("owner", "")
 
 
 class StructuredField:
@@ -107,7 +157,7 @@ class StructuredKey:
     """構造化フィールドの行1キー分の宣言。
 
     kind は ref（同レコードの ref-field が指す集合の要素）／enum（enum-ref の語彙）／number／text。"""
-    __slots__ = ("name", "required", "kind", "enum_ref", "ref_field")
+    __slots__ = ("name", "required", "kind", "enum_ref", "ref_field", "description")
 
     def __init__(self, d: dict):
         self.name = d["name"]
@@ -115,6 +165,7 @@ class StructuredKey:
         self.kind = d.get("kind", "text")
         self.enum_ref = d.get("enum-ref", "")
         self.ref_field = d.get("ref-field", "")
+        self.description = d.get("description", "")
 
 
 class Attachment:
@@ -204,6 +255,8 @@ ENTITY_DIRS = {ent: e["dir"] for ent, e in load()["entities"].items()}
 RECORD_DIRS = tuple(ENTITY_DIRS.values())                  # ("hypotheses","tests","learnings","decisions")
 
 # ── frontmatter フィールド（スキーマ＝契約） ─────────────────────────
+# kind の語彙と検証器。check_fields はこの宣言を見て汎用に検証する（kind ごとの手書き分岐を持たない）。
+FIELD_KINDS = {name: FieldKind(name, d) for name, d in (load().get("field-kinds") or {}).items()}
 FIELDS = {ent: [Field(f) for f in e.get("fields", [])] for ent, e in load()["entities"].items()}
 FIELDS_BY_NAME = {ent: {f.name: f for f in fs} for ent, fs in FIELDS.items()}
 REQUIRED_FIELDS = {ent: [f.name for f in fs if f.required] for ent, fs in FIELDS.items()}
@@ -221,6 +274,10 @@ ATTACHMENT_DIRS = {a.name: ENTITY_DIRS[a.parent] for a in ATTACHMENTS.values()}
 NODE_NAMES = ENTITY_INFIXES + ATTACHMENT_NAMES
 NODE_FIELDS_BY_NAME = {**FIELDS_BY_NAME,
                        **{a.name: {f.name: f for f in a.fields} for a in ATTACHMENTS.values()}}
+# ノード種別 → type の語彙（サブタイプ名の集合）。kind: subtype の汎用検証が引く。
+# 付随物も同じ辞書に入れる（種別ごとに分岐を書くと付随物だけ検査が抜ける、が実際に起きていた）。
+NODE_SUBTYPES = {**{ent: set(_subtype_names(ent)) for ent in ENTITY_INFIXES},
+                 **{a.name: set(a.subtypes) for a in ATTACHMENTS.values()}}
 
 # ── H サブタイプの価値連鎖上の役割 ──────────────────────────────────
 CUSTOMER_TYPES = _h_role("customer")     # {状況・行動仮説}
@@ -291,9 +348,14 @@ ENUM_REFS = {"stages": STAGES, "statuses": STATUSES, "outcomes": OUTCOMES,
 
 CONFIDENCE_MIN = _SM["confidence"]["min"]
 CONFIDENCE_MAX = _SM["confidence"]["max"]
+# field-kinds の range-ref → (min, max)。int-range 系の kind（confidence / importance）が引く。
+RANGE_REFS = {"confidence": (CONFIDENCE_MIN, CONFIDENCE_MAX)}
 # 確信度の帯 [{range, meaning}, ...]（確信度スケールの目安。ontology.md 生成に使う）
 CONFIDENCE_BANDS = list(_SM["confidence"].get("bands", []))
 FICTIONAL_CAP = _SM["confidence"].get("fictional-cap", 8)
+# 二次情報（〈二次〉タグ）だけを根拠にした確信度の上限。/desk-research の起票規律の正本。
+# 現時点では宣言と可視化まで（lint 化していない。理由は ontology.yaml のコメント参照）。
+SECONDARY_SOURCE_CAP = _SM["confidence"].get("secondary-source-cap", 4)
 FICTIONAL_MARKERS = tuple(_SM["confidence"].get("fictional-markers", ("架空", "シミュレーション")))
 # status → 確信度の許容域 {status: {"min"/"max": n}}（status↔confidence 矛盾検出に使う）
 STATUS_BOUNDS = {k: dict(v) for k, v in _SM["confidence"].get("status-bounds", {}).items()}
@@ -399,6 +461,14 @@ def _selfcheck() -> int:
         assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
     # フィールド宣言（スキーマ＝契約）の整合。エンティティと付随物は同じ契約に従うので
     # 1つのループで見る（種別ごとに書き分けると、付随物側だけ検査が1つ欠ける等の穴が空く）。
+    # kind の語彙そのもの（field-kinds）。validate 名は check_fields の実装と対応する。
+    assert FIELD_KINDS, "field-kinds 宣言が空"
+    _VALIDATORS = {"none", "subtype", "enum", "date", "flag", "int-range", "auto-or-int-range"}
+    for name, fk in FIELD_KINDS.items():
+        assert fk.description, f"field-kinds.{name} に description が無い"
+        assert fk.validate in _VALIDATORS, f"field-kinds.{name} の validate '{fk.validate}' が未知"
+        if fk.validate in ("int-range", "auto-or-int-range"):
+            assert fk.range_ref in RANGE_REFS, f"field-kinds.{name} の range-ref '{fk.range_ref}' が未知"
     declared_fields = list(FIELDS.items()) + [(a.name, a.fields) for a in ATTACHMENTS.values()]
     for ent, fields in declared_fields:
         assert fields, f"{ent} に fields 宣言が無い"
@@ -406,6 +476,21 @@ def _selfcheck() -> int:
         assert len(names) == len(set(names)), f"{ent} の fields に重複キー"
         assert "id" in names, f"{ent} の fields に id が無い"
         for f in fields:
+            # 自己記述の担保。説明のないフィールドは ontology.md にも JSON Schema にも出せず、
+            # AI は雛形や CLAUDE.md の散文を読まないと書けない（＝四重管理に戻る）。
+            assert f.description, f"{ent}.{f.name} に description が無い"
+            assert f.kind in FIELD_KINDS, f"{ent}.{f.name} の kind '{f.kind}' が field-kinds に無い"
+            # enum-ref を持てるのは enum 検証をする kind だけ（宣言の取り違えを弾く）
+            if f.enum_ref:
+                assert FIELD_KINDS[f.kind].validate == "enum", \
+                    f"{ent}.{f.name} は kind '{f.kind}' なのに enum-ref を持っている"
+            if f.required_when:
+                assert not f.required, f"{ent}.{f.name} は required なのに required-when を持っている"
+                assert f.required_when.condition, f"{ent}.{f.name} の required-when に condition が無い"
+                assert f.required_when.severity in ("warning", "error"), \
+                    f"{ent}.{f.name} の required-when.severity 不正"
+                assert f.required_when.when in ("", "always"), \
+                    f"{ent}.{f.name} の required-when.when '{f.required_when.when}' が未知"
             if f.kind == "enum":
                 assert f.enum_ref in ENUM_REFS, f"{ent}.{f.name} の enum-ref '{f.enum_ref}' が未知"
             if f.kind == "relation":
@@ -460,6 +545,7 @@ def _selfcheck() -> int:
             assert f and f.kind == "structured", \
                 f"structured-fields.{name} が {ent}.fields に kind: structured で登録されていない"
         for k in sf.keys:
+            assert k.description, f"structured-fields.{name}.{k.name} に description が無い"
             assert k.kind in ("ref", "enum", "number", "text"), \
                 f"structured-fields.{name}.{k.name} の kind '{k.kind}' が未知"
             if k.kind == "enum":

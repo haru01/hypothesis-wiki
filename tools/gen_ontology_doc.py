@@ -15,12 +15,54 @@ import ontology  # noqa: E402
 OUT = Path(__file__).resolve().parent.parent / "ontology.md"
 
 
+def _cell(s: str) -> str:
+    """Markdown 表のセルに入れる（改行とパイプを潰す）。"""
+    return " ".join(s.split()).replace("|", "\\|")
+
+
 def _fields_table(fields) -> list:
-    """frontmatter フィールド表の行（エンティティと付随物で同じ形なので共有する）。"""
-    lines = ["| フィールド | 必須 | kind | 語彙(enum-ref) |", "|---|---|---|---|"]
+    """frontmatter フィールド表の行（エンティティと付随物で同じ形なので共有する）。
+
+    説明列があることが要点 — フィールドの意味を雛形や CLAUDE.md に置くと四重管理になり、
+    AI は散文を読まないと書けない。宣言の description をここへ流して正本を1つにする。"""
+    lines = ["| フィールド | 必須 | kind | 語彙(enum-ref) | 既定値 | 説明 |",
+             "|---|---|---|---|---|---|"]
     for f in fields:
-        lines.append(f"| `{f.name}` | {'必須' if f.required else '省略可'} | {f.kind} | "
-                     f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} |")
+        if f.required:
+            req = "必須"
+        elif f.required_when:
+            req = f"条件付き（{f.required_when.severity}）"
+        else:
+            req = "省略可"
+        lines.append(f"| `{f.name}` | {req} | {f.kind} | "
+                     f"{('`' + f.enum_ref + '`') if f.enum_ref else '—'} | "
+                     f"{('`' + f.default + '`') if f.default else '—'} | {_cell(f.description)} |")
+    # 補足（guidance／条件付き必須の条件）は表に収まらないので下に注記として出す。
+    notes = []
+    for f in fields:
+        if f.required_when:
+            notes.append(f"- `{f.name}` の条件付き必須 — {_cell(f.required_when.condition)}"
+                         f"（{f.required_when.severity}"
+                         f"{'・' + f.required_when.enforced_by + ' が検出' if f.required_when.enforced_by else ''}）")
+        if f.guidance:
+            notes.append(f"- `{f.name}` — {_cell(f.guidance)}")
+    if notes:
+        lines += [""] + notes
+    return lines
+
+
+def _field_kinds_table() -> list:
+    """kind（値の種別）の一覧。かつては ontology.yaml の `#` コメントにしかなかった。"""
+    lines = ["| kind | 意味 | check_fields / check_vocabulary の検証 |", "|---|---|---|"]
+    for name, fk in ontology.FIELD_KINDS.items():
+        if fk.validate == "none":
+            v = f"（`{fk.owner}` が担当）" if fk.owner else "—"
+        elif fk.range_ref:
+            lo, hi = ontology.RANGE_REFS[fk.range_ref]
+            v = f"`{fk.validate}`（{lo}-{hi}）"
+        else:
+            v = f"`{fk.validate}`"
+        lines.append(f"| `{name}` | {_cell(fk.description)} | {v} |")
     return lines
 
 
@@ -70,7 +112,11 @@ def build() -> str:
     # frontmatter フィールド（スキーマ＝契約）。必須欠落は error・未宣言キーは warning として lint が弾く。
     L += ["### frontmatter フィールド（スキーマ＝契約）", "",
           "各レコードが持つ frontmatter キーの宣言。**必須の欠落は error、宣言に無いキーは warning** として "
-          "`hwlint.py` の `check_fields` が検出する（`kind` の意味は `ontology.yaml` 冒頭のコメントが正本）。", ""]
+          "`hwlint.py` の `check_fields` が検出し、値が語彙・範囲に収まるかは `check_vocabulary` が見る。"
+          "同じ宣言から機械可読な JSON Schema（`schema/*.schema.json`）も生成される"
+          "（`tools/gen_schema.py`。Claude Code 以外のエージェント・エディタ向けの可搬な契約で、"
+          "検証の正本は `hwlint.py` のまま）。", "",
+          "**kind（値の種別）**:", ""] + _field_kinds_table() + [""]
     for key, fields in ontology.FIELDS.items():
         if not fields:
             continue
@@ -171,11 +217,12 @@ def build() -> str:
         L.append("")
         for sf in ontology.STRUCTURED_FIELDS.values():
             L += [f"**`{sf.name}` の行のキー**", "",
-                  "| キー | 必須 | kind | 参照/語彙 |", "|---|---|---|---|"]
+                  "| キー | 必須 | kind | 参照/語彙 | 説明 |", "|---|---|---|---|---|"]
             for k in sf.keys:
                 ref = (f"`{k.enum_ref}`" if k.enum_ref else
                        (f"frontmatter `{k.ref_field}` の要素" if k.ref_field else "—"))
-                L.append(f"| `{k.name}` | {'必須' if k.required else '省略可'} | {k.kind} | {ref} |")
+                L.append(f"| `{k.name}` | {'必須' if k.required else '省略可'} | {k.kind} | {ref} | "
+                         f"{_cell(k.description)} |")
             L.append("")
         L += [f"**成功基準の演算子**: {'・'.join(f'`{op}`' for op in ontology.CRITERIA_OPS)}"
               "（実測 `value` を左辺、`threshold` を右辺に置いて評価する）。", "",
